@@ -1,8 +1,8 @@
 WinMain() : Program started successfully.
-****************************************************************************************************
+-------------------------------------------------------------------------------------
 fillInstanceExtensionNames() : first call to vkEnumerateInstanceExtensionProperties() succeeded.
 fillInstanceExtensionNames() : second call to vkEnumerateInstanceExtensionProperties() succeeded.
-****************************************************************************************************
+-------------------------------------------------------------------------------------
 fillInstanceExtensionNames() : Vulkan instance extension name = VK_KHR_device_group_creation
 fillInstanceExtensionNames() : Vulkan instance extension name = VK_KHR_display
 fillInstanceExtensionNames() : Vulkan instance extension name = VK_KHR_external_fence_capabilities
@@ -22,19 +22,19 @@ fillInstanceExtensionNames() : Vulkan instance extension name = VK_EXT_swapchain
 fillInstanceExtensionNames() : Vulkan instance extension name = VK_NV_external_memory_capabilities
 fillInstanceExtensionNames() : Vulkan instance extension name = VK_KHR_portability_enumeration
 fillInstanceExtensionNames() : Vulkan instance extension name = VK_LUNARG_direct_driver_loading
-****************************************************************************************************
+-------------------------------------------------------------------------------------
 fillInstanceExtensionNames() : VK_KHR_SURFACE_EXTENSION_NAME found.
 fillInstanceExtensionNames() : VK_KHR_WIN32_SURFACE_EXTENSION_NAME found.
-****************************************************************************************************
+-------------------------------------------------------------------------------------
 fillInstanceExtensionNames() : Validation is on & VK_EXT_DEBUG_REPORT_EXTENSION_NAME found.
 fillInstanceExtensionNames() : Enabled Vulkan instance extension name = VK_KHR_surface
 fillInstanceExtensionNames() : Enabled Vulkan instance extension name = VK_KHR_win32_surface
 fillInstanceExtensionNames() : Enabled Vulkan instance extension name = VK_EXT_debug_report
-****************************************************************************************************
+-------------------------------------------------------------------------------------
 createVulkanInstance() : fillInstanceExtensionNames() succeeded.
 fillValidaionLayerNames() : first call to vkEnumerateInstanceLayerProperties() succeeded.
 fillValidaionLayerNames() : second call to vkEnumerateInstanceLayerProperties() succeeded.
-****************************************************************************************************
+-------------------------------------------------------------------------------------
 fillValidaionLayerNames() : Vulkan instance extension name = VK_LAYER_NV_optimus
 fillValidaionLayerNames() : Vulkan instance extension name = VK_LAYER_NV_gr2608
 fillValidaionLayerNames() : Vulkan instance extension name = VK_LAYER_reshade
@@ -56,10 +56,10 @@ fillValidaionLayerNames() : Vulkan instance extension name = VK_LAYER_LUNARG_scr
 fillValidaionLayerNames() : Vulkan instance extension name = VK_LAYER_KHRONOS_profiles
 fillValidaionLayerNames() : Vulkan instance extension name = VK_LAYER_KHRONOS_shader_object
 fillValidaionLayerNames() : Vulkan instance extension name = VK_LAYER_LUNARG_crash_diagnostic
-****************************************************************************************************
+-------------------------------------------------------------------------------------
 fillValidaionLayerNames() : VK_LAYER_KHRONOS_validation found.
 fillValidaionLayerNames() : Enabled Vulkan instance extension name = VK_LAYER_KHRONOS_validation
-****************************************************************************************************
+-------------------------------------------------------------------------------------
 createVulkanInstance() : fillValidaionLayerNames() succeeded.
 createVulkanInstance() : vkCreateInstance() succeeded.
 createValidationCallbackFunction() : vkGetInstanceProcAddr succeded to get vkCreateDebugReportCallbackEXT_fnptr .
@@ -76,20 +76,19 @@ getPhysicalDevice() : succeeded to select required physical device with graphics
 getPhysicalDevice() : Selected physical device supports tessellation shader.
 getPhysicalDevice() : Selected physical device supports geometry shader.
 initialize() : getPhysicalDevice() succeeded.
-****************************************************************************************************
-*                                        Vulkan Information                                        *
-****************************************************************************************************
+--------------------------Vulkan Info--------------------------
+-------------------------------------------------------------------------------------
 printVkInfo() : API Version = 1.4.303
 printVkInfo() : Device Name = NVIDIA GeForce RTX 4090
 printVkInfo() : Device Type = Discrete GPU (dGPU)
 printVkInfo() : Vendor ID   = 0x10de
 printVkInfo() : Device ID   = 0x2684
-****************************************************************************************************
+-------------------------------------------------------------------------------------
 printVkInfo() : succeeded to free vkPhysicalDevice_Array.
 initialize() : printVkInfo() succeeded.
 fillDeviceExtensionNames() : first call to vkEnumerateDeviceExtensionProperties() succeeded.
 fillDeviceExtensionNames() : second call to vkEnumerateDeviceExtensionProperties() succeeded.
-****************************************************************************************************
+-------------------------------------------------------------------------------------
 fillDeviceExtensionNames() : Vulkan device extension name = VK_KHR_16bit_storage
 fillDeviceExtensionNames() : Vulkan device extension name = VK_KHR_8bit_storage
 fillDeviceExtensionNames() : Vulkan device extension name = VK_KHR_acceleration_structure
@@ -327,11 +326,11 @@ fillDeviceExtensionNames() : Vulkan device extension name = VK_NVX_image_view_ha
 fillDeviceExtensionNames() : Vulkan device extension name = VK_NVX_multiview_per_view_attributes
 fillDeviceExtensionNames() : Vulkan device extension name = VK_AMD_buffer_marker
 fillDeviceExtensionNames() : Vulkan device extension name = VK_GOOGLE_user_type
-****************************************************************************************************
+-------------------------------------------------------------------------------------
 fillDeviceExtensionNames() : VK_KHR_SWAPCHAIN_EXTENSION_NAME found.
-****************************************************************************************************
+-------------------------------------------------------------------------------------
 fillDeviceExtensionNames() : Enabled Vulkan device extension name = VK_KHR_swapchain
-****************************************************************************************************
+-------------------------------------------------------------------------------------
 createVulkanDevice() : fillDeviceExtensionNames() succeeded.
 createVulkanDevice() : vkCreateDevice() succeeded.
 initialize() : createVulkanDevice() succeeded.
@@ -372,8 +371,17 @@ createShaders() -> fopen_s() :  succeeded.
 createShaders() -> fread() :  succeeded.
 createShaders() ->  fragment vkCreateShaderModule() :  succeeded.
 initialize() : createShaders() succeeded.
+createDiscriptorSetLayout() -> vkCreateDescriptorSetLayout() :  succeeded.
+initialize() : createDescriptorSetLayout() succeeded.
+createPipelineLayout() -> vkCreatePipelineLayout() :  succeeded.
+initialize() : createPipelineLayout() succeeded.
 createRenderPass() : vkCreateRenderPass() succeeded.
 initialize() : createRenderPass() succeeded.
+createGraphicsPipeline() : vkCreatePipelineCache() succeeded.
+createGraphicsPipeline() : vkCreateGraphicsPipelines() succeeded.
+initialize() : createGraphicsPipeline() succeeded.
+createFramebuffers() : vkCreateFramebuffer() succeeded for iteration 0.
+createFramebuffers() : vkCreateFramebuffer() succeeded for iteration 1.
 createFramebuffers() : vkCreateFramebuffer() succeeded for iteration 0.
 createFramebuffers() : vkCreateFramebuffer() succeeded for iteration 1.
 initialize() : createFramebuffers() succeeded.
@@ -390,9 +398,9 @@ buildCommandBuffers() : vkResetCommandBuffer() succeeded for command buffer 1.
 buildCommandBuffers() : vkBeginCommandBuffer() succeeded for command buffer 1.
 buildCommandBuffers() : vkEndCommandBuffer() succeeded for command buffer 1.
 initialize() : buildCommandBuffers() succeeded.
-****************************************************************************************************
+-------------------------------------------------------------------------------------
 WinMain() : initialize() succeeded.
-****************************************************************************************************
+-------------------------------------------------------------------------------------
 uninitialize() : vkDeviceWaitIdle() is done.
 uninitialize() : vkDestroyFence() succeeded for iteration 0.
 uninitialize() : vkDestroyFence() succeeded for iteration 1.
@@ -402,7 +410,10 @@ uninitialize() : vkDestroySemaphore() succeeded for the back buffer semaphore.
 uninitialize() : vkDestroyFramebuffer() succeeded for iteration 0.
 uninitialize() : vkDestroyFramebuffer() succeeded for iteration 1.
 uninitialize() : successfully freed the memory allocated to vkFramebuffer_Array.
+uninitialize() : vkDestroyPipeline() succeeded.
 uninitialize() : vkDestroyRenderPass() succeeded.
+uninitialize() : vkDestroyPipelineLayout() succeeded.
+uninitialize() : vkDestroyDescriptorSetLayout() succeeded.
 uninitialize() : vkFreeCommandBuffers() succeeded for iteration 0.
 uninitialize() : vkFreeCommandBuffers() succeeded for iteration 1.
 uninitialize() : successfully freed memory for the command buffer array.
@@ -412,6 +423,10 @@ uninitialize() : vkDestroyImageView() succeeded for iteration 1.
 uninitialize() : successfully freed the swapchain image views array.
 uninitialize() : successfully freed the swapchain images array.
 uninitialize() : vkDestroySwapchainKHR() succeeded.
+NDT_Validation: Validation 0 = Validation Error: [ VUID-vkDestroyDevice-device-05137 ] Object 0: handle = 0xd175b40000000013, type = VK_OBJECT_TYPE_FRAMEBUFFER; | MessageID = 0x4872eaa0 | vkDestroyDevice(): OBJ ERROR : For VkDevice 0x207367d8d50[], VkFramebuffer 0xd175b40000000013[] has not been destroyed.
+The Vulkan spec states: All child objects created on device must have been destroyed prior to destroying device (https://vulkan.lunarg.com/doc/view/1.4.304.0/windows/1.4-extensions/vkspec.html#VUID-vkDestroyDevice-device-05137) 
+NDT_Validation: Validation 0 = Validation Error: [ VUID-vkDestroyDevice-device-05137 ] Object 0: handle = 0xdcc8fd0000000012, type = VK_OBJECT_TYPE_FRAMEBUFFER; | MessageID = 0x4872eaa0 | vkDestroyDevice(): OBJ ERROR : For VkDevice 0x207367d8d50[], VkFramebuffer 0xdcc8fd0000000012[] has not been destroyed.
+The Vulkan spec states: All child objects created on device must have been destroyed prior to destroying device (https://vulkan.lunarg.com/doc/view/1.4.304.0/windows/1.4-extensions/vkspec.html#VUID-vkDestroyDevice-device-05137) 
 uninitialize() : vkDestroyDevice() succeeded.
 uninitialize() : vkDestroySurfaceKHR() succeeded.
 uninitialize() : vkDestroyInstance() succeeded.
