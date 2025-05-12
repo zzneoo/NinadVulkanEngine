@@ -611,10 +611,7 @@ VkResult initialize(void)
 		fprintf(gpFILE, "initialize() : createGraphicsPipeline() succeeded.\n");
 	}
 
-	// STEP 16 : Create Framebuffers
-	vkResult = createFramebuffers();
-
-    // STEP 17 : Create Framebuffers
+    //  Create Framebuffers
     vkResult = createFramebuffers();
     if (vkResult != VK_SUCCESS)
     {
@@ -886,7 +883,7 @@ void uninitialize(void)
         for (uint32_t i = 0; i < swapchainImageCount; i++)
         {
             vkDestroyFramebuffer(vkDevice, vkFramebuffer_Array[i], NULL);
-            vkFramebuffer_Array[i] = VK_NULL_HANDLE;
+			vkFramebuffer_Array[i] = VK_NULL_HANDLE;
 
             fprintf(gpFILE, "uninitialize() : vkDestroyFramebuffer() succeeded for iteration %d.\n", i);
         }

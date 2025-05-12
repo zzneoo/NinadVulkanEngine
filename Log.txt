@@ -39,11 +39,12 @@ fillValidaionLayerNames() : Vulkan instance extension name = VK_LAYER_NV_optimus
 fillValidaionLayerNames() : Vulkan instance extension name = VK_LAYER_NV_gr2608
 fillValidaionLayerNames() : Vulkan instance extension name = VK_LAYER_reshade
 fillValidaionLayerNames() : Vulkan instance extension name = VK_LAYER_OBS_HOOK
-fillValidaionLayerNames() : Vulkan instance extension name = VK_LAYER_NV_nomad_release_public_2025_1_0
-fillValidaionLayerNames() : Vulkan instance extension name = VK_LAYER_NV_GPU_Trace_release_public_2025_1_0
-fillValidaionLayerNames() : Vulkan instance extension name = VK_LAYER_NV_shader_debugger_release_public_2025_1_0
 fillValidaionLayerNames() : Vulkan instance extension name = VK_LAYER_VALVE_steam_overlay
 fillValidaionLayerNames() : Vulkan instance extension name = VK_LAYER_VALVE_steam_fossilize
+fillValidaionLayerNames() : Vulkan instance extension name = VK_LAYER_NV_nomad_release_public_2025_2_0
+fillValidaionLayerNames() : Vulkan instance extension name = VK_LAYER_NV_GPU_Trace_release_public_2025_2_0
+fillValidaionLayerNames() : Vulkan instance extension name = VK_LAYER_NV_ngfx_capture_release_public_2025_2_0
+fillValidaionLayerNames() : Vulkan instance extension name = VK_LAYER_NV_shader_debugger_release_public_2025_2_0
 fillValidaionLayerNames() : Vulkan instance extension name = VK_LAYER_EOS_Overlay
 fillValidaionLayerNames() : Vulkan instance extension name = VK_LAYER_EOS_Overlay
 fillValidaionLayerNames() : Vulkan instance extension name = VK_LAYER_ROCKSTAR_GAMES_social_club
@@ -382,8 +383,6 @@ createGraphicsPipeline() : vkCreateGraphicsPipelines() succeeded.
 initialize() : createGraphicsPipeline() succeeded.
 createFramebuffers() : vkCreateFramebuffer() succeeded for iteration 0.
 createFramebuffers() : vkCreateFramebuffer() succeeded for iteration 1.
-createFramebuffers() : vkCreateFramebuffer() succeeded for iteration 0.
-createFramebuffers() : vkCreateFramebuffer() succeeded for iteration 1.
 initialize() : createFramebuffers() succeeded.
 createSemaphores() : vkCreateSemaphore() succeeded for back buffer semaphore.
 createSemaphores() : vkCreateSemaphore() succeeded for render complete semaphore.
@@ -423,10 +422,6 @@ uninitialize() : vkDestroyImageView() succeeded for iteration 1.
 uninitialize() : successfully freed the swapchain image views array.
 uninitialize() : successfully freed the swapchain images array.
 uninitialize() : vkDestroySwapchainKHR() succeeded.
-NDT_Validation: Validation 0 = Validation Error: [ VUID-vkDestroyDevice-device-05137 ] Object 0: handle = 0xd175b40000000013, type = VK_OBJECT_TYPE_FRAMEBUFFER; | MessageID = 0x4872eaa0 | vkDestroyDevice(): OBJ ERROR : For VkDevice 0x207367d8d50[], VkFramebuffer 0xd175b40000000013[] has not been destroyed.
-The Vulkan spec states: All child objects created on device must have been destroyed prior to destroying device (https://vulkan.lunarg.com/doc/view/1.4.304.0/windows/1.4-extensions/vkspec.html#VUID-vkDestroyDevice-device-05137) 
-NDT_Validation: Validation 0 = Validation Error: [ VUID-vkDestroyDevice-device-05137 ] Object 0: handle = 0xdcc8fd0000000012, type = VK_OBJECT_TYPE_FRAMEBUFFER; | MessageID = 0x4872eaa0 | vkDestroyDevice(): OBJ ERROR : For VkDevice 0x207367d8d50[], VkFramebuffer 0xdcc8fd0000000012[] has not been destroyed.
-The Vulkan spec states: All child objects created on device must have been destroyed prior to destroying device (https://vulkan.lunarg.com/doc/view/1.4.304.0/windows/1.4-extensions/vkspec.html#VUID-vkDestroyDevice-device-05137) 
 uninitialize() : vkDestroyDevice() succeeded.
 uninitialize() : vkDestroySurfaceKHR() succeeded.
 uninitialize() : vkDestroyInstance() succeeded.
