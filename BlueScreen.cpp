@@ -99,11 +99,11 @@ VkRenderPass vkRenderPass = VK_NULL_HANDLE;
 VkFramebuffer* vkFramebuffer_Array = NULL;
 
 // Semaphores
-VkSemaphore vkSemaphore_BackBuffer = VK_NULL_HANDLE;
-VkSemaphore vkSemaphore_RenderComplete = VK_NULL_HANDLE;
+VkSemaphore* vkSemaphore_BackBuffer = VK_NULL_HANDLE;
+VkSemaphore* vkSemaphore_RenderComplete = VK_NULL_HANDLE;
 
 // Fences
-VkFence* vkFence_Array = NULL;
+VkFence* vkFence_Array = VK_NULL_HANDLE;
 
 // Clear Color
 VkClearColorValue vkClearColorValue;
@@ -687,7 +687,7 @@ void resize(int width, int height)
     winHeight = height;
 }
 
-VkResult display(void)
+VkResult display_(void)
 {
     // variable declarations
     VkResult vkResult = VK_SUCCESS;
@@ -700,31 +700,15 @@ VkResult display(void)
         return((VkResult)VK_FALSE);
     }
 
-    // -----------------------------------------------------------------------------------------------------------------------------------------
-    // acquire index of next swapchain image
-    // -----------------------------------------------------------------------------------------------------------------------------------------
-    vkResult = vkAcquireNextImageKHR(
-        vkDevice,               // [in] Vulkan logical device
-        vkSwapchainKHR,         // [in] Vulkan Swapchain (from which swapchain to acquire the next image)
-        UINT64_MAX,             // [in] timeout in nanoseconds (here we are waiting for swapchain to give us the image. Swapchain may not necessarily give the image when you ask for it, so how much to wait before trying again?)
-        vkSemaphore_BackBuffer, // [in] Vulkan semaphore (here we are waiting for another queue to release the image held by another queue demanded by the swapchain)
-        VK_NULL_HANDLE,         // [in] Vulkan fence
-        &currentImageIndex      // [out] next image index
-    );
-
-    if (vkResult != VK_SUCCESS)
-    {
-        fprintf(gpFILE, "display() : vkAcquireNextImageKHR() failed (%d).\n", vkResult);
-        return(vkResult);
-    }
+   static uint32_t curIndex = 0;
 
     // -----------------------------------------------------------------------------------------------------------------------------------------
-    // use fence to allow host to wait for completion of execution of previous command buffer
-    // -----------------------------------------------------------------------------------------------------------------------------------------
+// use fence to allow host to wait for completion of execution of previous command buffer
+// -----------------------------------------------------------------------------------------------------------------------------------------
     vkResult = vkWaitForFences(
         vkDevice,                          // [in] Vulkan logical device
         1,                                 // [in] number of fences to wait for
-        &vkFence_Array[currentImageIndex], // [in] array of fences
+        &vkFence_Array[curIndex], // [in] array of fences
         VK_TRUE,                           // [in] waitAll (type : VkBool32, description : wait for all fences in the array?)
         UINT64_MAX                         // [in] timeout in nanoseconds (UINT64_MAX is the amount in nanoseconds)
     );
@@ -738,13 +722,36 @@ VkResult display(void)
     // -----------------------------------------------------------------------------------------------------------------------------------------
     // now ready the fences for execution of next command buffer
     // -----------------------------------------------------------------------------------------------------------------------------------------
-    vkResult = vkResetFences(vkDevice, 1, &vkFence_Array[currentImageIndex]);
+    vkResult = vkResetFences(vkDevice, 1, &vkFence_Array[curIndex]);
 
     if (vkResult != VK_SUCCESS)
     {
         fprintf(gpFILE, "display() : vkResetFences() failed (%d).\n", vkResult);
         return(vkResult);
     }
+
+	curIndex = (curIndex + 1) % swapchainImageCount;
+
+
+    // -----------------------------------------------------------------------------------------------------------------------------------------
+    // acquire index of next swapchain image
+    // -----------------------------------------------------------------------------------------------------------------------------------------
+    vkResult = vkAcquireNextImageKHR(
+        vkDevice,               // [in] Vulkan logical device
+        vkSwapchainKHR,         // [in] Vulkan Swapchain (from which swapchain to acquire the next image)
+        UINT64_MAX,             // [in] timeout in nanoseconds (here we are waiting for swapchain to give us the image. Swapchain may not necessarily give the image when you ask for it, so how much to wait before trying again?)
+        vkSemaphore_BackBuffer[0], // [in] Vulkan semaphore (here we are waiting for another queue to release the image held by another queue demanded by the swapchain)
+        VK_NULL_HANDLE,         // [in] Vulkan fence
+        &currentImageIndex      // [out] next image index
+    );
+
+    if (vkResult != VK_SUCCESS)
+    {
+        fprintf(gpFILE, "display() : vkAcquireNextImageKHR() failed (%d).\n", vkResult);
+        return(vkResult);
+    }
+
+
 
     // -----------------------------------------------------------------------------------------------------------------------------------------
     // One of the members of the VkSubmitInfo structure requires an array of pipeline stages. 
@@ -762,11 +769,11 @@ VkResult display(void)
     vkSubmitInfo.pNext = NULL;
     vkSubmitInfo.pWaitDstStageMask = &waitDstStageMask; // single member array
     vkSubmitInfo.waitSemaphoreCount = 1;
-    vkSubmitInfo.pWaitSemaphores = &vkSemaphore_BackBuffer; // array of semaphores to wait for
+    vkSubmitInfo.pWaitSemaphores = &vkSemaphore_BackBuffer[0]; // array of semaphores to wait for
     vkSubmitInfo.commandBufferCount = 1;
     vkSubmitInfo.pCommandBuffers = &vkCommandBuffer_Array[currentImageIndex];
     vkSubmitInfo.signalSemaphoreCount = 1;
-    vkSubmitInfo.pSignalSemaphores = &vkSemaphore_RenderComplete;
+    vkSubmitInfo.pSignalSemaphores = &vkSemaphore_RenderComplete[0];
 
     // -----------------------------------------------------------------------------------------------------------------------------------------
     // now submit above work to the queue
@@ -796,7 +803,7 @@ VkResult display(void)
     vkPresentInfoKHR.pSwapchains = &vkSwapchainKHR;
     vkPresentInfoKHR.pImageIndices = &currentImageIndex;
     vkPresentInfoKHR.waitSemaphoreCount = 1;
-    vkPresentInfoKHR.pWaitSemaphores = &vkSemaphore_RenderComplete;
+    vkPresentInfoKHR.pWaitSemaphores = &vkSemaphore_RenderComplete[0];
 
     // -----------------------------------------------------------------------------------------------------------------------------------------
     // now, present the queue
@@ -808,10 +815,106 @@ VkResult display(void)
         return(vkResult);
     }
 
-    vkDeviceWaitIdle(vkDevice);
+	vkDeviceWaitIdle(vkDevice);// or queue wait idle?
 
     return(vkResult);
 }
+
+
+VkResult display(void)
+{
+    VkResult vkResult = VK_SUCCESS;
+
+    if (bInitialized == FALSE)
+    {
+        fprintf(gpFILE, "display() : initialization yet not completed.\n");
+        return (VkResult)VK_FALSE;
+    }
+
+    // Use per-frame index
+    static uint32_t currentFrame = 0;
+	uint32_t curIndex = currentFrame % swapchainImageCount;
+
+    // Wait for GPU to finish work on the previous frame
+    vkResult = vkWaitForFences(vkDevice, 1, &vkFence_Array[curIndex], VK_TRUE, UINT64_MAX);
+    if (vkResult != VK_SUCCESS)
+    {
+        fprintf(gpFILE, "display() : vkWaitForFences() failed (%d).\n", vkResult);
+        return vkResult;
+    }
+
+    // Reset the fence for use in the current frame
+    vkResult = vkResetFences(vkDevice, 1, &vkFence_Array[curIndex]);
+    if (vkResult != VK_SUCCESS)
+    {
+        fprintf(gpFILE, "display() : vkResetFences() failed (%d).\n", vkResult);
+        return vkResult;
+    }
+
+    // Acquire next image from the swapchain
+    vkResult = vkAcquireNextImageKHR(
+        vkDevice,
+        vkSwapchainKHR,
+        UINT64_MAX,
+        vkSemaphore_BackBuffer[curIndex],  // now using per-frame semaphore
+        VK_NULL_HANDLE,
+        &currentImageIndex
+    );
+    if (vkResult != VK_SUCCESS)
+    {
+        fprintf(gpFILE, "display() : vkAcquireNextImageKHR() failed (%d).\n", vkResult);
+        return vkResult;
+    }
+
+    // Submit the command buffer for rendering
+    const VkPipelineStageFlags waitDstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+
+    VkSubmitInfo vkSubmitInfo;
+    memset(&vkSubmitInfo, 0, sizeof(VkSubmitInfo));
+    vkSubmitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+    vkSubmitInfo.waitSemaphoreCount = 1;
+    vkSubmitInfo.pWaitSemaphores = &vkSemaphore_BackBuffer[curIndex];
+    vkSubmitInfo.pWaitDstStageMask = &waitDstStageMask;
+    vkSubmitInfo.commandBufferCount = 1;
+    vkSubmitInfo.pCommandBuffers = &vkCommandBuffer_Array[currentImageIndex];
+    vkSubmitInfo.signalSemaphoreCount = 1;
+    vkSubmitInfo.pSignalSemaphores = &vkSemaphore_RenderComplete[curIndex];
+
+    vkResult = vkQueueSubmit(
+        vkQueue,
+        1,
+        &vkSubmitInfo,
+        vkFence_Array[curIndex]  // associate fence with this submission
+    );
+    if (vkResult != VK_SUCCESS)
+    {
+        fprintf(gpFILE, "display() : vkQueueSubmit() failed (%d).\n", vkResult);
+        return vkResult;
+    }
+
+    // Present the rendered image
+    VkPresentInfoKHR vkPresentInfoKHR;
+    memset(&vkPresentInfoKHR, 0, sizeof(VkPresentInfoKHR));
+    vkPresentInfoKHR.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
+    vkPresentInfoKHR.waitSemaphoreCount = 1;
+    vkPresentInfoKHR.pWaitSemaphores = &vkSemaphore_RenderComplete[curIndex];
+    vkPresentInfoKHR.swapchainCount = 1;
+    vkPresentInfoKHR.pSwapchains = &vkSwapchainKHR;
+    vkPresentInfoKHR.pImageIndices = &currentImageIndex;
+
+    vkResult = vkQueuePresentKHR(vkQueue, &vkPresentInfoKHR);
+    if (vkResult != VK_SUCCESS)
+    {
+        fprintf(gpFILE, "display() : vkQueuePresentKHR() failed (%d).\n", vkResult);
+        return vkResult;
+    }
+
+    // Advance to next frame
+    currentFrame++;
+
+    return vkResult;
+}
+
 
 void update(void)
 {
@@ -861,21 +964,33 @@ void uninitialize(void)
     }
 
     // sub-step 8 for step (18)
-    if (vkSemaphore_RenderComplete)
-    {
-        vkDestroySemaphore(vkDevice, vkSemaphore_RenderComplete, NULL);
-        vkSemaphore_RenderComplete = VK_NULL_HANDLE;
 
-        fprintf(gpFILE, "uninitialize() : vkDestroySemaphore() succeeded for the render complete semaphore.\n");
+    for (size_t i = 0; i < swapchainImageCount; i++)
+    {
+        if (vkSemaphore_RenderComplete[i])
+        {
+            vkDestroySemaphore(vkDevice, vkSemaphore_RenderComplete[i], NULL);
+            vkSemaphore_RenderComplete[i] = VK_NULL_HANDLE;
+
+            fprintf(gpFILE, "uninitialize() : vkDestroySemaphore() succeeded for the render complete semaphore.\n");
+        }
+
+        if (vkSemaphore_BackBuffer[i])
+        {
+            vkDestroySemaphore(vkDevice, vkSemaphore_BackBuffer[i], NULL);
+            vkSemaphore_BackBuffer[i] = VK_NULL_HANDLE;
+
+            fprintf(gpFILE, "uninitialize() : vkDestroySemaphore() succeeded for the back buffer semaphore.\n");
+        }
     }
 
-    if (vkSemaphore_BackBuffer)
-    {
-        vkDestroySemaphore(vkDevice, vkSemaphore_BackBuffer, NULL);
-        vkSemaphore_BackBuffer = VK_NULL_HANDLE;
+    free(vkSemaphore_BackBuffer);
+    vkSemaphore_BackBuffer = NULL;
 
-        fprintf(gpFILE, "uninitialize() : vkDestroySemaphore() succeeded for the back buffer semaphore.\n");
-    }
+	free(vkSemaphore_RenderComplete);
+	vkSemaphore_RenderComplete = NULL;
+
+
 
     // sub-step 5 for Step (17)
     if (vkFramebuffer_Array)
@@ -2783,7 +2898,7 @@ VkResult createCommandBuffers(void)
     return(vkResult);
 }
 
-VkResult createVertexBuffer(void)
+VkResult createVertexBuffer_(void)
 {
     // local variables
     VkResult vkResult = VK_SUCCESS;
@@ -2890,6 +3005,336 @@ VkResult createVertexBuffer(void)
 
     //-------unmap memory
     vkUnmapMemory(vkDevice, vertexData_position.vkDeviceMemory);
+
+    return vkResult;
+}
+
+VkResult createVertexBuffer(void)
+{
+    // local variables
+    VkResult vkResult = VK_SUCCESS;
+
+    float triangle_position[] =
+    {
+        0.0f,1.0f,0.0f,
+        -1.0f,-1.0f,0.0f,
+        1.0f,-1.0f,0.0f
+    };
+
+	//staging buffer
+	VertexData vertexData_stagingBffer_position;
+	memset((void*)&vertexData_stagingBffer_position, 0, sizeof(VertexData));
+
+	VkBufferCreateInfo vkBufferCreateInfo_stagingBuffer;
+	memset((void*)&vkBufferCreateInfo_stagingBuffer, 0, sizeof(VkBufferCreateInfo));
+
+	vkBufferCreateInfo_stagingBuffer.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
+	vkBufferCreateInfo_stagingBuffer.pNext = NULL;
+	vkBufferCreateInfo_stagingBuffer.flags = 0;
+	vkBufferCreateInfo_stagingBuffer.size = sizeof(triangle_position);
+	vkBufferCreateInfo_stagingBuffer.usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT; // staging buffer is used for transfering data to device local buffer
+	vkBufferCreateInfo_stagingBuffer.sharingMode = VK_SHARING_MODE_EXCLUSIVE; // not sharing with other queues
+
+	// Call vkCreateBuffer() to create the staging buffer
+	vkResult = vkCreateBuffer(vkDevice, &vkBufferCreateInfo_stagingBuffer, NULL, &vertexData_stagingBffer_position.vkBuffer);
+    if (vkResult != VK_SUCCESS)
+    {
+        fprintf(gpFILE, "createVertexBuffer() -> vkCreateBuffer():  failed.\n");
+        return(vkResult);
+    }
+    else
+    {
+        fprintf(gpFILE, "createVertexBuffer() -> vkCreateBuffer():  succeeded.\n");
+    }
+
+	//------------
+	// Get memory requirements for the staging buffer
+	VkMemoryRequirements vkMemoryRequirements_stagingBuffer;
+	memset((void*)&vkMemoryRequirements_stagingBuffer, 0, sizeof(vkMemoryRequirements_stagingBuffer));
+
+	vkGetBufferMemoryRequirements(vkDevice, vertexData_stagingBffer_position.vkBuffer, &vkMemoryRequirements_stagingBuffer);
+	//------------
+	// Allocate memory for the staging buffer
+	VkMemoryAllocateInfo vkMemoryAllocateInfo_stagingBuffer;
+	memset((void*)&vkMemoryAllocateInfo_stagingBuffer, 0, sizeof(VkMemoryAllocateInfo));
+	vkMemoryAllocateInfo_stagingBuffer.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
+	vkMemoryAllocateInfo_stagingBuffer.pNext = NULL;
+	vkMemoryAllocateInfo_stagingBuffer.allocationSize = vkMemoryRequirements_stagingBuffer.size;
+	vkMemoryAllocateInfo_stagingBuffer.memoryTypeIndex = 0;
+	//-------------
+	// Find a suitable memory type for the staging buffer
+	for (uint32_t i = 0; i < vkPhysicalDeviceMemoryProperties.memoryTypeCount; i++)
+	{
+		if ((vkMemoryRequirements_stagingBuffer.memoryTypeBits & 1) == 1)
+		{
+			if (vkPhysicalDeviceMemoryProperties.memoryTypes[i].propertyFlags & (VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT)) // host visible and coherent memory(no need to manage vulkan cache  for flushing or mapping)
+			{
+				vkMemoryAllocateInfo_stagingBuffer.memoryTypeIndex = i;
+				break;
+			}
+		}
+
+		vkMemoryRequirements_stagingBuffer.memoryTypeBits >>= 1;
+	}
+
+	//--------------  
+	// Allocate memory for the staging buffer
+	vkResult = vkAllocateMemory(vkDevice, &vkMemoryAllocateInfo_stagingBuffer, NULL, &vertexData_stagingBffer_position.vkDeviceMemory);
+	if (vkResult != VK_SUCCESS)
+	{
+		fprintf(gpFILE, "createVertexBuffer() -> vkAllocateMemory() :  failed.\n");
+		return(vkResult);
+	}
+	else
+	{
+		fprintf(gpFILE, "createVertexBuffer() -> vkAllocateMemory() :  succeeded.\n");
+	}
+	//---------------
+	// Bind the staging buffer memory to the staging buffer
+	vkResult = vkBindBufferMemory(vkDevice, vertexData_stagingBffer_position.vkBuffer, vertexData_stagingBffer_position.vkDeviceMemory, 0);
+    if (vkResult != VK_SUCCESS)
+	{
+		fprintf(gpFILE, "createVertexBuffer() -> vkBindBufferMemory() :  failed.\n");
+		return(vkResult);
+	}
+	else
+	{
+		fprintf(gpFILE, "createVertexBuffer() -> vkBindBufferMemory() :  succeeded.\n");
+	}
+
+	//----------------
+	void* data = NULL;
+	vkResult = vkMapMemory(vkDevice, vertexData_stagingBffer_position.vkDeviceMemory, 0, vkMemoryAllocateInfo_stagingBuffer.allocationSize, 0, &data);
+    if (vkResult != VK_SUCCESS)
+	{
+		fprintf(gpFILE, "createVertexBuffer() -> vkMapMemory() :  failed.\n");
+		return(vkResult);
+	}
+	else
+	{
+		fprintf(gpFILE, "createVertexBuffer() -> vkMapMemory() :  succeeded.\n");
+	}
+
+	//-------actual memory mapped io
+	memcpy(data, triangle_position, sizeof(triangle_position));
+	//-------unmap memory
+	vkUnmapMemory(vkDevice, vertexData_stagingBffer_position.vkDeviceMemory);
+
+	//-----------------------------------------------------------------------------------
+
+	//device buffer
+	memset((void*)&vertexData_position, 0, sizeof(VertexData));
+	VkBufferCreateInfo vkBufferCreateInfo_deviceBuffer;
+	memset((void*)&vkBufferCreateInfo_deviceBuffer, 0, sizeof(VkBufferCreateInfo));
+	vkBufferCreateInfo_deviceBuffer.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
+	vkBufferCreateInfo_deviceBuffer.pNext = NULL;
+	vkBufferCreateInfo_deviceBuffer.flags = 0;
+	vkBufferCreateInfo_deviceBuffer.size = sizeof(triangle_position);
+	vkBufferCreateInfo_deviceBuffer.usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT; // device buffer is used for vertex buffer and transfer destination
+	vkBufferCreateInfo_deviceBuffer.sharingMode = VK_SHARING_MODE_EXCLUSIVE; // not sharing with other queues
+
+	vkResult = vkCreateBuffer(vkDevice, &vkBufferCreateInfo_deviceBuffer, NULL, &vertexData_position.vkBuffer);
+	if (vkResult != VK_SUCCESS)
+	{
+		fprintf(gpFILE, "createVertexBuffer() -> vkCreateBuffer():  failed.\n");
+		return(vkResult);
+	}
+	else
+	{
+		fprintf(gpFILE, "createVertexBuffer() -> vkCreateBuffer():  succeeded.\n");
+	}
+
+	//------------
+	// Get memory requirements for the device local buffer
+	VkMemoryRequirements vkMemoryRequirements_deviceBuffer;
+	memset((void*)&vkMemoryRequirements_deviceBuffer, 0, sizeof(vkMemoryRequirements_deviceBuffer));
+	vkGetBufferMemoryRequirements(vkDevice, vertexData_position.vkBuffer, &vkMemoryRequirements_deviceBuffer);
+	//------------
+	// Allocate memory for the device local buffer
+	VkMemoryAllocateInfo vkMemoryAllocateInfo_deviceBuffer;
+	memset((void*)&vkMemoryAllocateInfo_deviceBuffer, 0, sizeof(VkMemoryAllocateInfo));
+	vkMemoryAllocateInfo_deviceBuffer.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
+	vkMemoryAllocateInfo_deviceBuffer.pNext = NULL;
+	vkMemoryAllocateInfo_deviceBuffer.allocationSize = vkMemoryRequirements_deviceBuffer.size;
+	vkMemoryAllocateInfo_deviceBuffer.memoryTypeIndex = 0;
+	//-------------
+	// Find a suitable memory type for the device local buffer
+
+    for (uint32_t i = 0; i < vkPhysicalDeviceMemoryProperties.memoryTypeCount; i++)
+	{
+		if ((vkMemoryRequirements_deviceBuffer.memoryTypeBits & 1) == 1)
+		{
+			if (vkPhysicalDeviceMemoryProperties.memoryTypes[i].propertyFlags & VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT) // device local memory
+			{
+				vkMemoryAllocateInfo_deviceBuffer.memoryTypeIndex = i;
+				break;
+			}
+		}
+
+		vkMemoryRequirements_deviceBuffer.memoryTypeBits >>= 1;
+	}
+
+	//--------------
+	// Allocate memory for the device local buffer
+	vkResult = vkAllocateMemory(vkDevice, &vkMemoryAllocateInfo_deviceBuffer, NULL, &vertexData_position.vkDeviceMemory);
+        
+    if (vkResult != VK_SUCCESS)
+	{
+		fprintf(gpFILE, "createVertexBuffer() -> vkAllocateMemory() :  failed.\n");
+		return(vkResult);
+	}
+	else
+	{
+		fprintf(gpFILE, "createVertexBuffer() -> vkAllocateMemory() :  succeeded.\n");
+	}
+	//---------------
+	// Bind the device local buffer memory to the device local buffer
+	vkResult = vkBindBufferMemory(vkDevice, vertexData_position.vkBuffer, vertexData_position.vkDeviceMemory, 0);
+	if (vkResult != VK_SUCCESS)
+	{
+		fprintf(gpFILE, "createVertexBuffer() -> vkBindBufferMemory() :  failed.\n");
+        return(vkResult);
+	}
+	else
+	{
+		fprintf(gpFILE, "createVertexBuffer() -> vkBindBufferMemory() :  succeeded.\n");
+	}
+
+	//----------------
+	//command buffer for copy
+	VkCommandBufferAllocateInfo vkCommandBufferAllocateInfo;
+	memset((void*)&vkCommandBufferAllocateInfo, 0, sizeof(VkCommandBufferAllocateInfo));
+	vkCommandBufferAllocateInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+	vkCommandBufferAllocateInfo.pNext = NULL;
+	vkCommandBufferAllocateInfo.commandPool = vkCommandPool;
+	vkCommandBufferAllocateInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+	vkCommandBufferAllocateInfo.commandBufferCount = 1;
+
+	VkCommandBuffer vkCommandBuffer_Copy = VK_NULL_HANDLE;
+	vkResult = vkAllocateCommandBuffers(vkDevice, &vkCommandBufferAllocateInfo, &vkCommandBuffer_Copy);
+	if (vkResult != VK_SUCCESS)
+	{
+    	fprintf(gpFILE, "createVertexBuffer() -> vkAllocateCommandBuffers() :  failed.\n");
+		return(vkResult);
+	}
+	else
+	{
+		fprintf(gpFILE, "createVertexBuffer() -> vkAllocateCommandBuffers() :  succeeded.\n");
+	}
+
+	//----------------
+	
+	// Begin command buffer recording
+	VkCommandBufferBeginInfo vkCommandBufferBeginInfo;
+	memset((void*)&vkCommandBufferBeginInfo, 0, sizeof(VkCommandBufferBeginInfo));
+	vkCommandBufferBeginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+	vkCommandBufferBeginInfo.pNext = NULL;
+	vkCommandBufferBeginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT; // one time submit means we will submit this command buffer only once
+	vkCommandBufferBeginInfo.pInheritanceInfo = NULL; // not using secondary command buffer inheritance
+	vkResult = vkBeginCommandBuffer(vkCommandBuffer_Copy, &vkCommandBufferBeginInfo);
+	if (vkResult != VK_SUCCESS)
+	{
+		fprintf(gpFILE, "createVertexBuffer() -> vkBeginCommandBuffer() :  failed.\n");
+		return(vkResult);
+	}
+	else
+	{
+		fprintf(gpFILE, "createVertexBuffer() -> vkBeginCommandBuffer() :  succeeded.\n");
+	}
+
+	//----------------
+	// Record the command to copy data from staging buffer to device local buffer
+	VkBufferCopy vkBufferCopy;
+	memset((void*)&vkBufferCopy, 0, sizeof(VkBufferCopy));
+	vkBufferCopy.srcOffset = 0; // offset in the source buffer
+	vkBufferCopy.dstOffset = 0; // offset in the destination buffer
+	vkBufferCopy.size = sizeof(triangle_position); // size of the data to copy
+	vkCmdCopyBuffer(vkCommandBuffer_Copy, vertexData_stagingBffer_position.vkBuffer, vertexData_position.vkBuffer, 1, &vkBufferCopy);
+
+	// End command buffer recording
+	vkResult = vkEndCommandBuffer(vkCommandBuffer_Copy);
+	if (vkResult != VK_SUCCESS)
+	{
+		fprintf(gpFILE, "createVertexBuffer() -> vkEndCommandBuffer() :  failed.\n");
+		return(vkResult);
+	}
+	else
+	{
+		fprintf(gpFILE, "createVertexBuffer() -> vkEndCommandBuffer() :  succeeded.\n");
+	}
+
+	//----------------
+	// Submit the command buffer to the queue
+	VkSubmitInfo vkSubmitInfo;
+	memset((void*)&vkSubmitInfo, 0, sizeof(VkSubmitInfo));
+	vkSubmitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+	vkSubmitInfo.pNext = NULL;
+	vkSubmitInfo.waitSemaphoreCount = 0; // no wait semaphores
+	vkSubmitInfo.pWaitSemaphores = NULL; // no wait semaphores
+	vkSubmitInfo.pWaitDstStageMask = NULL; // no wait stage mask
+	vkSubmitInfo.commandBufferCount = 1; // one command buffer
+	vkSubmitInfo.pCommandBuffers = &vkCommandBuffer_Copy; // pointer to the command buffer to submit
+	vkSubmitInfo.signalSemaphoreCount = 0; // no signal semaphores
+	vkSubmitInfo.pSignalSemaphores = NULL; // no signal semaphores
+
+
+    vkResult = vkQueueSubmit(vkQueue, 1, &vkSubmitInfo, VK_NULL_HANDLE);
+	if (vkResult != VK_SUCCESS)
+	{
+		fprintf(gpFILE, "createVertexBuffer() -> vkQueueSubmit() :  failed.\n");
+		return(vkResult);
+	}
+	else
+	{
+		fprintf(gpFILE, "createVertexBuffer() -> vkQueueSubmit() :  succeeded.\n");
+	}
+	// Wait for the queue to finish processing
+	vkResult = vkQueueWaitIdle(vkQueue);
+	if (vkResult != VK_SUCCESS)
+	{
+		fprintf(gpFILE, "createVertexBuffer() -> vkQueueWaitIdle() :  failed.\n");
+		return(vkResult);
+	}
+	else
+	{
+		fprintf(gpFILE, "createVertexBuffer() -> vkQueueWaitIdle() :  succeeded.\n");
+	}
+
+	//----------------
+	// Free the staging buffer
+	if (vertexData_stagingBffer_position.vkBuffer)
+	{
+		vkDestroyBuffer(vkDevice, vertexData_stagingBffer_position.vkBuffer, NULL);
+		vertexData_stagingBffer_position.vkBuffer = VK_NULL_HANDLE;
+		fprintf(gpFILE, "createVertexBuffer() -> vkDestroyBuffer() :  staging buffer destroyed.\n");
+	}
+	else
+	{
+		fprintf(gpFILE, "createVertexBuffer() -> vkDestroyBuffer() :  staging buffer already destroyed.\n");
+	}
+
+	// Free the staging buffer memory
+	if (vertexData_stagingBffer_position.vkDeviceMemory)
+	{
+		vkFreeMemory(vkDevice, vertexData_stagingBffer_position.vkDeviceMemory, NULL);
+		vertexData_stagingBffer_position.vkDeviceMemory = VK_NULL_HANDLE;
+		fprintf(gpFILE, "createVertexBuffer() -> vkFreeMemory() :  staging buffer memory freed.\n");
+	}
+
+	//-----------------------------------------------------------------------------------
+	// Now, vertexData_position.vkBuffer contains the device local buffer with the triangle position data
+	// and vertexData_position.vkDeviceMemory contains the device local buffer memory.
+
+	if (vkCommandBuffer_Copy)
+	{
+		vkFreeCommandBuffers(vkDevice, vkCommandPool, 1, &vkCommandBuffer_Copy);
+		vkCommandBuffer_Copy = VK_NULL_HANDLE;
+		fprintf(gpFILE, "createVertexBuffer() -> vkFreeCommandBuffers() :  command buffer freed.\n");
+	}
+    else
+    {
+	    fprintf(gpFILE, "createVertexBuffer() -> vkFreeCommandBuffers() :  command buffer already freed.\n");
+	}
 
     return vkResult;
 }
@@ -3484,40 +3929,49 @@ VkResult createSemaphores(void)
     vkSemaphoreCreateInfo.pNext = NULL; // by default, the semaphore will be created as a binary semaphore. 
     vkSemaphoreCreateInfo.flags = 0;    // MUST be 0, this member is reserved.
 
-    //Now call vkCreateSemaphore() API 2 times to create our 2 semaphore objects. Remember, both will use the same create info structure.
-    vkResult = vkCreateSemaphore(
-        vkDevice,               // [in] vulkan logical device
-        &vkSemaphoreCreateInfo, // [in] pointer to a semaphore create info structure
-        NULL,                   // [in, optional] pointer to a custom memory allocator
-        &vkSemaphore_BackBuffer // [out] VkSemaphore object
-    );
+    vkSemaphore_BackBuffer = (VkSemaphore*)malloc(sizeof(VkSemaphore) * swapchainImageCount);
+    vkSemaphore_RenderComplete = (VkSemaphore*)malloc(sizeof(VkSemaphore) * swapchainImageCount);
 
-    if (vkResult != VK_SUCCESS)
-    {
-        fprintf(gpFILE, "createSemaphores() : vkCreateSemaphore() failed for back buffer semaphore.\n");
-        return(vkResult);
-    }
-    else
-    {
-        fprintf(gpFILE, "createSemaphores() : vkCreateSemaphore() succeeded for back buffer semaphore.\n");
-    }
 
-    vkResult = vkCreateSemaphore(
-        vkDevice,
-        &vkSemaphoreCreateInfo,
-        NULL,
-        &vkSemaphore_RenderComplete
-    );
+	for (int i = 0; i < swapchainImageCount; i++)
+	{
+        //Now call vkCreateSemaphore() API 2 times to create our 2 semaphore objects. Remember, both will use the same create info structure.
+        vkResult = vkCreateSemaphore(
+            vkDevice,               // [in] vulkan logical device
+            &vkSemaphoreCreateInfo, // [in] pointer to a semaphore create info structure
+            NULL,                   // [in, optional] pointer to a custom memory allocator
+            &vkSemaphore_BackBuffer[i] // [out] VkSemaphore object
+        );
 
-    if (vkResult != VK_SUCCESS)
-    {
-        fprintf(gpFILE, "createSemaphores() : vkCreateSemaphore() failed for render complete semaphore.\n");
-        return(vkResult);
-    }
-    else
-    {
-        fprintf(gpFILE, "createSemaphores() : vkCreateSemaphore() succeeded for render complete semaphore.\n");
-    }
+        if (vkResult != VK_SUCCESS)
+        {
+            fprintf(gpFILE, "createSemaphores() : vkCreateSemaphore() failed for back buffer semaphore.\n");
+            return(vkResult);
+        }
+        else
+        {
+            fprintf(gpFILE, "createSemaphores() : vkCreateSemaphore() succeeded for back buffer semaphore.\n");
+        }
+
+        vkResult = vkCreateSemaphore(
+            vkDevice,
+            &vkSemaphoreCreateInfo,
+            NULL,
+            &vkSemaphore_RenderComplete[i]
+        );
+
+        if (vkResult != VK_SUCCESS)
+        {
+            fprintf(gpFILE, "createSemaphores() : vkCreateSemaphore() failed for render complete semaphore.\n");
+            return(vkResult);
+        }
+        else
+        {
+            fprintf(gpFILE, "createSemaphores() : vkCreateSemaphore() succeeded for render complete semaphore.\n");
+        }
+	}
+
+    
 
     return(vkResult);
 }

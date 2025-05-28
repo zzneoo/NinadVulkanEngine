@@ -364,6 +364,17 @@ createVertexBuffer() -> vkCreateBuffer():  succeeded.
 createVertexBuffer() -> vkAllocateMemory() :  succeeded.
 createVertexBuffer() -> vkBindBufferMemory() :  succeeded.
 createVertexBuffer() -> vkMapMemory() :  succeeded.
+createVertexBuffer() -> vkCreateBuffer():  succeeded.
+createVertexBuffer() -> vkAllocateMemory() :  succeeded.
+createVertexBuffer() -> vkBindBufferMemory() :  succeeded.
+createVertexBuffer() -> vkAllocateCommandBuffers() :  succeeded.
+createVertexBuffer() -> vkBeginCommandBuffer() :  succeeded.
+createVertexBuffer() -> vkEndCommandBuffer() :  succeeded.
+createVertexBuffer() -> vkQueueSubmit() :  succeeded.
+createVertexBuffer() -> vkQueueWaitIdle() :  succeeded.
+createVertexBuffer() -> vkDestroyBuffer() :  staging buffer destroyed.
+createVertexBuffer() -> vkFreeMemory() :  staging buffer memory freed.
+createVertexBuffer() -> vkFreeCommandBuffers() :  command buffer freed.
 initialize() : createVertexBuffer() succeeded.
 createShaders() -> fopen_s() :  succeeded.
 createShaders() -> fread() :  succeeded.
@@ -386,6 +397,8 @@ createFramebuffers() : vkCreateFramebuffer() succeeded for iteration 1.
 initialize() : createFramebuffers() succeeded.
 createSemaphores() : vkCreateSemaphore() succeeded for back buffer semaphore.
 createSemaphores() : vkCreateSemaphore() succeeded for render complete semaphore.
+createSemaphores() : vkCreateSemaphore() succeeded for back buffer semaphore.
+createSemaphores() : vkCreateSemaphore() succeeded for render complete semaphore.
 initialize() : createSemaphores() succeeded.
 createFences() : vkCreateFence() succeeded for iteration 0.
 createFences() : vkCreateFence() succeeded for iteration 1.
@@ -404,6 +417,8 @@ uninitialize() : vkDeviceWaitIdle() is done.
 uninitialize() : vkDestroyFence() succeeded for iteration 0.
 uninitialize() : vkDestroyFence() succeeded for iteration 1.
 uninitialize() : successfully freed the memory allocated to vkFence_Array.
+uninitialize() : vkDestroySemaphore() succeeded for the render complete semaphore.
+uninitialize() : vkDestroySemaphore() succeeded for the back buffer semaphore.
 uninitialize() : vkDestroySemaphore() succeeded for the render complete semaphore.
 uninitialize() : vkDestroySemaphore() succeeded for the back buffer semaphore.
 uninitialize() : vkDestroyFramebuffer() succeeded for iteration 0.
