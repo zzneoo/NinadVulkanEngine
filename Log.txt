@@ -39,12 +39,12 @@ fillValidaionLayerNames() : Vulkan instance extension name = VK_LAYER_NV_optimus
 fillValidaionLayerNames() : Vulkan instance extension name = VK_LAYER_NV_gr2608
 fillValidaionLayerNames() : Vulkan instance extension name = VK_LAYER_reshade
 fillValidaionLayerNames() : Vulkan instance extension name = VK_LAYER_OBS_HOOK
-fillValidaionLayerNames() : Vulkan instance extension name = VK_LAYER_VALVE_steam_overlay
-fillValidaionLayerNames() : Vulkan instance extension name = VK_LAYER_VALVE_steam_fossilize
 fillValidaionLayerNames() : Vulkan instance extension name = VK_LAYER_NV_nomad_release_public_2025_2_0
 fillValidaionLayerNames() : Vulkan instance extension name = VK_LAYER_NV_GPU_Trace_release_public_2025_2_0
 fillValidaionLayerNames() : Vulkan instance extension name = VK_LAYER_NV_ngfx_capture_release_public_2025_2_0
 fillValidaionLayerNames() : Vulkan instance extension name = VK_LAYER_NV_shader_debugger_release_public_2025_2_0
+fillValidaionLayerNames() : Vulkan instance extension name = VK_LAYER_VALVE_steam_overlay
+fillValidaionLayerNames() : Vulkan instance extension name = VK_LAYER_VALVE_steam_fossilize
 fillValidaionLayerNames() : Vulkan instance extension name = VK_LAYER_EOS_Overlay
 fillValidaionLayerNames() : Vulkan instance extension name = VK_LAYER_EOS_Overlay
 fillValidaionLayerNames() : Vulkan instance extension name = VK_LAYER_ROCKSTAR_GAMES_social_club
@@ -403,13 +403,6 @@ initialize() : createSemaphores() succeeded.
 createFences() : vkCreateFence() succeeded for iteration 0.
 createFences() : vkCreateFence() succeeded for iteration 1.
 initialize() : createFences() succeeded.
-buildCommandBuffers() : vkResetCommandBuffer() succeeded for command buffer 0.
-buildCommandBuffers() : vkBeginCommandBuffer() succeeded for command buffer 0.
-buildCommandBuffers() : vkEndCommandBuffer() succeeded for command buffer 0.
-buildCommandBuffers() : vkResetCommandBuffer() succeeded for command buffer 1.
-buildCommandBuffers() : vkBeginCommandBuffer() succeeded for command buffer 1.
-buildCommandBuffers() : vkEndCommandBuffer() succeeded for command buffer 1.
-initialize() : buildCommandBuffers() succeeded.
 -------------------------------------------------------------------------------------
 WinMain() : initialize() succeeded.
 -------------------------------------------------------------------------------------

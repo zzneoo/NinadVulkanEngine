@@ -7,6 +7,14 @@
 #define VK_USE_PLATFORM_WIN32_KHR // define the current Vulkan platform
 #include <vulkan/vulkan.h>        // you must define platform before including this file (Windows / Linux / macOS / iOS / Android / <other>)
 
+//#define IMGUI_ENABLE
+
+#ifdef IMGUI_ENABLE
+#include "imgui.h"
+#include "imgui_impl_vulkan.h"
+#include "imgui_impl_win32.h"
+#endif // IMGUI_ENABLE
+
 #include "VK.h"
 #include <cstdint>
 
@@ -21,6 +29,13 @@
 
 // global function declarations
 LRESULT CALLBACK WndProc(HWND, UINT, WPARAM, LPARAM);
+
+#ifdef IMGUI_ENABLE
+//IMGUI related global 
+extern IMGUI_IMPL_API LRESULT ImGui_ImplWin32_WndProcHandler(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);
+VkDescriptorPool gImguiDescriptorPool;
+ImGuiIO* g_io = nullptr;
+#endif // IMGUI_ENABLE
 
 // global variable declarations
 const char* gpszAppName = "ARTR";
@@ -58,7 +73,7 @@ VkPhysicalDeviceMemoryProperties vkPhysicalDeviceMemoryProperties;
 // Vulkan Device Extension related variables
 uint32_t enabledDeviceExtensionCount = 0;
 
-// 1. VK_KHR_SWAPCHAIN_EXTENSION_NAME
+// VK_KHR_SWAPCHAIN_EXTENSION_NAME
 const char* enabledDeviceExtensionNames_Array[1]; 
 
 // Logical Device
@@ -288,6 +303,11 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM lParam)
     void resize(int width, int height);
     void ToggleFullscreen(void);
 
+#ifdef IMGUI_ENABLE
+    if (ImGui_ImplWin32_WndProcHandler(hwnd, iMsg, wParam, lParam))
+        return true; // ImGui handled it
+#endif // IMGUI_ENABLE
+
     // code
     switch (iMsg)
     {
@@ -393,7 +413,39 @@ void ToggleFullscreen(void)
     }
 }
 
+#ifdef IMGUI_ENABLE
+static void check_vk_result(VkResult err)
+{
+    if (err == 0)
+        return;
 
+    fprintf(stderr, "[vulkan] Error: VkResult = %d\n", err);
+
+    // Optionally you can translate the error code to something more readable:
+    switch (err)
+    {
+    case VK_ERROR_OUT_OF_HOST_MEMORY:       fprintf(stderr, "VK_ERROR_OUT_OF_HOST_MEMORY\n"); break;
+    case VK_ERROR_OUT_OF_DEVICE_MEMORY:     fprintf(stderr, "VK_ERROR_OUT_OF_DEVICE_MEMORY\n"); break;
+    case VK_ERROR_INITIALIZATION_FAILED:    fprintf(stderr, "VK_ERROR_INITIALIZATION_FAILED\n"); break;
+    case VK_ERROR_DEVICE_LOST:              fprintf(stderr, "VK_ERROR_DEVICE_LOST\n"); break;
+    case VK_ERROR_MEMORY_MAP_FAILED:        fprintf(stderr, "VK_ERROR_MEMORY_MAP_FAILED\n"); break;
+    case VK_ERROR_LAYER_NOT_PRESENT:        fprintf(stderr, "VK_ERROR_LAYER_NOT_PRESENT\n"); break;
+    case VK_ERROR_EXTENSION_NOT_PRESENT:    fprintf(stderr, "VK_ERROR_EXTENSION_NOT_PRESENT\n"); break;
+    case VK_ERROR_FEATURE_NOT_PRESENT:      fprintf(stderr, "VK_ERROR_FEATURE_NOT_PRESENT\n"); break;
+    case VK_ERROR_INCOMPATIBLE_DRIVER:      fprintf(stderr, "VK_ERROR_INCOMPATIBLE_DRIVER\n"); break;
+    case VK_ERROR_TOO_MANY_OBJECTS:         fprintf(stderr, "VK_ERROR_TOO_MANY_OBJECTS\n"); break;
+    case VK_ERROR_FORMAT_NOT_SUPPORTED:     fprintf(stderr, "VK_ERROR_FORMAT_NOT_SUPPORTED\n"); break;
+    case VK_ERROR_FRAGMENTED_POOL:          fprintf(stderr, "VK_ERROR_FRAGMENTED_POOL\n"); break;
+    default:                                fprintf(stderr, "Unknown Vulkan error\n"); break;
+    }
+
+#ifdef _DEBUG
+    __debugbreak(); // Only on Windows in debug mode
+#endif
+
+    exit(-1);
+}
+#endif // IMGUI_ENABLE
 
 VkResult initialize(void)
 {
@@ -655,19 +707,72 @@ VkResult initialize(void)
     vkClearColorValue.float32[2] = 1.0f;
     vkClearColorValue.float32[3] = 1.0f;
 
-    // STEP 19 : Building the command buffers
-    vkResult = buildCommandBuffers();
-    if (vkResult != VK_SUCCESS)
-    {
-        fprintf(gpFILE, "initialize() : buildCommandBuffers() failed (%d).\n", vkResult);
-        return(vkResult);
-    }
-    else
-    {
-        fprintf(gpFILE, "initialize() : buildCommandBuffers() succeeded.\n");
-    }
+#ifdef IMGUI_ENABLE
+    //IMGUI Init
 
-    // Initialization is completed.
+    IMGUI_CHECKVERSION();
+    ImGui::CreateContext();
+
+    //ImGuiIO& io = ImGui::GetIO();
+    g_io = &ImGui::GetIO();
+    g_io->ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;  // optional
+    // io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;   // optional
+    // io.ConfigFlags |= ImGuiConfigFlags_ViewportsEnable; // optional
+
+    ImGui::StyleColorsDark();  // or Light, Classic, etc.
+
+    //---------------------
+    ImGui_ImplWin32_Init(ghwnd);  // HWND from CreateWindow or similar
+    //---------------------
+    VkDescriptorPoolSize pool_sizes[] =
+    {
+        { VK_DESCRIPTOR_TYPE_SAMPLER,                1000 },
+        { VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1000 },
+        { VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE,          1000 },
+        { VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,          1000 },
+        { VK_DESCRIPTOR_TYPE_UNIFORM_TEXEL_BUFFER,   1000 },
+        { VK_DESCRIPTOR_TYPE_STORAGE_TEXEL_BUFFER,   1000 },
+        { VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,         1000 },
+        { VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,         1000 },
+        { VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, 1000 },
+        { VK_DESCRIPTOR_TYPE_STORAGE_BUFFER_DYNAMIC, 1000 },
+        { VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT,       1000 }
+    };
+    VkDescriptorPoolCreateInfo pool_info = {};
+    pool_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
+    pool_info.flags = VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT;
+    pool_info.maxSets = 1000 * IM_ARRAYSIZE(pool_sizes); // sufficient descriptor sets
+    pool_info.poolSizeCount = (uint32_t)IM_ARRAYSIZE(pool_sizes);
+    pool_info.pPoolSizes = pool_sizes;
+
+    vkCreateDescriptorPool(vkDevice, &pool_info, nullptr, &gImguiDescriptorPool);
+	//--------------------
+    ImGui_ImplVulkan_InitInfo init_info = {};
+    init_info.Instance = vkInstance;
+    init_info.PhysicalDevice = vkPhysicalDevice_Selected;
+    init_info.Device = vkDevice;
+    init_info.QueueFamily = graphicsQueueFamilyIndex_Selected;
+	init_info.Queue = vkQueue;
+    init_info.PipelineCache = VK_NULL_HANDLE;
+    init_info.DescriptorPool = gImguiDescriptorPool;
+    init_info.RenderPass = vkRenderPass;      // Must match your swapchain render pass
+    init_info.Subpass = 0;
+    init_info.MinImageCount = 2;    // e.g. 2 or 3
+    init_info.ImageCount = swapchainImageCount; // Match your swapchain image count
+    init_info.MSAASamples = VK_SAMPLE_COUNT_1_BIT;
+    init_info.Allocator = nullptr;
+    init_info.CheckVkResultFn = check_vk_result;
+
+    ImGui_ImplVulkan_Init(&init_info);
+
+//-----------------------------
+// Immediately after ImGui_ImplVulkan_Init() and after creating framebuffers:
+    ImGui_ImplVulkan_CreateFontsTexture(); // new no-arg call (uploads fonts intern
+
+#endif // IMGUI_ENABLE
+
+    //-------------------------------------------------------------------------------------
+
     bInitialized = TRUE;
 
     return(vkResult);
@@ -823,6 +928,8 @@ VkResult display_(void)
 
 VkResult display(void)
 {
+    VkResult buildCommandBuffers(uint32_t curIndex);
+
     VkResult vkResult = VK_SUCCESS;
 
     if (bInitialized == FALSE)
@@ -843,6 +950,7 @@ VkResult display(void)
         return vkResult;
     }
 
+
     // Reset the fence for use in the current frame
     vkResult = vkResetFences(vkDevice, 1, &vkFence_Array[curIndex]);
     if (vkResult != VK_SUCCESS)
@@ -850,6 +958,7 @@ VkResult display(void)
         fprintf(gpFILE, "display() : vkResetFences() failed (%d).\n", vkResult);
         return vkResult;
     }
+
 
     // Acquire next image from the swapchain
     vkResult = vkAcquireNextImageKHR(
@@ -866,6 +975,17 @@ VkResult display(void)
         return vkResult;
     }
 
+    //--------------------------------------------------------------------------------------
+        //IMGUI dynamic
+    {
+        vkResult = buildCommandBuffers(curIndex);
+        if (vkResult != VK_SUCCESS)
+        {
+            fprintf(gpFILE, "display() : buildCommandBuffers() failed (%d).\n", vkResult);
+            return(vkResult);
+        }
+    }
+
     // Submit the command buffer for rendering
     const VkPipelineStageFlags waitDstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
 
@@ -876,7 +996,7 @@ VkResult display(void)
     vkSubmitInfo.pWaitSemaphores = &vkSemaphore_BackBuffer[curIndex];
     vkSubmitInfo.pWaitDstStageMask = &waitDstStageMask;
     vkSubmitInfo.commandBufferCount = 1;
-    vkSubmitInfo.pCommandBuffers = &vkCommandBuffer_Array[currentImageIndex];
+    vkSubmitInfo.pCommandBuffers = &vkCommandBuffer_Array[curIndex];
     vkSubmitInfo.signalSemaphoreCount = 1;
     vkSubmitInfo.pSignalSemaphores = &vkSemaphore_RenderComplete[curIndex];
 
@@ -945,6 +1065,19 @@ void uninitialize(void)
         vkDeviceWaitIdle(vkDevice);
         fprintf(gpFILE, "uninitialize() : vkDeviceWaitIdle() is done.\n");
     }
+
+#ifdef IMGUI_ENABLE
+	//IMGUI uninitialization
+    {
+		ImGui_ImplVulkan_Shutdown();
+		ImGui_ImplWin32_Shutdown();
+		ImGui::DestroyContext();
+
+        vkDestroyDescriptorPool(vkDevice, gImguiDescriptorPool, nullptr);
+        if(gpFILE)
+        fprintf(gpFILE, "uninitialize() : ImGui uninitialization is done.\n");
+    }
+#endif
 
     // sub-step 7 for step (18)
     if (vkFence_Array)
@@ -1221,11 +1354,7 @@ VkResult createVulkanInstance(void)
     // variable declarations
     VkResult vkResult = VK_SUCCESS;
 
-    // code
-    /*
-     * sub-step 1 : as explained before, fill and initialize required
-     *              extension names and count global variables
-     */
+	// fill instance extension names
     vkResult = fillInstanceExtensionNames();
     if (vkResult != VK_SUCCESS)
     {
@@ -1253,7 +1382,7 @@ VkResult createVulkanInstance(void)
         }
     }
     /*
-     * sub-step 2 : initialize struct VkApplicationInfo
+     *  initialize struct VkApplicationInfo
      */
     VkApplicationInfo vkApplicationInfo;
     memset(&vkApplicationInfo, 0, sizeof(VkApplicationInfo));
@@ -1267,7 +1396,7 @@ VkResult createVulkanInstance(void)
     vkApplicationInfo.apiVersion = VK_API_VERSION_1_4;                 // must be the highest Vulkan API Version
 
     /*
-     * sub-step 3 : initialize struct VkInstanceCreateInfo by using
+     *  initialize struct VkInstanceCreateInfo by using
      *              information from sub-step 1 and sub-step 2
      */
     VkInstanceCreateInfo vkInstanceCreateInfo;
@@ -1293,7 +1422,7 @@ VkResult createVulkanInstance(void)
 
 
     /*
-     * sub-step 4 : call vkCreateInstance() to get VkInstance in a
+     *  call vkCreateInstance() to get VkInstance in a
      *              global variable and do error checking
      */
     vkResult = vkCreateInstance(
@@ -1323,7 +1452,7 @@ VkResult createVulkanInstance(void)
     }
 
     /*
-     * sub-step 5 : destroy VkInstance in uninitialize()
+     *  destroy VkInstance in uninitialize()
      */
 
      // code in uninitialize()
@@ -2609,8 +2738,8 @@ VkResult createSwapchain(VkBool32 vsync) // vsync == vertical synchronisation
         vkExtent2D.width = (uint32_t)winWidth;
         vkExtent2D.height = (uint32_t)winHeight;
 
-        vkExtent2D_Swapchain.width = max(vkSurfaceCapabilitiesKHR.minImageExtent.width, min(vkSurfaceCapabilitiesKHR.maxImageExtent.width, vkExtent2D.width)); // clamp the width between minImageExtent.width and maxImageExtent.width
-        vkExtent2D_Swapchain.height = max(vkSurfaceCapabilitiesKHR.minImageExtent.height, min(vkSurfaceCapabilitiesKHR.maxImageExtent.height, vkExtent2D.height)); // clamp the height between minImageExtent.height and maxImageExtent.height
+        vkExtent2D_Swapchain.width = vmath::max(vkSurfaceCapabilitiesKHR.minImageExtent.width, vmath::min(vkSurfaceCapabilitiesKHR.maxImageExtent.width, vkExtent2D.width)); // clamp the width between minImageExtent.width and maxImageExtent.width
+        vkExtent2D_Swapchain.height = vmath::max(vkSurfaceCapabilitiesKHR.minImageExtent.height, vmath::min(vkSurfaceCapabilitiesKHR.maxImageExtent.height, vkExtent2D.height)); // clamp the height between minImageExtent.height and maxImageExtent.height
 
         /*
          * Example of clamping between minimum and maximum values:
@@ -3506,6 +3635,15 @@ VkResult createDiscriptorSetLayout(void)
     // variable declarations
     VkResult vkResult = VK_SUCCESS;
 
+    VkDescriptorSetLayoutBinding vkDescriptorSetLayoutBinding;
+    memset((void*)&vkDescriptorSetLayoutBinding, 0, sizeof(VkDescriptorSetLayoutBinding));
+
+    vkDescriptorSetLayoutBinding.binding = 0;
+    vkDescriptorSetLayoutBinding.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+    vkDescriptorSetLayoutBinding.descriptorCount = 1;
+    vkDescriptorSetLayoutBinding.stageFlags = VK_SHADER_STAGE_VERTEX_BIT ;
+    vkDescriptorSetLayoutBinding.pImmutableSamplers = NULL;
+
     // code
 	VkDescriptorSetLayoutCreateInfo vkDescriptorSetLayoutCreateInfo;
     memset((void*)&vkDescriptorSetLayoutCreateInfo, 0, sizeof(VkDescriptorSetLayoutCreateInfo));
@@ -3513,17 +3651,9 @@ VkResult createDiscriptorSetLayout(void)
 	vkDescriptorSetLayoutCreateInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
 	vkDescriptorSetLayoutCreateInfo.pNext = NULL;
 	vkDescriptorSetLayoutCreateInfo.flags = 0;
-	vkDescriptorSetLayoutCreateInfo.bindingCount = 0;
-	vkDescriptorSetLayoutCreateInfo.pBindings = NULL;//vkDescriptorSetLayoutBindings _Array;
+	vkDescriptorSetLayoutCreateInfo.bindingCount = 1;
+	vkDescriptorSetLayoutCreateInfo.pBindings = &vkDescriptorSetLayoutBinding;//vkDescriptorSetLayoutBindings _Array;
 
-	//VkDescriptorSetLayoutBinding vkDescriptorSetLayoutBinding;
- //   memset((void*)&vkDescriptorSetLayoutBinding, 0, sizeof(VkDescriptorSetLayoutBinding));
-
-	//vkDescriptorSetLayoutBinding.binding = 0;
-	//vkDescriptorSetLayoutBinding.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-	//vkDescriptorSetLayoutBinding.descriptorCount = 1;
-	//vkDescriptorSetLayoutBinding.stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT;
-	//vkDescriptorSetLayoutBinding.pImmutableSamplers = NULL;
 
 	vkResult = vkCreateDescriptorSetLayout(vkDevice, &vkDescriptorSetLayoutCreateInfo, NULL, &vkDescriptorSetLayout);
     if (vkResult != VK_SUCCESS)
@@ -4011,129 +4141,106 @@ VkResult createFences(void)
     return(vkResult);
 }
 
-VkResult buildCommandBuffers(void)
+VkResult buildCommandBuffers(uint32_t curIndex)
 {
-    // local variables
     VkResult vkResult = VK_SUCCESS;
 
-    // code
-    //  Start a loop with swapchain image count as the counter.
-    for (uint32_t i = 0; i < swapchainImageCount; i++)
+#ifdef IMGUI_ENABLE
+
+    // ImGui per-frame setup
+    ImGui_ImplVulkan_NewFrame();
+    ImGui_ImplWin32_NewFrame();
+    ImGui::NewFrame();
+
+    // UI
+    //  Show a simple window that we create ourselves. We use a Begin/End pair to create a named window.
     {
-        //  Inside the loop, call vkResetCommandBuffer() to reset the contents of command buffers.
-        vkResult = vkResetCommandBuffer(
-            vkCommandBuffer_Array[i], // [in] which command buffer?
-            0                         // [in] Command buffer reset flags. Here, 0 means don't release the resources created by the command pool for these command buffers.
-        );
+        static float f = 0.0f;
+        static int counter = 0;
+        static bool enableFirst = false;
+        static bool enableSecond = false;
+        static vmath::vec3 v3Color = vmath::vec3(0.0f);
 
-        if (vkResult != VK_SUCCESS)
-        {
-            fprintf(gpFILE, "buildCommandBuffers() : vkResetCommandBuffer() failed for command buffer %d.\n", i);
-            return(vkResult);
-        }
-        else
-        {
-            fprintf(gpFILE, "buildCommandBuffers() : vkResetCommandBuffer() succeeded for command buffer %d.\n", i);
-        }
+        ImGui::Begin("Hello, world!");                          // Create a window called "Hello, world!" and append into it.
 
-        // Then declare, memset(), initialize VkCommandBufferBeginInfo structure.
-        VkCommandBufferBeginInfo vkCommandBufferBeginInfo;
-        memset((void*)&vkCommandBufferBeginInfo, 0, sizeof(VkCommandBufferBeginInfo));
+        ImGui::Text("This is some useful text.");               // Display some text (you can use a format strings too)
+        ImGui::Checkbox("Demo Window", &enableFirst);      // Edit bools storing our window open/close state
+        ImGui::Checkbox("Another Window", &enableSecond);
 
-        vkCommandBufferBeginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-        vkCommandBufferBeginInfo.pNext = NULL;
-        vkCommandBufferBeginInfo.flags = 0; // Here, this zero indicates (1) We will use only primary command buffer, (2) We are not going to use this command buffer simultaneously between multiple threads.
+        ImGui::SliderFloat("float", &f, 0.0f, 1.0f);            // Edit 1 float using a slider from 0.0f to 1.0f
+        ImGui::ColorEdit3("clear color", (float*)&v3Color); // Edit 3 floats representing a color
 
-        //  Now call vkBeginCommandBuffer() API to record different vulkan drawing related commands. Do error checking.
-        vkResult = vkBeginCommandBuffer(vkCommandBuffer_Array[i], &vkCommandBufferBeginInfo);
-        if (vkResult != VK_SUCCESS)
-        {
-            fprintf(gpFILE, "buildCommandBuffers() : vkBeginCommandBuffer() failed for command buffer %d.\n", i);
-            return(vkResult);
-        }
-        else
-        {
-            fprintf(gpFILE, "buildCommandBuffers() : vkBeginCommandBuffer() succeeded for command buffer %d.\n", i);
-        }
+        if (ImGui::Button("Button"))                            // Buttons return true when clicked (most widgets return true when edited/activated)
+            counter++;
+        ImGui::SameLine();
+        ImGui::Text("counter = %d", counter);
 
-        //  Declare, memset() and initialize struct array of VkClearValue type. Remember : internally, this is union. Our array will be of 1 element. This number depends upon the number of attachments to the framebuffer. As we have only 1 attachment (Color), hence the array is of 1 element. For color, .color member is meaningful, .depthStencil value is meaningless. When depth attachment will be there, vice versa will be true. To this color member, we need to assign a VkClearColorValue structure. To do this, declare globally the VkClearColorValue structure variable and memset() and initialize it in initialize(). Remember : we are going to clear .color member of VkClearValue structure by VkClearColorValue structure because in Step (16) of RenderPass, we specified .loadOp member of VkAttachmentDescription structure to VK_ATTACHMENT_LOAD_OP_CLEAR.
-        VkClearValue vkClearValue_Array[1];
-        memset((void*)vkClearValue_Array, 0, sizeof(VkClearValue) * _ARRAYSIZE(vkClearValue_Array));
-
-        vkClearValue_Array[0].color = vkClearColorValue;
-
-        //  Then, declare, memset() and initialize the VkRenderPassBeginInfo structure.
-        VkRenderPassBeginInfo vkRenderPassBeginInfo;
-        memset((void*)&vkRenderPassBeginInfo, 0, sizeof(VkRenderPassBeginInfo));
-
-        vkRenderPassBeginInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
-        vkRenderPassBeginInfo.pNext = NULL;
-        vkRenderPassBeginInfo.renderPass = vkRenderPass;
-        vkRenderPassBeginInfo.renderArea.offset.x = 0; // these 4 members are analogous to glViewport() or D3D Viewport
-        vkRenderPassBeginInfo.renderArea.offset.y = 0;
-        vkRenderPassBeginInfo.renderArea.extent.width = vkExtent2D_Swapchain.width;
-        vkRenderPassBeginInfo.renderArea.extent.height = vkExtent2D_Swapchain.height;
-        vkRenderPassBeginInfo.clearValueCount = _ARRAYSIZE(vkClearValue_Array);
-        vkRenderPassBeginInfo.pClearValues = vkClearValue_Array;
-        vkRenderPassBeginInfo.framebuffer = vkFramebuffer_Array[i];
-
-        //  Then, begin the render pass by calling vkCmdBeginRenderPass(). Remember : the code written in “begin render pass” and “end render pass” itself is the code of sub-pass if no sub-pass is explicitly created. In other words, even if no sub-pass is declared explicitly, there is always 1 sub-pass for a render pass.
-        vkCmdBeginRenderPass(
-            vkCommandBuffer_Array[i],  // [in] command buffer
-            &vkRenderPassBeginInfo,    // [in] render pass begin info
-            VK_SUBPASS_CONTENTS_INLINE // [in] subpass contents (inline means : contents of this renderpass are contents of the subpass and part of the primary command buffer)
-        );
-
-        // here, we should call Vulkan drawing functions
-
-		//  Bind the pipeline by calling vkCmdBindPipeline(). Do error checking.
-		vkCmdBindPipeline(
-			vkCommandBuffer_Array[i], // [in] command buffer
-			VK_PIPELINE_BIND_POINT_GRAPHICS, // [in] pipeline bind point
-			vkPipeline                // [in] pipeline object
-		);
-
-		//  Bind the vertex buffer by calling vkCmdBindVertexBuffers(). Do error checking.
-        VkDeviceSize vkDeviceSize_VertexBuffer_offset_array[1];
-		memset((void*)vkDeviceSize_VertexBuffer_offset_array, 0, sizeof(VkDeviceSize) * _ARRAYSIZE(vkDeviceSize_VertexBuffer_offset_array));    
-		vkDeviceSize_VertexBuffer_offset_array[0] = 0; // offset of the vertex buffer
-
-		vkCmdBindVertexBuffers(
-			vkCommandBuffer_Array[i], // [in] command buffer
-			0,                       // [in] binding index
-			1,                       // [in] vertex buffer count
-			&vertexData_position.vkBuffer,         // [in] vertex buffer object
-			vkDeviceSize_VertexBuffer_offset_array // [in] offset array
-		);
-
-		vkCmdDraw(
-			vkCommandBuffer_Array[i], // [in] command buffer
-			3, // [in] number of vertices to draw
-			1,                           // [in] instance count
-			0,                           // [in] first vertex
-			0                            // [in] first instance
-		);
-
-        //  End the render pass by calling vkCmdEndRenderPass().
-        vkCmdEndRenderPass(vkCommandBuffer_Array[i]);
-
-        // End the recording of the command buffer by calling vkEndCommandBuffer(). Do error checking
-        vkResult = vkEndCommandBuffer(vkCommandBuffer_Array[i]);
-
-        if (vkResult != VK_SUCCESS)
-        {
-            fprintf(gpFILE, "buildCommandBuffers() : vkEndCommandBuffer() failed for command buffer %d.\n", i);
-            return(vkResult);
-        }
-        else
-        {
-            fprintf(gpFILE, "buildCommandBuffers() : vkEndCommandBuffer() succeeded for command buffer %d.\n", i);
-        }
-
-        //  Close the loop.
+        ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / g_io->Framerate, g_io->Framerate);
+        ImGui::End();
     }
 
-    return(vkResult);
+    ImGui::Render();
+    ImDrawData* draw_data = ImGui::GetDrawData();
+
+	#endif IMGUI_ENABLE
+
+    // === Only operate on curIndex ===
+
+    // Reset the command buffer
+    vkResult = vkResetCommandBuffer(vkCommandBuffer_Array[curIndex], 0);
+    if (vkResult != VK_SUCCESS)
+    {
+        fprintf(gpFILE, "buildCommandBuffers() : vkResetCommandBuffer() failed for command buffer %d.\n", curIndex);
+        return vkResult;
+    }
+
+    // Begin recording
+    VkCommandBufferBeginInfo beginInfo = {};
+    beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+    beginInfo.flags = 0;
+
+    vkResult = vkBeginCommandBuffer(vkCommandBuffer_Array[curIndex], &beginInfo);
+    if (vkResult != VK_SUCCESS)
+    {
+        fprintf(gpFILE, "buildCommandBuffers() : vkBeginCommandBuffer() failed for command buffer %d.\n", curIndex);
+        return vkResult;
+    }
+
+    VkClearValue clearValue = {};
+    clearValue.color = vkClearColorValue;
+
+    VkRenderPassBeginInfo renderPassInfo = {};
+    renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
+    renderPassInfo.renderPass = vkRenderPass;
+    renderPassInfo.framebuffer = vkFramebuffer_Array[curIndex];
+    renderPassInfo.renderArea.extent = vkExtent2D_Swapchain;
+    renderPassInfo.clearValueCount = 1;
+    renderPassInfo.pClearValues = &clearValue;
+
+    vkCmdBeginRenderPass(vkCommandBuffer_Array[curIndex], &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
+
+    // Draw triangle
+    vkCmdBindPipeline(vkCommandBuffer_Array[curIndex], VK_PIPELINE_BIND_POINT_GRAPHICS, vkPipeline);
+
+    VkDeviceSize offset = 0;
+    vkCmdBindVertexBuffers(vkCommandBuffer_Array[curIndex], 0, 1, &vertexData_position.vkBuffer, &offset);
+    vkCmdDraw(vkCommandBuffer_Array[curIndex], 3, 1, 0, 0);
+
+#ifdef IMGUI_ENABLE
+    // Render ImGui
+    ImGui_ImplVulkan_RenderDrawData(draw_data, vkCommandBuffer_Array[curIndex]);
+#endif //IMGUI_ENABLE
+
+    vkCmdEndRenderPass(vkCommandBuffer_Array[curIndex]);
+
+    vkResult = vkEndCommandBuffer(vkCommandBuffer_Array[curIndex]);
+    if (vkResult != VK_SUCCESS)
+    {
+        fprintf(gpFILE, "buildCommandBuffers() : vkEndCommandBuffer() failed for command buffer %d.\n", curIndex);
+        return vkResult;
+    }
+
+    return vkResult;
 }
 
 
