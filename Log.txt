@@ -1,5 +1,6 @@
 WinMain() : Program started successfully.
 -------------------------------------------------------------------------------------
+resize() : initialization yet not completed.
 fillInstanceExtensionNames() : first call to vkEnumerateInstanceExtensionProperties() succeeded.
 fillInstanceExtensionNames() : second call to vkEnumerateInstanceExtensionProperties() succeeded.
 -------------------------------------------------------------------------------------
@@ -45,6 +46,10 @@ fillValidaionLayerNames() : Vulkan instance extension name = VK_LAYER_NV_ngfx_ca
 fillValidaionLayerNames() : Vulkan instance extension name = VK_LAYER_NV_shader_debugger_release_public_2025_2_0
 fillValidaionLayerNames() : Vulkan instance extension name = VK_LAYER_VALVE_steam_overlay
 fillValidaionLayerNames() : Vulkan instance extension name = VK_LAYER_VALVE_steam_fossilize
+fillValidaionLayerNames() : Vulkan instance extension name = VK_LAYER_NV_nomad_release_public_2025_3_0
+fillValidaionLayerNames() : Vulkan instance extension name = VK_LAYER_NV_GPU_Trace_release_public_2025_3_0
+fillValidaionLayerNames() : Vulkan instance extension name = VK_LAYER_NV_ngfx_capture_release_public_2025_3_0
+fillValidaionLayerNames() : Vulkan instance extension name = VK_LAYER_NV_shader_debugger_release_public_2025_3_0
 fillValidaionLayerNames() : Vulkan instance extension name = VK_LAYER_EOS_Overlay
 fillValidaionLayerNames() : Vulkan instance extension name = VK_LAYER_EOS_Overlay
 fillValidaionLayerNames() : Vulkan instance extension name = VK_LAYER_ROCKSTAR_GAMES_social_club
@@ -342,7 +347,7 @@ getPhysicalDeviceSurfaceFormatAndColorSpace() : vkSurfaceFormatKHR_Array is free
 createSwapchain() : getPhysicalDeviceSurfaceFormatAndColorSpace() succeeded.
 createSwapchain() : vkGetPhysicalDeviceSurfaceCapabilitiesKHR() succeeded.
 createSwapchain() : minImageCount = 2, maxImageCount = 8
-createSwapchain() : (1) Swapchain Image width x height = 784 x 561
+createSwapchain() : (1) Swapchain Image width x height = 1884 x 977
 getPhysicalDevicePresentMode() : vkGetPhysicalDeviceSurfacePresentModesKHR()'s 1st call succeeded.
 getPhysicalDevicePresentMode() : vkGetPhysicalDeviceSurfacePresentModesKHR()'s 2nd call succeeded.
 getPhysicalDevicePresentMode() : vkPresentModeKHR_Array is freed successfully.
@@ -403,10 +408,187 @@ initialize() : createSemaphores() succeeded.
 createFences() : vkCreateFence() succeeded for iteration 0.
 createFences() : vkCreateFence() succeeded for iteration 1.
 initialize() : createFences() succeeded.
+initialize() : initialize complete.
 -------------------------------------------------------------------------------------
 WinMain() : initialize() succeeded.
+getPhysicalDeviceSurfaceFormatAndColorSpace() : vkGetPhysicalDeviceSurfaceFormatsKHR()'s 1st call succeeded.
+getPhysicalDeviceSurfaceFormatAndColorSpace() : vkGetPhysicalDeviceSurfaceFormatsKHR()'s 2nd call succeeded.
+getPhysicalDeviceSurfaceFormatAndColorSpace() : vkSurfaceFormatKHR_Array is freed successfully.
+createSwapchain() : getPhysicalDeviceSurfaceFormatAndColorSpace() succeeded.
+createSwapchain() : vkGetPhysicalDeviceSurfaceCapabilitiesKHR() succeeded.
+createSwapchain() : minImageCount = 2, maxImageCount = 8
+createSwapchain() : (1) Swapchain Image width x height = 3840 x 2160
+getPhysicalDevicePresentMode() : vkGetPhysicalDeviceSurfacePresentModesKHR()'s 1st call succeeded.
+getPhysicalDevicePresentMode() : vkGetPhysicalDeviceSurfacePresentModesKHR()'s 2nd call succeeded.
+getPhysicalDevicePresentMode() : vkPresentModeKHR_Array is freed successfully.
+createSwapchain() : getPhysicalDevicePresentMode() succeeded.
+createSwapchain() : vkCreateSwapchainKHR() succeeded.
+createImagesAndImageViews() : vkGetSwapchainImagesKHR()'s 1st call succeeded.
+createImagesAndImageViews() : gives swapchain image count = 2
+createImagesAndImageViews() : vkGetSwapchainImagesKHR()'s 2nd call succeeded.
+createImagesAndImageViews() : vkCreateImageView() succeeded for iteration 0.
+createImagesAndImageViews() : vkCreateImageView() succeeded for iteration 1.
+createRenderPass() : vkCreateRenderPass() succeeded.
+createPipelineLayout() -> vkCreatePipelineLayout() :  succeeded.
+createGraphicsPipeline() : vkCreatePipelineCache() succeeded.
+createGraphicsPipeline() : vkCreateGraphicsPipelines() succeeded.
+createFramebuffers() : vkCreateFramebuffer() succeeded for iteration 0.
+createFramebuffers() : vkCreateFramebuffer() succeeded for iteration 1.
+createCommandBuffers() : vkAllocateCommandBuffers succeeded for iteration 0.
+createCommandBuffers() : vkAllocateCommandBuffers succeeded for iteration 1.
+getPhysicalDeviceSurfaceFormatAndColorSpace() : vkGetPhysicalDeviceSurfaceFormatsKHR()'s 1st call succeeded.
+getPhysicalDeviceSurfaceFormatAndColorSpace() : vkGetPhysicalDeviceSurfaceFormatsKHR()'s 2nd call succeeded.
+getPhysicalDeviceSurfaceFormatAndColorSpace() : vkSurfaceFormatKHR_Array is freed successfully.
+createSwapchain() : getPhysicalDeviceSurfaceFormatAndColorSpace() succeeded.
+createSwapchain() : vkGetPhysicalDeviceSurfaceCapabilitiesKHR() succeeded.
+createSwapchain() : minImageCount = 2, maxImageCount = 8
+createSwapchain() : (1) Swapchain Image width x height = 1920 x 1080
+getPhysicalDevicePresentMode() : vkGetPhysicalDeviceSurfacePresentModesKHR()'s 1st call succeeded.
+getPhysicalDevicePresentMode() : vkGetPhysicalDeviceSurfacePresentModesKHR()'s 2nd call succeeded.
+getPhysicalDevicePresentMode() : vkPresentModeKHR_Array is freed successfully.
+createSwapchain() : getPhysicalDevicePresentMode() succeeded.
+createSwapchain() : vkCreateSwapchainKHR() succeeded.
+createImagesAndImageViews() : vkGetSwapchainImagesKHR()'s 1st call succeeded.
+createImagesAndImageViews() : gives swapchain image count = 2
+createImagesAndImageViews() : vkGetSwapchainImagesKHR()'s 2nd call succeeded.
+createImagesAndImageViews() : vkCreateImageView() succeeded for iteration 0.
+createImagesAndImageViews() : vkCreateImageView() succeeded for iteration 1.
+createRenderPass() : vkCreateRenderPass() succeeded.
+createPipelineLayout() -> vkCreatePipelineLayout() :  succeeded.
+createGraphicsPipeline() : vkCreatePipelineCache() succeeded.
+createGraphicsPipeline() : vkCreateGraphicsPipelines() succeeded.
+createFramebuffers() : vkCreateFramebuffer() succeeded for iteration 0.
+createFramebuffers() : vkCreateFramebuffer() succeeded for iteration 1.
+createCommandBuffers() : vkAllocateCommandBuffers succeeded for iteration 0.
+createCommandBuffers() : vkAllocateCommandBuffers succeeded for iteration 1.
+getPhysicalDeviceSurfaceFormatAndColorSpace() : vkGetPhysicalDeviceSurfaceFormatsKHR()'s 1st call succeeded.
+getPhysicalDeviceSurfaceFormatAndColorSpace() : vkGetPhysicalDeviceSurfaceFormatsKHR()'s 2nd call succeeded.
+getPhysicalDeviceSurfaceFormatAndColorSpace() : vkSurfaceFormatKHR_Array is freed successfully.
+createSwapchain() : getPhysicalDeviceSurfaceFormatAndColorSpace() succeeded.
+createSwapchain() : vkGetPhysicalDeviceSurfaceCapabilitiesKHR() succeeded.
+createSwapchain() : minImageCount = 2, maxImageCount = 8
+createSwapchain() : (1) Swapchain Image width x height = 1884 x 977
+getPhysicalDevicePresentMode() : vkGetPhysicalDeviceSurfacePresentModesKHR()'s 1st call succeeded.
+getPhysicalDevicePresentMode() : vkGetPhysicalDeviceSurfacePresentModesKHR()'s 2nd call succeeded.
+getPhysicalDevicePresentMode() : vkPresentModeKHR_Array is freed successfully.
+createSwapchain() : getPhysicalDevicePresentMode() succeeded.
+createSwapchain() : vkCreateSwapchainKHR() succeeded.
+createImagesAndImageViews() : vkGetSwapchainImagesKHR()'s 1st call succeeded.
+createImagesAndImageViews() : gives swapchain image count = 2
+createImagesAndImageViews() : vkGetSwapchainImagesKHR()'s 2nd call succeeded.
+createImagesAndImageViews() : vkCreateImageView() succeeded for iteration 0.
+createImagesAndImageViews() : vkCreateImageView() succeeded for iteration 1.
+createRenderPass() : vkCreateRenderPass() succeeded.
+createPipelineLayout() -> vkCreatePipelineLayout() :  succeeded.
+createGraphicsPipeline() : vkCreatePipelineCache() succeeded.
+createGraphicsPipeline() : vkCreateGraphicsPipelines() succeeded.
+createFramebuffers() : vkCreateFramebuffer() succeeded for iteration 0.
+createFramebuffers() : vkCreateFramebuffer() succeeded for iteration 1.
+createCommandBuffers() : vkAllocateCommandBuffers succeeded for iteration 0.
+createCommandBuffers() : vkAllocateCommandBuffers succeeded for iteration 1.
+getPhysicalDeviceSurfaceFormatAndColorSpace() : vkGetPhysicalDeviceSurfaceFormatsKHR()'s 1st call succeeded.
+getPhysicalDeviceSurfaceFormatAndColorSpace() : vkGetPhysicalDeviceSurfaceFormatsKHR()'s 2nd call succeeded.
+getPhysicalDeviceSurfaceFormatAndColorSpace() : vkSurfaceFormatKHR_Array is freed successfully.
+createSwapchain() : getPhysicalDeviceSurfaceFormatAndColorSpace() succeeded.
+createSwapchain() : vkGetPhysicalDeviceSurfaceCapabilitiesKHR() succeeded.
+createSwapchain() : minImageCount = 2, maxImageCount = 8
+createSwapchain() : (1) Swapchain Image width x height = 1920 x 1080
+getPhysicalDevicePresentMode() : vkGetPhysicalDeviceSurfacePresentModesKHR()'s 1st call succeeded.
+getPhysicalDevicePresentMode() : vkGetPhysicalDeviceSurfacePresentModesKHR()'s 2nd call succeeded.
+getPhysicalDevicePresentMode() : vkPresentModeKHR_Array is freed successfully.
+createSwapchain() : getPhysicalDevicePresentMode() succeeded.
+createSwapchain() : vkCreateSwapchainKHR() succeeded.
+createImagesAndImageViews() : vkGetSwapchainImagesKHR()'s 1st call succeeded.
+createImagesAndImageViews() : gives swapchain image count = 2
+createImagesAndImageViews() : vkGetSwapchainImagesKHR()'s 2nd call succeeded.
+createImagesAndImageViews() : vkCreateImageView() succeeded for iteration 0.
+createImagesAndImageViews() : vkCreateImageView() succeeded for iteration 1.
+createRenderPass() : vkCreateRenderPass() succeeded.
+createPipelineLayout() -> vkCreatePipelineLayout() :  succeeded.
+createGraphicsPipeline() : vkCreatePipelineCache() succeeded.
+createGraphicsPipeline() : vkCreateGraphicsPipelines() succeeded.
+createFramebuffers() : vkCreateFramebuffer() succeeded for iteration 0.
+createFramebuffers() : vkCreateFramebuffer() succeeded for iteration 1.
+createCommandBuffers() : vkAllocateCommandBuffers succeeded for iteration 0.
+createCommandBuffers() : vkAllocateCommandBuffers succeeded for iteration 1.
+getPhysicalDeviceSurfaceFormatAndColorSpace() : vkGetPhysicalDeviceSurfaceFormatsKHR()'s 1st call succeeded.
+getPhysicalDeviceSurfaceFormatAndColorSpace() : vkGetPhysicalDeviceSurfaceFormatsKHR()'s 2nd call succeeded.
+getPhysicalDeviceSurfaceFormatAndColorSpace() : vkSurfaceFormatKHR_Array is freed successfully.
+createSwapchain() : getPhysicalDeviceSurfaceFormatAndColorSpace() succeeded.
+createSwapchain() : vkGetPhysicalDeviceSurfaceCapabilitiesKHR() succeeded.
+createSwapchain() : minImageCount = 2, maxImageCount = 8
+createSwapchain() : (1) Swapchain Image width x height = 3840 x 2160
+getPhysicalDevicePresentMode() : vkGetPhysicalDeviceSurfacePresentModesKHR()'s 1st call succeeded.
+getPhysicalDevicePresentMode() : vkGetPhysicalDeviceSurfacePresentModesKHR()'s 2nd call succeeded.
+getPhysicalDevicePresentMode() : vkPresentModeKHR_Array is freed successfully.
+createSwapchain() : getPhysicalDevicePresentMode() succeeded.
+createSwapchain() : vkCreateSwapchainKHR() succeeded.
+createImagesAndImageViews() : vkGetSwapchainImagesKHR()'s 1st call succeeded.
+createImagesAndImageViews() : gives swapchain image count = 2
+createImagesAndImageViews() : vkGetSwapchainImagesKHR()'s 2nd call succeeded.
+createImagesAndImageViews() : vkCreateImageView() succeeded for iteration 0.
+createImagesAndImageViews() : vkCreateImageView() succeeded for iteration 1.
+createRenderPass() : vkCreateRenderPass() succeeded.
+createPipelineLayout() -> vkCreatePipelineLayout() :  succeeded.
+createGraphicsPipeline() : vkCreatePipelineCache() succeeded.
+createGraphicsPipeline() : vkCreateGraphicsPipelines() succeeded.
+createFramebuffers() : vkCreateFramebuffer() succeeded for iteration 0.
+createFramebuffers() : vkCreateFramebuffer() succeeded for iteration 1.
+createCommandBuffers() : vkAllocateCommandBuffers succeeded for iteration 0.
+createCommandBuffers() : vkAllocateCommandBuffers succeeded for iteration 1.
+getPhysicalDeviceSurfaceFormatAndColorSpace() : vkGetPhysicalDeviceSurfaceFormatsKHR()'s 1st call succeeded.
+getPhysicalDeviceSurfaceFormatAndColorSpace() : vkGetPhysicalDeviceSurfaceFormatsKHR()'s 2nd call succeeded.
+getPhysicalDeviceSurfaceFormatAndColorSpace() : vkSurfaceFormatKHR_Array is freed successfully.
+createSwapchain() : getPhysicalDeviceSurfaceFormatAndColorSpace() succeeded.
+createSwapchain() : vkGetPhysicalDeviceSurfaceCapabilitiesKHR() succeeded.
+createSwapchain() : minImageCount = 2, maxImageCount = 8
+createSwapchain() : (1) Swapchain Image width x height = 1920 x 1080
+getPhysicalDevicePresentMode() : vkGetPhysicalDeviceSurfacePresentModesKHR()'s 1st call succeeded.
+getPhysicalDevicePresentMode() : vkGetPhysicalDeviceSurfacePresentModesKHR()'s 2nd call succeeded.
+getPhysicalDevicePresentMode() : vkPresentModeKHR_Array is freed successfully.
+createSwapchain() : getPhysicalDevicePresentMode() succeeded.
+createSwapchain() : vkCreateSwapchainKHR() succeeded.
+createImagesAndImageViews() : vkGetSwapchainImagesKHR()'s 1st call succeeded.
+createImagesAndImageViews() : gives swapchain image count = 2
+createImagesAndImageViews() : vkGetSwapchainImagesKHR()'s 2nd call succeeded.
+createImagesAndImageViews() : vkCreateImageView() succeeded for iteration 0.
+createImagesAndImageViews() : vkCreateImageView() succeeded for iteration 1.
+createRenderPass() : vkCreateRenderPass() succeeded.
+createPipelineLayout() -> vkCreatePipelineLayout() :  succeeded.
+createGraphicsPipeline() : vkCreatePipelineCache() succeeded.
+createGraphicsPipeline() : vkCreateGraphicsPipelines() succeeded.
+createFramebuffers() : vkCreateFramebuffer() succeeded for iteration 0.
+createFramebuffers() : vkCreateFramebuffer() succeeded for iteration 1.
+createCommandBuffers() : vkAllocateCommandBuffers succeeded for iteration 0.
+createCommandBuffers() : vkAllocateCommandBuffers succeeded for iteration 1.
+getPhysicalDeviceSurfaceFormatAndColorSpace() : vkGetPhysicalDeviceSurfaceFormatsKHR()'s 1st call succeeded.
+getPhysicalDeviceSurfaceFormatAndColorSpace() : vkGetPhysicalDeviceSurfaceFormatsKHR()'s 2nd call succeeded.
+getPhysicalDeviceSurfaceFormatAndColorSpace() : vkSurfaceFormatKHR_Array is freed successfully.
+createSwapchain() : getPhysicalDeviceSurfaceFormatAndColorSpace() succeeded.
+createSwapchain() : vkGetPhysicalDeviceSurfaceCapabilitiesKHR() succeeded.
+createSwapchain() : minImageCount = 2, maxImageCount = 8
+createSwapchain() : (1) Swapchain Image width x height = 1884 x 977
+getPhysicalDevicePresentMode() : vkGetPhysicalDeviceSurfacePresentModesKHR()'s 1st call succeeded.
+getPhysicalDevicePresentMode() : vkGetPhysicalDeviceSurfacePresentModesKHR()'s 2nd call succeeded.
+getPhysicalDevicePresentMode() : vkPresentModeKHR_Array is freed successfully.
+createSwapchain() : getPhysicalDevicePresentMode() succeeded.
+createSwapchain() : vkCreateSwapchainKHR() succeeded.
+createImagesAndImageViews() : vkGetSwapchainImagesKHR()'s 1st call succeeded.
+createImagesAndImageViews() : gives swapchain image count = 2
+createImagesAndImageViews() : vkGetSwapchainImagesKHR()'s 2nd call succeeded.
+createImagesAndImageViews() : vkCreateImageView() succeeded for iteration 0.
+createImagesAndImageViews() : vkCreateImageView() succeeded for iteration 1.
+createRenderPass() : vkCreateRenderPass() succeeded.
+createPipelineLayout() -> vkCreatePipelineLayout() :  succeeded.
+createGraphicsPipeline() : vkCreatePipelineCache() succeeded.
+createGraphicsPipeline() : vkCreateGraphicsPipelines() succeeded.
+createFramebuffers() : vkCreateFramebuffer() succeeded for iteration 0.
+createFramebuffers() : vkCreateFramebuffer() succeeded for iteration 1.
+createCommandBuffers() : vkAllocateCommandBuffers succeeded for iteration 0.
+createCommandBuffers() : vkAllocateCommandBuffers succeeded for iteration 1.
 -------------------------------------------------------------------------------------
 uninitialize() : vkDeviceWaitIdle() is done.
+uninitialize() : ImGui uninitialization is done.
 uninitialize() : vkDestroyFence() succeeded for iteration 0.
 uninitialize() : vkDestroyFence() succeeded for iteration 1.
 uninitialize() : successfully freed the memory allocated to vkFence_Array.

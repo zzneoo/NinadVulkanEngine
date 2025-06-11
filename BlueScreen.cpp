@@ -22,8 +22,8 @@
 #pragma comment(lib, "vulkan-1.lib")
 
 // macros
-#define WIN_WIDTH  800
-#define WIN_HEIGHT 600
+#define WIN_WIDTH  1920
+#define WIN_HEIGHT 1080
 #define WIN_TITLE  TEXT(" Vulkan ")
 #define LINE_END     "-------------------------------------------------------------------------------------\n"
 
@@ -168,6 +168,9 @@ int WINAPI WinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, _
     void update(void);
     void uninitialize();
 
+    // For Windows 10 and later
+    SetProcessDpiAwarenessContext(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2);
+
     // local variable declarations
     MSG        msg;
     WNDCLASSEX wndclass;
@@ -280,7 +283,13 @@ int WINAPI WinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, _
         else if (gbActive)
         {
             // Render
-            display();
+            vkResult = display();
+
+            if (vkResult != VK_FALSE && vkResult != VK_SUCCESS)
+            {
+                fprintf(gpFILE, "WinMain() : display() failed (%d).\n", vkResult);
+                bDone = TRUE;
+            }
 
             // Update
             update();
@@ -300,7 +309,7 @@ int WINAPI WinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, _
 LRESULT CALLBACK WndProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM lParam)
 {
     // function declarations
-    void resize(int width, int height);
+    VkResult resize(int width, int height);
     void ToggleFullscreen(void);
 
 #ifdef IMGUI_ENABLE
@@ -719,6 +728,11 @@ VkResult initialize(void)
     // io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;   // optional
     // io.ConfigFlags |= ImGuiConfigFlags_ViewportsEnable; // optional
 
+    float dpiScale = 3.0f; // Adjust based on DPI (e.g. 2.0 for 4K on 1080p UI size)
+
+    // Scale all UI elements globally
+    g_io->FontGlobalScale = dpiScale;
+
     ImGui::StyleColorsDark();  // or Light, Classic, etc.
 
     //---------------------
@@ -774,12 +788,26 @@ VkResult initialize(void)
     //-------------------------------------------------------------------------------------
 
     bInitialized = TRUE;
+    fprintf(gpFILE, "initialize() : initialize complete.\n");
 
     return(vkResult);
 }
 
-void resize(int width, int height)
+VkResult resize(int width, int height)
 {
+	// function declarations
+	VkResult createSwapchain(VkBool32);
+	VkResult createImagesAndImageViews(void);
+	VkResult createCommandBuffers(void);
+	VkResult createPipelineLayout(void);
+	VkResult createGraphicsPipeline(void);
+	VkResult createRenderPass(void);
+	VkResult createFramebuffers(void);
+	VkResult buildCommandBuffers(uint32_t curIndex);
+
+
+	// variable declarations
+	VkResult vkResult = VK_SUCCESS;
     // code
     // reset the height to 1 to avoid a division by 0
     if (height <= 0)
@@ -787,11 +815,198 @@ void resize(int width, int height)
         height = 1;
     }
 
+	// if control comes here before initialization is completed, return false
+	if (bInitialized == FALSE)
+	{
+		fprintf(gpFILE, "resize() : initialization yet not completed.\n");
+		return VK_ERROR_INITIALIZATION_FAILED;
+	}
+
+	bInitialized = FALSE; // set to false to avoid multiple calls to resize() before initialization is completed
+
     // set the global winWidth and winHeight variables
     winWidth = width;
     winHeight = height;
+
+	//--------------------------------------------------------------------------------------
+    if(vkDevice)
+	vkDeviceWaitIdle(vkDevice); // wait for the device to finish all operations before resizing
+
+	//destroy old swapchain
+	if (vkSwapchainKHR == VK_NULL_HANDLE)
+	{
+        fprintf(gpFILE, "resize() : vkSwapchainKHR is already NULL canot proceed.\n");
+        return VK_ERROR_INITIALIZATION_FAILED;
+	}
+
+	//destroy framebuffers
+    if (vkFramebuffer_Array)
+    {
+        for (uint32_t i = 0; i < swapchainImageCount; i++)
+        {
+            vkDestroyFramebuffer(vkDevice, vkFramebuffer_Array[i], NULL);
+            vkFramebuffer_Array[i] = VK_NULL_HANDLE;
+
+            //fprintf(gpFILE, "resize() : vkDestroyFramebuffer() succeeded for iteration %d.\n", i);
+        }
+
+        free(vkFramebuffer_Array);
+        vkFramebuffer_Array = NULL;
+
+        //fprintf(gpFILE, "resize() : successfully freed the memory allocated to vkFramebuffer_Array.\n");
+    }
+
+    // vkCommandBuffer
+    for (uint32_t i = 0; i < swapchainImageCount; i++)
+    {
+        vkFreeCommandBuffers(vkDevice, vkCommandPool, 1, &vkCommandBuffer_Array[i]);
+        // fprintf(gpFILE, "resize() : vkFreeCommandBuffers() succeeded for iteration %d.\n", i);
+    }
+    if (vkCommandBuffer_Array)
+    {
+        free(vkCommandBuffer_Array);
+        vkCommandBuffer_Array = NULL;
+
+        // fprintf(gpFILE, "resize() : successfully freed memory for the command buffer array.\n");
+    }
+
+    // pipeline
+    if (vkPipeline)
+    {
+        vkDestroyPipeline(vkDevice, vkPipeline, NULL);
+        vkPipeline = VK_NULL_HANDLE;
+
+       // fprintf(gpFILE, "resize() : vkDestroyPipeline() succeeded.\n");
+    }
+
+    // renderpass
+    if (vkRenderPass)
+    {
+        vkDestroyRenderPass(vkDevice, vkRenderPass, NULL);
+        vkRenderPass = VK_NULL_HANDLE;
+
+        //fprintf(gpFILE, "resize() : vkDestroyRenderPass() succeeded.\n");
+    }
+
+    //pipeline layout
+    if (vkPipelineLayout)
+    {
+        vkDestroyPipelineLayout(vkDevice, vkPipelineLayout, NULL);
+        vkPipelineLayout = VK_NULL_HANDLE;
+        //fprintf(gpFILE, "resize() : vkDestroyPipelineLayout() succeeded.\n");
+    }
+
+    // ImageView
+    for (uint32_t i = 0; i < swapchainImageCount; i++)
+    {
+        vkDestroyImageView(vkDevice, swapchainImageView_Array[i], NULL);
+        //fprintf(gpFILE, "resize() : vkDestroyImageView() succeeded for iteration %d.\n", i);
+    }
+    if (swapchainImageView_Array)
+    {
+        free(swapchainImageView_Array);
+        swapchainImageView_Array = NULL;
+
+        //fprintf(gpFILE, "resize() : successfully freed the swapchain image views array.\n");
+    }
+
+    // Image
+    if (swapchainImage_Array)
+    {
+        free(swapchainImage_Array);
+        swapchainImage_Array = NULL;
+
+        //fprintf(gpFILE, "uninitialize() : successfully freed the swapchain images array.\n");
+    }
+
+	// destroy swapchain
+	if (vkSwapchainKHR)
+	{
+		vkDestroySwapchainKHR(vkDevice, vkSwapchainKHR, NULL);
+		vkSwapchainKHR = VK_NULL_HANDLE;
+
+		//fprintf(gpFILE, "resize() : vkDestroySwapchainKHR() succeeded.\n");
+	}
+
+    //-----------------------------------------------------------------------------
+	// re-create swapchain
+
+	vkResult = createSwapchain(VK_TRUE);
+	if (vkResult != VK_SUCCESS)
+	{
+		fprintf(gpFILE, "resize() : createSwapchain() failed (%d).\n", vkResult);
+		return(vkResult);
+	}
+
+	//create images and image views
+	vkResult = createImagesAndImageViews();
+	if (vkResult != VK_SUCCESS)
+	{
+		fprintf(gpFILE, "resize() : createImagesAndImageViews() failed (%d).\n", vkResult);
+		return(vkResult);
+	}
+
+    //create render pass
+    vkResult = createRenderPass();
+    if (vkResult != VK_SUCCESS)
+    {
+        fprintf(gpFILE, "resize() : createRenderPass() failed (%d).\n", vkResult);
+        return(vkResult);
+    }
+
+	//create pipeline layout
+	vkResult = createPipelineLayout();
+	if (vkResult != VK_SUCCESS)
+	{
+		fprintf(gpFILE, "resize() : createPipelineLayout() failed (%d).\n", vkResult);
+		return(vkResult);
+	}
+
+	//create graphics pipeline
+	vkResult = createGraphicsPipeline();
+	if (vkResult != VK_SUCCESS)
+	{
+		fprintf(gpFILE, "resize() : createGraphicsPipeline() failed (%d).\n", vkResult);
+		return(vkResult);
+	}
+
+	//create framebuffers
+	vkResult = createFramebuffers();
+	if (vkResult != VK_SUCCESS)
+	{
+		fprintf(gpFILE, "resize() : createFramebuffers() failed (%d).\n", vkResult);
+		return(vkResult);
+	}
+
+    //create command buffers
+    vkResult = createCommandBuffers();
+    if (vkResult != VK_SUCCESS)
+    {
+        fprintf(gpFILE, "resize() : createCommandBuffers() failed (%d).\n", vkResult);
+        return(vkResult);
+    }
+
+	//build command buffers
+	vkResult = buildCommandBuffers(0); // passing 0 as curIndex since we are not using fences here
+	if (vkResult != VK_SUCCESS)
+	{
+		fprintf(gpFILE, "resize() : buildCommandBuffers() failed (%d).\n", vkResult);
+		return(vkResult);
+	}
+	vkResult = buildCommandBuffers(1);// passing 1 as curIndex since we are not using fences here
+    if (vkResult != VK_SUCCESS)
+    {
+        fprintf(gpFILE, "resize() : buildCommandBuffers() failed (%d).\n", vkResult);
+        return(vkResult);
+    }
+
+	
+	bInitialized = TRUE; // set to true to allow display() to work
+
+    return vkResult;
 }
 
+/*
 VkResult display_(void)
 {
     // variable declarations
@@ -924,7 +1139,7 @@ VkResult display_(void)
 
     return(vkResult);
 }
-
+*/
 
 VkResult display(void)
 {
@@ -978,7 +1193,7 @@ VkResult display(void)
     //--------------------------------------------------------------------------------------
         //IMGUI dynamic
     {
-        vkResult = buildCommandBuffers(curIndex);
+        vkResult = buildCommandBuffers(currentImageIndex);
         if (vkResult != VK_SUCCESS)
         {
             fprintf(gpFILE, "display() : buildCommandBuffers() failed (%d).\n", vkResult);
@@ -996,7 +1211,7 @@ VkResult display(void)
     vkSubmitInfo.pWaitSemaphores = &vkSemaphore_BackBuffer[curIndex];
     vkSubmitInfo.pWaitDstStageMask = &waitDstStageMask;
     vkSubmitInfo.commandBufferCount = 1;
-    vkSubmitInfo.pCommandBuffers = &vkCommandBuffer_Array[curIndex];
+    vkSubmitInfo.pCommandBuffers = &vkCommandBuffer_Array[currentImageIndex];
     vkSubmitInfo.signalSemaphoreCount = 1;
     vkSubmitInfo.pSignalSemaphores = &vkSemaphore_RenderComplete[curIndex];
 
@@ -3743,6 +3958,19 @@ VkResult createRenderPass(void)
     vkSubpassDescription.preserveAttachmentCount = 0;
     vkSubpassDescription.pPreserveAttachments = NULL;
 
+    ////----------dependancy-----------------------
+
+    //// after setting up vkSubpassDescription …
+    //VkSubpassDependency dependency = {};
+    //dependency.srcSubpass = VK_SUBPASS_EXTERNAL;
+    //dependency.dstSubpass = 0;
+    //dependency.srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+    //dependency.dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+    //dependency.srcAccessMask = 0;
+    //dependency.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+
+    ////-------------------------------------------
+
     // sub-step (4) : Declare and initialize VkRenderPassCreateInfo structure and refer above VkAttachmentDescription and VkSubPassDescription into it. Remember: here also we need attachment information in the form of image views which will be used by framebuffer later. We also need to specify inter-dependency between subpasses if needed.
     VkRenderPassCreateInfo vkRenderPassCreateInfo;
     memset((void*)&vkRenderPassCreateInfo, 0, sizeof(VkRenderPassCreateInfo));
@@ -3755,6 +3983,8 @@ VkResult createRenderPass(void)
     vkRenderPassCreateInfo.pSubpasses = &vkSubpassDescription;
     vkRenderPassCreateInfo.dependencyCount = 0;
     vkRenderPassCreateInfo.pDependencies = NULL;
+    //vkRenderPassCreateInfo.dependencyCount = 1;
+    //vkRenderPassCreateInfo.pDependencies = &dependency;
 
     // sub-step (5) : Now call vkCreateRenderPass() API to create the actual RenderPass.
     vkResult = vkCreateRenderPass(vkDevice, &vkRenderPassCreateInfo, NULL, &vkRenderPass);
