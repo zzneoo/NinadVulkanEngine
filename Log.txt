@@ -1,8 +1,6 @@
 WinMain() : Program started successfully.
 -------------------------------------------------------------------------------------
 resize() : initialization yet not completed.
-fillInstanceExtensionNames() : first call to vkEnumerateInstanceExtensionProperties() succeeded.
-fillInstanceExtensionNames() : second call to vkEnumerateInstanceExtensionProperties() succeeded.
 -------------------------------------------------------------------------------------
 fillInstanceExtensionNames() : Vulkan instance extension name = VK_KHR_device_group_creation
 fillInstanceExtensionNames() : Vulkan instance extension name = VK_KHR_display
@@ -32,9 +30,6 @@ fillInstanceExtensionNames() : Enabled Vulkan instance extension name = VK_KHR_s
 fillInstanceExtensionNames() : Enabled Vulkan instance extension name = VK_KHR_win32_surface
 fillInstanceExtensionNames() : Enabled Vulkan instance extension name = VK_EXT_debug_report
 -------------------------------------------------------------------------------------
-createVulkanInstance() : fillInstanceExtensionNames() succeeded.
-fillValidaionLayerNames() : first call to vkEnumerateInstanceLayerProperties() succeeded.
-fillValidaionLayerNames() : second call to vkEnumerateInstanceLayerProperties() succeeded.
 -------------------------------------------------------------------------------------
 fillValidaionLayerNames() : Vulkan instance extension name = VK_LAYER_NV_optimus
 fillValidaionLayerNames() : Vulkan instance extension name = VK_LAYER_NV_gr2608
@@ -66,22 +61,10 @@ fillValidaionLayerNames() : Vulkan instance extension name = VK_LAYER_LUNARG_cra
 fillValidaionLayerNames() : VK_LAYER_KHRONOS_validation found.
 fillValidaionLayerNames() : Enabled Vulkan instance extension name = VK_LAYER_KHRONOS_validation
 -------------------------------------------------------------------------------------
-createVulkanInstance() : fillValidaionLayerNames() succeeded.
 createVulkanInstance() : vkCreateInstance() succeeded.
-createValidationCallbackFunction() : vkGetInstanceProcAddr succeded to get vkCreateDebugReportCallbackEXT_fnptr .
-createValidationCallbackFunction() : vkGetInstanceProcAddr succeded to get vkDestroyDebugReportCallbackEXT_fnptr .
-createValidationCallbackFunction() : vkCreateDebugReportCallbackEXT_fnptr succeeded.
-initialize() : createVulkanInstance() succeeded.
-getSupportedSurface() : vkCreateWin32SurfaceKHR() succeeded.
-initialize() : getSupportedSurface() succeeded.
-getPhysicalDevice() : 1st call to vkEnumeratePhysicalDevices() succeeded.
-getPhysicalDevice() : 2nd call to vkEnumeratePhysicalDevices() succeeded.
-getPhysicalDevice() : succeeded to free isQueueSurfaceSupported_Array.
-getPhysicalDevice() : succeeded to free vkQueueFamilyProperties_Array.
 getPhysicalDevice() : succeeded to select required physical device with graphics enabled.
 getPhysicalDevice() : Selected physical device supports tessellation shader.
 getPhysicalDevice() : Selected physical device supports geometry shader.
-initialize() : getPhysicalDevice() succeeded.
 --------------------------Vulkan Info--------------------------
 -------------------------------------------------------------------------------------
 printVkInfo() : API Version = 1.4.303
@@ -90,10 +73,6 @@ printVkInfo() : Device Type = Discrete GPU (dGPU)
 printVkInfo() : Vendor ID   = 0x10de
 printVkInfo() : Device ID   = 0x2684
 -------------------------------------------------------------------------------------
-printVkInfo() : succeeded to free vkPhysicalDevice_Array.
-initialize() : printVkInfo() succeeded.
-fillDeviceExtensionNames() : first call to vkEnumerateDeviceExtensionProperties() succeeded.
-fillDeviceExtensionNames() : second call to vkEnumerateDeviceExtensionProperties() succeeded.
 -------------------------------------------------------------------------------------
 fillDeviceExtensionNames() : Vulkan device extension name = VK_KHR_16bit_storage
 fillDeviceExtensionNames() : Vulkan device extension name = VK_KHR_8bit_storage
@@ -333,286 +312,225 @@ fillDeviceExtensionNames() : Vulkan device extension name = VK_NVX_multiview_per
 fillDeviceExtensionNames() : Vulkan device extension name = VK_AMD_buffer_marker
 fillDeviceExtensionNames() : Vulkan device extension name = VK_GOOGLE_user_type
 -------------------------------------------------------------------------------------
-fillDeviceExtensionNames() : VK_KHR_SWAPCHAIN_EXTENSION_NAME found.
 -------------------------------------------------------------------------------------
 fillDeviceExtensionNames() : Enabled Vulkan device extension name = VK_KHR_swapchain
 -------------------------------------------------------------------------------------
-createVulkanDevice() : fillDeviceExtensionNames() succeeded.
-createVulkanDevice() : vkCreateDevice() succeeded.
-initialize() : createVulkanDevice() succeeded.
-getDeviceQueue() : vkGetDeviceQueue() succeeded.
-getPhysicalDeviceSurfaceFormatAndColorSpace() : vkGetPhysicalDeviceSurfaceFormatsKHR()'s 1st call succeeded.
-getPhysicalDeviceSurfaceFormatAndColorSpace() : vkGetPhysicalDeviceSurfaceFormatsKHR()'s 2nd call succeeded.
-getPhysicalDeviceSurfaceFormatAndColorSpace() : vkSurfaceFormatKHR_Array is freed successfully.
-createSwapchain() : getPhysicalDeviceSurfaceFormatAndColorSpace() succeeded.
-createSwapchain() : vkGetPhysicalDeviceSurfaceCapabilitiesKHR() succeeded.
 createSwapchain() : minImageCount = 2, maxImageCount = 8
 createSwapchain() : (1) Swapchain Image width x height = 1884 x 977
-getPhysicalDevicePresentMode() : vkGetPhysicalDeviceSurfacePresentModesKHR()'s 1st call succeeded.
-getPhysicalDevicePresentMode() : vkGetPhysicalDeviceSurfacePresentModesKHR()'s 2nd call succeeded.
-getPhysicalDevicePresentMode() : vkPresentModeKHR_Array is freed successfully.
-createSwapchain() : getPhysicalDevicePresentMode() succeeded.
-createSwapchain() : vkCreateSwapchainKHR() succeeded.
-initialize() : createSwapchain() succeeded.
-createImagesAndImageViews() : vkGetSwapchainImagesKHR()'s 1st call succeeded.
 createImagesAndImageViews() : gives swapchain image count = 2
-createImagesAndImageViews() : vkGetSwapchainImagesKHR()'s 2nd call succeeded.
-createImagesAndImageViews() : vkCreateImageView() succeeded for iteration 0.
-createImagesAndImageViews() : vkCreateImageView() succeeded for iteration 1.
-initialize() : createImagesAndImageViews() succeeded.
-createCommandPool() : vkCreateCommandPool() succeeded.
-initialize() : createCommandPool() succeeded.
-createCommandBuffers() : vkAllocateCommandBuffers succeeded for iteration 0.
-createCommandBuffers() : vkAllocateCommandBuffers succeeded for iteration 1.
-initialize() : createCommandBuffers() succeeded.
-createVertexBuffer() -> vkCreateBuffer():  succeeded.
-createVertexBuffer() -> vkAllocateMemory() :  succeeded.
-createVertexBuffer() -> vkBindBufferMemory() :  succeeded.
-createVertexBuffer() -> vkMapMemory() :  succeeded.
-createVertexBuffer() -> vkCreateBuffer():  succeeded.
-createVertexBuffer() -> vkAllocateMemory() :  succeeded.
-createVertexBuffer() -> vkBindBufferMemory() :  succeeded.
-createVertexBuffer() -> vkAllocateCommandBuffers() :  succeeded.
-createVertexBuffer() -> vkBeginCommandBuffer() :  succeeded.
-createVertexBuffer() -> vkEndCommandBuffer() :  succeeded.
-createVertexBuffer() -> vkQueueSubmit() :  succeeded.
-createVertexBuffer() -> vkQueueWaitIdle() :  succeeded.
-createVertexBuffer() -> vkDestroyBuffer() :  staging buffer destroyed.
-createVertexBuffer() -> vkFreeMemory() :  staging buffer memory freed.
-createVertexBuffer() -> vkFreeCommandBuffers() :  command buffer freed.
-initialize() : createVertexBuffer() succeeded.
-createShaders() -> fopen_s() :  succeeded.
-createShaders() -> fread() :  succeeded.
-createShaders() ->  vertex vkCreateShaderModule() :  succeeded.
-createShaders() -> fopen_s() :  succeeded.
-createShaders() -> fread() :  succeeded.
-createShaders() ->  fragment vkCreateShaderModule() :  succeeded.
-initialize() : createShaders() succeeded.
-createDiscriptorSetLayout() -> vkCreateDescriptorSetLayout() :  succeeded.
-initialize() : createDescriptorSetLayout() succeeded.
-createPipelineLayout() -> vkCreatePipelineLayout() :  succeeded.
-initialize() : createPipelineLayout() succeeded.
-createRenderPass() : vkCreateRenderPass() succeeded.
-initialize() : createRenderPass() succeeded.
-createGraphicsPipeline() : vkCreatePipelineCache() succeeded.
-createGraphicsPipeline() : vkCreateGraphicsPipelines() succeeded.
-initialize() : createGraphicsPipeline() succeeded.
-createFramebuffers() : vkCreateFramebuffer() succeeded for iteration 0.
-createFramebuffers() : vkCreateFramebuffer() succeeded for iteration 1.
-initialize() : createFramebuffers() succeeded.
-createSemaphores() : vkCreateSemaphore() succeeded for back buffer semaphore.
-createSemaphores() : vkCreateSemaphore() succeeded for render complete semaphore.
-createSemaphores() : vkCreateSemaphore() succeeded for back buffer semaphore.
-createSemaphores() : vkCreateSemaphore() succeeded for render complete semaphore.
-initialize() : createSemaphores() succeeded.
-createFences() : vkCreateFence() succeeded for iteration 0.
-createFences() : vkCreateFence() succeeded for iteration 1.
-initialize() : createFences() succeeded.
 initialize() : initialize complete.
 -------------------------------------------------------------------------------------
+
+
+
+
 WinMain() : initialize() succeeded.
-getPhysicalDeviceSurfaceFormatAndColorSpace() : vkGetPhysicalDeviceSurfaceFormatsKHR()'s 1st call succeeded.
-getPhysicalDeviceSurfaceFormatAndColorSpace() : vkGetPhysicalDeviceSurfaceFormatsKHR()'s 2nd call succeeded.
-getPhysicalDeviceSurfaceFormatAndColorSpace() : vkSurfaceFormatKHR_Array is freed successfully.
-createSwapchain() : getPhysicalDeviceSurfaceFormatAndColorSpace() succeeded.
-createSwapchain() : vkGetPhysicalDeviceSurfaceCapabilitiesKHR() succeeded.
-createSwapchain() : minImageCount = 2, maxImageCount = 8
-createSwapchain() : (1) Swapchain Image width x height = 3840 x 2160
-getPhysicalDevicePresentMode() : vkGetPhysicalDeviceSurfacePresentModesKHR()'s 1st call succeeded.
-getPhysicalDevicePresentMode() : vkGetPhysicalDeviceSurfacePresentModesKHR()'s 2nd call succeeded.
-getPhysicalDevicePresentMode() : vkPresentModeKHR_Array is freed successfully.
-createSwapchain() : getPhysicalDevicePresentMode() succeeded.
-createSwapchain() : vkCreateSwapchainKHR() succeeded.
-createImagesAndImageViews() : vkGetSwapchainImagesKHR()'s 1st call succeeded.
-createImagesAndImageViews() : gives swapchain image count = 2
-createImagesAndImageViews() : vkGetSwapchainImagesKHR()'s 2nd call succeeded.
-createImagesAndImageViews() : vkCreateImageView() succeeded for iteration 0.
-createImagesAndImageViews() : vkCreateImageView() succeeded for iteration 1.
-createRenderPass() : vkCreateRenderPass() succeeded.
-createPipelineLayout() -> vkCreatePipelineLayout() :  succeeded.
-createGraphicsPipeline() : vkCreatePipelineCache() succeeded.
-createGraphicsPipeline() : vkCreateGraphicsPipelines() succeeded.
-createFramebuffers() : vkCreateFramebuffer() succeeded for iteration 0.
-createFramebuffers() : vkCreateFramebuffer() succeeded for iteration 1.
-createCommandBuffers() : vkAllocateCommandBuffers succeeded for iteration 0.
-createCommandBuffers() : vkAllocateCommandBuffers succeeded for iteration 1.
-getPhysicalDeviceSurfaceFormatAndColorSpace() : vkGetPhysicalDeviceSurfaceFormatsKHR()'s 1st call succeeded.
-getPhysicalDeviceSurfaceFormatAndColorSpace() : vkGetPhysicalDeviceSurfaceFormatsKHR()'s 2nd call succeeded.
-getPhysicalDeviceSurfaceFormatAndColorSpace() : vkSurfaceFormatKHR_Array is freed successfully.
-createSwapchain() : getPhysicalDeviceSurfaceFormatAndColorSpace() succeeded.
-createSwapchain() : vkGetPhysicalDeviceSurfaceCapabilitiesKHR() succeeded.
-createSwapchain() : minImageCount = 2, maxImageCount = 8
-createSwapchain() : (1) Swapchain Image width x height = 1920 x 1080
-getPhysicalDevicePresentMode() : vkGetPhysicalDeviceSurfacePresentModesKHR()'s 1st call succeeded.
-getPhysicalDevicePresentMode() : vkGetPhysicalDeviceSurfacePresentModesKHR()'s 2nd call succeeded.
-getPhysicalDevicePresentMode() : vkPresentModeKHR_Array is freed successfully.
-createSwapchain() : getPhysicalDevicePresentMode() succeeded.
-createSwapchain() : vkCreateSwapchainKHR() succeeded.
-createImagesAndImageViews() : vkGetSwapchainImagesKHR()'s 1st call succeeded.
-createImagesAndImageViews() : gives swapchain image count = 2
-createImagesAndImageViews() : vkGetSwapchainImagesKHR()'s 2nd call succeeded.
-createImagesAndImageViews() : vkCreateImageView() succeeded for iteration 0.
-createImagesAndImageViews() : vkCreateImageView() succeeded for iteration 1.
-createRenderPass() : vkCreateRenderPass() succeeded.
-createPipelineLayout() -> vkCreatePipelineLayout() :  succeeded.
-createGraphicsPipeline() : vkCreatePipelineCache() succeeded.
-createGraphicsPipeline() : vkCreateGraphicsPipelines() succeeded.
-createFramebuffers() : vkCreateFramebuffer() succeeded for iteration 0.
-createFramebuffers() : vkCreateFramebuffer() succeeded for iteration 1.
-createCommandBuffers() : vkAllocateCommandBuffers succeeded for iteration 0.
-createCommandBuffers() : vkAllocateCommandBuffers succeeded for iteration 1.
-getPhysicalDeviceSurfaceFormatAndColorSpace() : vkGetPhysicalDeviceSurfaceFormatsKHR()'s 1st call succeeded.
-getPhysicalDeviceSurfaceFormatAndColorSpace() : vkGetPhysicalDeviceSurfaceFormatsKHR()'s 2nd call succeeded.
-getPhysicalDeviceSurfaceFormatAndColorSpace() : vkSurfaceFormatKHR_Array is freed successfully.
-createSwapchain() : getPhysicalDeviceSurfaceFormatAndColorSpace() succeeded.
-createSwapchain() : vkGetPhysicalDeviceSurfaceCapabilitiesKHR() succeeded.
-createSwapchain() : minImageCount = 2, maxImageCount = 8
-createSwapchain() : (1) Swapchain Image width x height = 1884 x 977
-getPhysicalDevicePresentMode() : vkGetPhysicalDeviceSurfacePresentModesKHR()'s 1st call succeeded.
-getPhysicalDevicePresentMode() : vkGetPhysicalDeviceSurfacePresentModesKHR()'s 2nd call succeeded.
-getPhysicalDevicePresentMode() : vkPresentModeKHR_Array is freed successfully.
-createSwapchain() : getPhysicalDevicePresentMode() succeeded.
-createSwapchain() : vkCreateSwapchainKHR() succeeded.
-createImagesAndImageViews() : vkGetSwapchainImagesKHR()'s 1st call succeeded.
-createImagesAndImageViews() : gives swapchain image count = 2
-createImagesAndImageViews() : vkGetSwapchainImagesKHR()'s 2nd call succeeded.
-createImagesAndImageViews() : vkCreateImageView() succeeded for iteration 0.
-createImagesAndImageViews() : vkCreateImageView() succeeded for iteration 1.
-createRenderPass() : vkCreateRenderPass() succeeded.
-createPipelineLayout() -> vkCreatePipelineLayout() :  succeeded.
-createGraphicsPipeline() : vkCreatePipelineCache() succeeded.
-createGraphicsPipeline() : vkCreateGraphicsPipelines() succeeded.
-createFramebuffers() : vkCreateFramebuffer() succeeded for iteration 0.
-createFramebuffers() : vkCreateFramebuffer() succeeded for iteration 1.
-createCommandBuffers() : vkAllocateCommandBuffers succeeded for iteration 0.
-createCommandBuffers() : vkAllocateCommandBuffers succeeded for iteration 1.
-getPhysicalDeviceSurfaceFormatAndColorSpace() : vkGetPhysicalDeviceSurfaceFormatsKHR()'s 1st call succeeded.
-getPhysicalDeviceSurfaceFormatAndColorSpace() : vkGetPhysicalDeviceSurfaceFormatsKHR()'s 2nd call succeeded.
-getPhysicalDeviceSurfaceFormatAndColorSpace() : vkSurfaceFormatKHR_Array is freed successfully.
-createSwapchain() : getPhysicalDeviceSurfaceFormatAndColorSpace() succeeded.
-createSwapchain() : vkGetPhysicalDeviceSurfaceCapabilitiesKHR() succeeded.
-createSwapchain() : minImageCount = 2, maxImageCount = 8
-createSwapchain() : (1) Swapchain Image width x height = 1920 x 1080
-getPhysicalDevicePresentMode() : vkGetPhysicalDeviceSurfacePresentModesKHR()'s 1st call succeeded.
-getPhysicalDevicePresentMode() : vkGetPhysicalDeviceSurfacePresentModesKHR()'s 2nd call succeeded.
-getPhysicalDevicePresentMode() : vkPresentModeKHR_Array is freed successfully.
-createSwapchain() : getPhysicalDevicePresentMode() succeeded.
-createSwapchain() : vkCreateSwapchainKHR() succeeded.
-createImagesAndImageViews() : vkGetSwapchainImagesKHR()'s 1st call succeeded.
-createImagesAndImageViews() : gives swapchain image count = 2
-createImagesAndImageViews() : vkGetSwapchainImagesKHR()'s 2nd call succeeded.
-createImagesAndImageViews() : vkCreateImageView() succeeded for iteration 0.
-createImagesAndImageViews() : vkCreateImageView() succeeded for iteration 1.
-createRenderPass() : vkCreateRenderPass() succeeded.
-createPipelineLayout() -> vkCreatePipelineLayout() :  succeeded.
-createGraphicsPipeline() : vkCreatePipelineCache() succeeded.
-createGraphicsPipeline() : vkCreateGraphicsPipelines() succeeded.
-createFramebuffers() : vkCreateFramebuffer() succeeded for iteration 0.
-createFramebuffers() : vkCreateFramebuffer() succeeded for iteration 1.
-createCommandBuffers() : vkAllocateCommandBuffers succeeded for iteration 0.
-createCommandBuffers() : vkAllocateCommandBuffers succeeded for iteration 1.
-getPhysicalDeviceSurfaceFormatAndColorSpace() : vkGetPhysicalDeviceSurfaceFormatsKHR()'s 1st call succeeded.
-getPhysicalDeviceSurfaceFormatAndColorSpace() : vkGetPhysicalDeviceSurfaceFormatsKHR()'s 2nd call succeeded.
-getPhysicalDeviceSurfaceFormatAndColorSpace() : vkSurfaceFormatKHR_Array is freed successfully.
-createSwapchain() : getPhysicalDeviceSurfaceFormatAndColorSpace() succeeded.
-createSwapchain() : vkGetPhysicalDeviceSurfaceCapabilitiesKHR() succeeded.
-createSwapchain() : minImageCount = 2, maxImageCount = 8
-createSwapchain() : (1) Swapchain Image width x height = 3840 x 2160
-getPhysicalDevicePresentMode() : vkGetPhysicalDeviceSurfacePresentModesKHR()'s 1st call succeeded.
-getPhysicalDevicePresentMode() : vkGetPhysicalDeviceSurfacePresentModesKHR()'s 2nd call succeeded.
-getPhysicalDevicePresentMode() : vkPresentModeKHR_Array is freed successfully.
-createSwapchain() : getPhysicalDevicePresentMode() succeeded.
-createSwapchain() : vkCreateSwapchainKHR() succeeded.
-createImagesAndImageViews() : vkGetSwapchainImagesKHR()'s 1st call succeeded.
-createImagesAndImageViews() : gives swapchain image count = 2
-createImagesAndImageViews() : vkGetSwapchainImagesKHR()'s 2nd call succeeded.
-createImagesAndImageViews() : vkCreateImageView() succeeded for iteration 0.
-createImagesAndImageViews() : vkCreateImageView() succeeded for iteration 1.
-createRenderPass() : vkCreateRenderPass() succeeded.
-createPipelineLayout() -> vkCreatePipelineLayout() :  succeeded.
-createGraphicsPipeline() : vkCreatePipelineCache() succeeded.
-createGraphicsPipeline() : vkCreateGraphicsPipelines() succeeded.
-createFramebuffers() : vkCreateFramebuffer() succeeded for iteration 0.
-createFramebuffers() : vkCreateFramebuffer() succeeded for iteration 1.
-createCommandBuffers() : vkAllocateCommandBuffers succeeded for iteration 0.
-createCommandBuffers() : vkAllocateCommandBuffers succeeded for iteration 1.
-getPhysicalDeviceSurfaceFormatAndColorSpace() : vkGetPhysicalDeviceSurfaceFormatsKHR()'s 1st call succeeded.
-getPhysicalDeviceSurfaceFormatAndColorSpace() : vkGetPhysicalDeviceSurfaceFormatsKHR()'s 2nd call succeeded.
-getPhysicalDeviceSurfaceFormatAndColorSpace() : vkSurfaceFormatKHR_Array is freed successfully.
-createSwapchain() : getPhysicalDeviceSurfaceFormatAndColorSpace() succeeded.
-createSwapchain() : vkGetPhysicalDeviceSurfaceCapabilitiesKHR() succeeded.
-createSwapchain() : minImageCount = 2, maxImageCount = 8
-createSwapchain() : (1) Swapchain Image width x height = 1920 x 1080
-getPhysicalDevicePresentMode() : vkGetPhysicalDeviceSurfacePresentModesKHR()'s 1st call succeeded.
-getPhysicalDevicePresentMode() : vkGetPhysicalDeviceSurfacePresentModesKHR()'s 2nd call succeeded.
-getPhysicalDevicePresentMode() : vkPresentModeKHR_Array is freed successfully.
-createSwapchain() : getPhysicalDevicePresentMode() succeeded.
-createSwapchain() : vkCreateSwapchainKHR() succeeded.
-createImagesAndImageViews() : vkGetSwapchainImagesKHR()'s 1st call succeeded.
-createImagesAndImageViews() : gives swapchain image count = 2
-createImagesAndImageViews() : vkGetSwapchainImagesKHR()'s 2nd call succeeded.
-createImagesAndImageViews() : vkCreateImageView() succeeded for iteration 0.
-createImagesAndImageViews() : vkCreateImageView() succeeded for iteration 1.
-createRenderPass() : vkCreateRenderPass() succeeded.
-createPipelineLayout() -> vkCreatePipelineLayout() :  succeeded.
-createGraphicsPipeline() : vkCreatePipelineCache() succeeded.
-createGraphicsPipeline() : vkCreateGraphicsPipelines() succeeded.
-createFramebuffers() : vkCreateFramebuffer() succeeded for iteration 0.
-createFramebuffers() : vkCreateFramebuffer() succeeded for iteration 1.
-createCommandBuffers() : vkAllocateCommandBuffers succeeded for iteration 0.
-createCommandBuffers() : vkAllocateCommandBuffers succeeded for iteration 1.
-getPhysicalDeviceSurfaceFormatAndColorSpace() : vkGetPhysicalDeviceSurfaceFormatsKHR()'s 1st call succeeded.
-getPhysicalDeviceSurfaceFormatAndColorSpace() : vkGetPhysicalDeviceSurfaceFormatsKHR()'s 2nd call succeeded.
-getPhysicalDeviceSurfaceFormatAndColorSpace() : vkSurfaceFormatKHR_Array is freed successfully.
-createSwapchain() : getPhysicalDeviceSurfaceFormatAndColorSpace() succeeded.
-createSwapchain() : vkGetPhysicalDeviceSurfaceCapabilitiesKHR() succeeded.
-createSwapchain() : minImageCount = 2, maxImageCount = 8
-createSwapchain() : (1) Swapchain Image width x height = 1884 x 977
-getPhysicalDevicePresentMode() : vkGetPhysicalDeviceSurfacePresentModesKHR()'s 1st call succeeded.
-getPhysicalDevicePresentMode() : vkGetPhysicalDeviceSurfacePresentModesKHR()'s 2nd call succeeded.
-getPhysicalDevicePresentMode() : vkPresentModeKHR_Array is freed successfully.
-createSwapchain() : getPhysicalDevicePresentMode() succeeded.
-createSwapchain() : vkCreateSwapchainKHR() succeeded.
-createImagesAndImageViews() : vkGetSwapchainImagesKHR()'s 1st call succeeded.
-createImagesAndImageViews() : gives swapchain image count = 2
-createImagesAndImageViews() : vkGetSwapchainImagesKHR()'s 2nd call succeeded.
-createImagesAndImageViews() : vkCreateImageView() succeeded for iteration 0.
-createImagesAndImageViews() : vkCreateImageView() succeeded for iteration 1.
-createRenderPass() : vkCreateRenderPass() succeeded.
-createPipelineLayout() -> vkCreatePipelineLayout() :  succeeded.
-createGraphicsPipeline() : vkCreatePipelineCache() succeeded.
-createGraphicsPipeline() : vkCreateGraphicsPipelines() succeeded.
-createFramebuffers() : vkCreateFramebuffer() succeeded for iteration 0.
-createFramebuffers() : vkCreateFramebuffer() succeeded for iteration 1.
-createCommandBuffers() : vkAllocateCommandBuffers succeeded for iteration 0.
-createCommandBuffers() : vkAllocateCommandBuffers succeeded for iteration 1.
 -------------------------------------------------------------------------------------
-uninitialize() : vkDeviceWaitIdle() is done.
-uninitialize() : ImGui uninitialization is done.
-uninitialize() : vkDestroyFence() succeeded for iteration 0.
-uninitialize() : vkDestroyFence() succeeded for iteration 1.
-uninitialize() : successfully freed the memory allocated to vkFence_Array.
-uninitialize() : vkDestroySemaphore() succeeded for the render complete semaphore.
-uninitialize() : vkDestroySemaphore() succeeded for the back buffer semaphore.
-uninitialize() : vkDestroySemaphore() succeeded for the render complete semaphore.
-uninitialize() : vkDestroySemaphore() succeeded for the back buffer semaphore.
-uninitialize() : vkDestroyFramebuffer() succeeded for iteration 0.
-uninitialize() : vkDestroyFramebuffer() succeeded for iteration 1.
-uninitialize() : successfully freed the memory allocated to vkFramebuffer_Array.
-uninitialize() : vkDestroyPipeline() succeeded.
-uninitialize() : vkDestroyRenderPass() succeeded.
-uninitialize() : vkDestroyPipelineLayout() succeeded.
-uninitialize() : vkDestroyDescriptorSetLayout() succeeded.
-uninitialize() : vkFreeCommandBuffers() succeeded for iteration 0.
-uninitialize() : vkFreeCommandBuffers() succeeded for iteration 1.
-uninitialize() : successfully freed memory for the command buffer array.
-uninitialize() : vkDestroyCommandPool() succeeded.
-uninitialize() : vkDestroyImageView() succeeded for iteration 0.
-uninitialize() : vkDestroyImageView() succeeded for iteration 1.
-uninitialize() : successfully freed the swapchain image views array.
-uninitialize() : successfully freed the swapchain images array.
-uninitialize() : vkDestroySwapchainKHR() succeeded.
-uninitialize() : vkDestroyDevice() succeeded.
-uninitialize() : vkDestroySurfaceKHR() succeeded.
-uninitialize() : vkDestroyInstance() succeeded.
+-------------------------------------------------------------------------------------
+createSwapchain() : minImageCount = 2, maxImageCount = 8
+createSwapchain() : (1) Swapchain Image width x height = 3840 x 2160
+createImagesAndImageViews() : gives swapchain image count = 2
+createSwapchain() : minImageCount = 2, maxImageCount = 8
+createSwapchain() : (1) Swapchain Image width x height = 1920 x 1080
+createImagesAndImageViews() : gives swapchain image count = 2
+createSwapchain() : minImageCount = 2, maxImageCount = 8
+createSwapchain() : (1) Swapchain Image width x height = 1884 x 977
+createImagesAndImageViews() : gives swapchain image count = 2
+createSwapchain() : minImageCount = 2, maxImageCount = 8
+createSwapchain() : (1) Swapchain Image width x height = 1886 x 977
+createImagesAndImageViews() : gives swapchain image count = 2
+createSwapchain() : minImageCount = 2, maxImageCount = 8
+createSwapchain() : (1) Swapchain Image width x height = 1889 x 977
+createImagesAndImageViews() : gives swapchain image count = 2
+createSwapchain() : minImageCount = 2, maxImageCount = 8
+createSwapchain() : (1) Swapchain Image width x height = 1891 x 977
+createImagesAndImageViews() : gives swapchain image count = 2
+createSwapchain() : minImageCount = 2, maxImageCount = 8
+createSwapchain() : (1) Swapchain Image width x height = 1895 x 977
+createImagesAndImageViews() : gives swapchain image count = 2
+createSwapchain() : minImageCount = 2, maxImageCount = 8
+createSwapchain() : (1) Swapchain Image width x height = 1898 x 977
+createImagesAndImageViews() : gives swapchain image count = 2
+createSwapchain() : minImageCount = 2, maxImageCount = 8
+createSwapchain() : (1) Swapchain Image width x height = 1900 x 977
+createImagesAndImageViews() : gives swapchain image count = 2
+createSwapchain() : minImageCount = 2, maxImageCount = 8
+createSwapchain() : (1) Swapchain Image width x height = 1905 x 977
+createImagesAndImageViews() : gives swapchain image count = 2
+createSwapchain() : minImageCount = 2, maxImageCount = 8
+createSwapchain() : (1) Swapchain Image width x height = 1907 x 977
+createImagesAndImageViews() : gives swapchain image count = 2
+createSwapchain() : minImageCount = 2, maxImageCount = 8
+createSwapchain() : (1) Swapchain Image width x height = 1912 x 977
+createImagesAndImageViews() : gives swapchain image count = 2
+createSwapchain() : minImageCount = 2, maxImageCount = 8
+createSwapchain() : (1) Swapchain Image width x height = 1915 x 977
+createImagesAndImageViews() : gives swapchain image count = 2
+createSwapchain() : minImageCount = 2, maxImageCount = 8
+createSwapchain() : (1) Swapchain Image width x height = 1917 x 977
+createImagesAndImageViews() : gives swapchain image count = 2
+createSwapchain() : minImageCount = 2, maxImageCount = 8
+createSwapchain() : (1) Swapchain Image width x height = 1920 x 977
+createImagesAndImageViews() : gives swapchain image count = 2
+createSwapchain() : minImageCount = 2, maxImageCount = 8
+createSwapchain() : (1) Swapchain Image width x height = 1925 x 977
+createImagesAndImageViews() : gives swapchain image count = 2
+createSwapchain() : minImageCount = 2, maxImageCount = 8
+createSwapchain() : (1) Swapchain Image width x height = 1929 x 977
+createImagesAndImageViews() : gives swapchain image count = 2
+createSwapchain() : minImageCount = 2, maxImageCount = 8
+createSwapchain() : (1) Swapchain Image width x height = 1932 x 977
+createImagesAndImageViews() : gives swapchain image count = 2
+createSwapchain() : minImageCount = 2, maxImageCount = 8
+createSwapchain() : (1) Swapchain Image width x height = 1936 x 977
+createImagesAndImageViews() : gives swapchain image count = 2
+createSwapchain() : minImageCount = 2, maxImageCount = 8
+createSwapchain() : (1) Swapchain Image width x height = 1941 x 977
+createImagesAndImageViews() : gives swapchain image count = 2
+createSwapchain() : minImageCount = 2, maxImageCount = 8
+createSwapchain() : (1) Swapchain Image width x height = 1946 x 977
+createImagesAndImageViews() : gives swapchain image count = 2
+createSwapchain() : minImageCount = 2, maxImageCount = 8
+createSwapchain() : (1) Swapchain Image width x height = 1949 x 977
+createImagesAndImageViews() : gives swapchain image count = 2
+createSwapchain() : minImageCount = 2, maxImageCount = 8
+createSwapchain() : (1) Swapchain Image width x height = 1953 x 977
+createImagesAndImageViews() : gives swapchain image count = 2
+createSwapchain() : minImageCount = 2, maxImageCount = 8
+createSwapchain() : (1) Swapchain Image width x height = 1958 x 977
+createImagesAndImageViews() : gives swapchain image count = 2
+createSwapchain() : minImageCount = 2, maxImageCount = 8
+createSwapchain() : (1) Swapchain Image width x height = 1963 x 977
+createImagesAndImageViews() : gives swapchain image count = 2
+createSwapchain() : minImageCount = 2, maxImageCount = 8
+createSwapchain() : (1) Swapchain Image width x height = 1966 x 977
+createImagesAndImageViews() : gives swapchain image count = 2
+createSwapchain() : minImageCount = 2, maxImageCount = 8
+createSwapchain() : (1) Swapchain Image width x height = 1971 x 977
+createImagesAndImageViews() : gives swapchain image count = 2
+createSwapchain() : minImageCount = 2, maxImageCount = 8
+createSwapchain() : (1) Swapchain Image width x height = 1975 x 977
+createImagesAndImageViews() : gives swapchain image count = 2
+createSwapchain() : minImageCount = 2, maxImageCount = 8
+createSwapchain() : (1) Swapchain Image width x height = 1982 x 977
+createImagesAndImageViews() : gives swapchain image count = 2
+createSwapchain() : minImageCount = 2, maxImageCount = 8
+createSwapchain() : (1) Swapchain Image width x height = 1988 x 977
+createImagesAndImageViews() : gives swapchain image count = 2
+createSwapchain() : minImageCount = 2, maxImageCount = 8
+createSwapchain() : (1) Swapchain Image width x height = 1992 x 977
+createImagesAndImageViews() : gives swapchain image count = 2
+createSwapchain() : minImageCount = 2, maxImageCount = 8
+createSwapchain() : (1) Swapchain Image width x height = 1997 x 977
+createImagesAndImageViews() : gives swapchain image count = 2
+createSwapchain() : minImageCount = 2, maxImageCount = 8
+createSwapchain() : (1) Swapchain Image width x height = 2000 x 977
+createImagesAndImageViews() : gives swapchain image count = 2
+createSwapchain() : minImageCount = 2, maxImageCount = 8
+createSwapchain() : (1) Swapchain Image width x height = 2007 x 977
+createImagesAndImageViews() : gives swapchain image count = 2
+createSwapchain() : minImageCount = 2, maxImageCount = 8
+createSwapchain() : (1) Swapchain Image width x height = 2012 x 977
+createImagesAndImageViews() : gives swapchain image count = 2
+createSwapchain() : minImageCount = 2, maxImageCount = 8
+createSwapchain() : (1) Swapchain Image width x height = 2021 x 977
+createImagesAndImageViews() : gives swapchain image count = 2
+createSwapchain() : minImageCount = 2, maxImageCount = 8
+createSwapchain() : (1) Swapchain Image width x height = 2026 x 977
+createImagesAndImageViews() : gives swapchain image count = 2
+createSwapchain() : minImageCount = 2, maxImageCount = 8
+createSwapchain() : (1) Swapchain Image width x height = 2037 x 977
+createImagesAndImageViews() : gives swapchain image count = 2
+createSwapchain() : minImageCount = 2, maxImageCount = 8
+createSwapchain() : (1) Swapchain Image width x height = 2046 x 977
+createImagesAndImageViews() : gives swapchain image count = 2
+createSwapchain() : minImageCount = 2, maxImageCount = 8
+createSwapchain() : (1) Swapchain Image width x height = 2057 x 977
+createImagesAndImageViews() : gives swapchain image count = 2
+createSwapchain() : minImageCount = 2, maxImageCount = 8
+createSwapchain() : (1) Swapchain Image width x height = 2062 x 977
+createImagesAndImageViews() : gives swapchain image count = 2
+createSwapchain() : minImageCount = 2, maxImageCount = 8
+createSwapchain() : (1) Swapchain Image width x height = 2075 x 977
+createImagesAndImageViews() : gives swapchain image count = 2
+createSwapchain() : minImageCount = 2, maxImageCount = 8
+createSwapchain() : (1) Swapchain Image width x height = 2082 x 977
+createImagesAndImageViews() : gives swapchain image count = 2
+createSwapchain() : minImageCount = 2, maxImageCount = 8
+createSwapchain() : (1) Swapchain Image width x height = 2096 x 977
+createImagesAndImageViews() : gives swapchain image count = 2
+createSwapchain() : minImageCount = 2, maxImageCount = 8
+createSwapchain() : (1) Swapchain Image width x height = 2105 x 977
+createImagesAndImageViews() : gives swapchain image count = 2
+createSwapchain() : minImageCount = 2, maxImageCount = 8
+createSwapchain() : (1) Swapchain Image width x height = 2118 x 977
+createImagesAndImageViews() : gives swapchain image count = 2
+createSwapchain() : minImageCount = 2, maxImageCount = 8
+createSwapchain() : (1) Swapchain Image width x height = 2129 x 977
+createImagesAndImageViews() : gives swapchain image count = 2
+createSwapchain() : minImageCount = 2, maxImageCount = 8
+createSwapchain() : (1) Swapchain Image width x height = 2144 x 977
+createImagesAndImageViews() : gives swapchain image count = 2
+createSwapchain() : minImageCount = 2, maxImageCount = 8
+createSwapchain() : (1) Swapchain Image width x height = 2157 x 977
+createImagesAndImageViews() : gives swapchain image count = 2
+createSwapchain() : minImageCount = 2, maxImageCount = 8
+createSwapchain() : (1) Swapchain Image width x height = 2173 x 977
+createImagesAndImageViews() : gives swapchain image count = 2
+createSwapchain() : minImageCount = 2, maxImageCount = 8
+createSwapchain() : (1) Swapchain Image width x height = 2184 x 977
+createImagesAndImageViews() : gives swapchain image count = 2
+createSwapchain() : minImageCount = 2, maxImageCount = 8
+createSwapchain() : (1) Swapchain Image width x height = 2197 x 977
+createImagesAndImageViews() : gives swapchain image count = 2
+createSwapchain() : minImageCount = 2, maxImageCount = 8
+createSwapchain() : (1) Swapchain Image width x height = 2208 x 977
+createImagesAndImageViews() : gives swapchain image count = 2
+createSwapchain() : minImageCount = 2, maxImageCount = 8
+createSwapchain() : (1) Swapchain Image width x height = 2221 x 977
+createImagesAndImageViews() : gives swapchain image count = 2
+createSwapchain() : minImageCount = 2, maxImageCount = 8
+createSwapchain() : (1) Swapchain Image width x height = 2232 x 977
+createImagesAndImageViews() : gives swapchain image count = 2
+createSwapchain() : minImageCount = 2, maxImageCount = 8
+createSwapchain() : (1) Swapchain Image width x height = 2244 x 977
+createImagesAndImageViews() : gives swapchain image count = 2
+createSwapchain() : minImageCount = 2, maxImageCount = 8
+createSwapchain() : (1) Swapchain Image width x height = 2251 x 977
+createImagesAndImageViews() : gives swapchain image count = 2
+createSwapchain() : minImageCount = 2, maxImageCount = 8
+createSwapchain() : (1) Swapchain Image width x height = 2261 x 977
+createImagesAndImageViews() : gives swapchain image count = 2
+createSwapchain() : minImageCount = 2, maxImageCount = 8
+createSwapchain() : (1) Swapchain Image width x height = 2267 x 977
+createImagesAndImageViews() : gives swapchain image count = 2
+createSwapchain() : minImageCount = 2, maxImageCount = 8
+createSwapchain() : (1) Swapchain Image width x height = 2277 x 977
+createImagesAndImageViews() : gives swapchain image count = 2
+createSwapchain() : minImageCount = 2, maxImageCount = 8
+createSwapchain() : (1) Swapchain Image width x height = 2282 x 977
+createImagesAndImageViews() : gives swapchain image count = 2
+createSwapchain() : minImageCount = 2, maxImageCount = 8
+createSwapchain() : (1) Swapchain Image width x height = 2292 x 977
+createImagesAndImageViews() : gives swapchain image count = 2
+createSwapchain() : minImageCount = 2, maxImageCount = 8
+createSwapchain() : (1) Swapchain Image width x height = 2298 x 977
+createImagesAndImageViews() : gives swapchain image count = 2
+createSwapchain() : minImageCount = 2, maxImageCount = 8
+createSwapchain() : (1) Swapchain Image width x height = 2303 x 977
+createImagesAndImageViews() : gives swapchain image count = 2
+createSwapchain() : minImageCount = 2, maxImageCount = 8
+createSwapchain() : (1) Swapchain Image width x height = 2306 x 977
+createImagesAndImageViews() : gives swapchain image count = 2
+createSwapchain() : minImageCount = 2, maxImageCount = 8
+createSwapchain() : (1) Swapchain Image width x height = 2308 x 977
+createImagesAndImageViews() : gives swapchain image count = 2
+createSwapchain() : minImageCount = 2, maxImageCount = 8
+createSwapchain() : (1) Swapchain Image width x height = 2309 x 977
+createImagesAndImageViews() : gives swapchain image count = 2
+createSwapchain() : minImageCount = 2, maxImageCount = 8
+createSwapchain() : (1) Swapchain Image width x height = 2311 x 977
+createImagesAndImageViews() : gives swapchain image count = 2
+-------------------------------------------------------------------------------------
+-------------------------------------------------------------------------------------
 uninitialize() : Program ended successfully.

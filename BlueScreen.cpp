@@ -3,9 +3,17 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+#define MAX_FRAMES 2 // for double buffering
+
 // Vulkan related header files
 #define VK_USE_PLATFORM_WIN32_KHR // define the current Vulkan platform
 #include <vulkan/vulkan.h>        // you must define platform before including this file (Windows / Linux / macOS / iOS / Android / <other>)
+
+//GLM related header files
+#define GLM_FORCE_RADIANS
+#define GLM_FORCE_DEPTH_ZERO_TO_ONE
+#include <glm/glm.hpp>
+#include <glm/gtc/matrix_transform.hpp>
 
 //#define IMGUI_ENABLE
 
@@ -139,10 +147,19 @@ typedef struct
 {
     VkBuffer vkBuffer;
     VkDeviceMemory vkDeviceMemory;
-}VertexData;
+	void* pData; // pointer to the mapped memory
+}UniformData;
+
+typedef struct
+{
+	VkBuffer vkBuffer;
+	VkDeviceMemory vkDeviceMemory;
+} VulkanData;
 
 // position
-VertexData vertexData_position;
+VulkanData vertexData_position;
+
+UniformData uniformData_transform[MAX_FRAMES];
 
 //shader related variables
 VkShaderModule vkShaderModule_vertex_shader = VK_NULL_HANDLE;
@@ -150,6 +167,8 @@ VkShaderModule vkShaderModule_fragment_shader = VK_NULL_HANDLE;
 
 //desccriptor set layout 
 VkDescriptorSetLayout vkDescriptorSetLayout = VK_NULL_HANDLE;
+VkDescriptorPool vkDescriptorPool = VK_NULL_HANDLE;
+VkDescriptorSet  vkDescriptorSets[MAX_FRAMES];
 
 //vkPipeline Layout
 VkPipelineLayout vkPipelineLayout = VK_NULL_HANDLE;
@@ -252,7 +271,9 @@ int WINAPI WinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, _
     else
     {
         fprintf(gpFILE, LINE_END);
-        fprintf(gpFILE, "WinMain() : initialize() succeeded.\n");
+        fprintf(gpFILE, "\n\n\n\nWinMain() : initialize() succeeded.\n");
+        fprintf(gpFILE, LINE_END);
+        fprintf(gpFILE, LINE_END);
     }
 
     // show the window
@@ -333,6 +354,11 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM lParam)
     case WM_ERASEBKGND:
         return(0);
     case WM_SIZE:
+		if (wParam == SIZE_MINIMIZED)
+        {
+			gbActive = FALSE;
+			return(0);   
+        }
         resize(LOWORD(lParam), HIWORD(lParam));
         break;
     case WM_KEYDOWN:
@@ -470,9 +496,12 @@ VkResult initialize(void)
     VkResult createCommandPool(void);
     VkResult createCommandBuffers(void);
     VkResult createVertexBuffer(void);
+    VkResult createUniformBuffer(void);
     VkResult createShaders(void);
-	VkResult createDiscriptorSetLayout(void);
+	VkResult createDescriptorSetLayout(void);
 	VkResult createPipelineLayout(void);
+    VkResult createDescriptorPool(void);
+    VkResult createDescriptorSet(void);
 
     VkResult createRenderPass(void);
 	VkResult createGraphicsPipeline(void);
@@ -492,10 +521,6 @@ VkResult initialize(void)
         fprintf(gpFILE, "initialize() : createVulkanInstance() failed (%d).\n", vkResult);
         return(vkResult);
     }
-    else
-    {
-        fprintf(gpFILE, "initialize() : createVulkanInstance() succeeded.\n");
-    }
 
     // STEP 4 : Create Vulkan Presentation Surface
     vkResult = getSupportedSurface();
@@ -503,10 +528,6 @@ VkResult initialize(void)
     {
         fprintf(gpFILE, "initialize() : getSupportedSurface() failed (%d).\n", vkResult);
         return(vkResult);
-    }
-    else
-    {
-        fprintf(gpFILE, "initialize() : getSupportedSurface() succeeded.\n");
     }
 
     // STEP 5 : Enumerate and select required physical device and its queue family index
@@ -516,10 +537,6 @@ VkResult initialize(void)
         fprintf(gpFILE, "initialize() : getPhysicalDevice() failed (%d).\n", vkResult);
         return(vkResult);
     }
-    else
-    {
-        fprintf(gpFILE, "initialize() : getPhysicalDevice() succeeded.\n");
-    }
 
     // STEP 6 : Print Vulkan information
     vkResult = printVkInfo();
@@ -528,10 +545,6 @@ VkResult initialize(void)
         fprintf(gpFILE, "initialize() : printVkInfo() failed (%d).\n", vkResult);
         return(vkResult);
     }
-    else
-    {
-        fprintf(gpFILE, "initialize() : printVkInfo() succeeded.\n");
-    }
 
     // STEP 8 : Create Vulkan (Logical) Device
     vkResult = createVulkanDevice();
@@ -539,10 +552,6 @@ VkResult initialize(void)
     {
         fprintf(gpFILE, "initialize() : createVulkanDevice() failed (%d).\n", vkResult);
         return(vkResult);
-    }
-    else
-    {
-        fprintf(gpFILE, "initialize() : createVulkanDevice() succeeded.\n");
     }
 
     // STEP 9 : Create Vulkan Device Queue
@@ -557,10 +566,6 @@ VkResult initialize(void)
         fprintf(gpFILE, "initialize() : createSwapchain() failed (%d).\n", vkResult);
         return(vkResult);
     }
-    else
-    {
-        fprintf(gpFILE, "initialize() : createSwapchain() succeeded.\n");
-    }
 
     // STEP 13 : Create Vulkan images and image views
     vkResult = createImagesAndImageViews();
@@ -568,10 +573,6 @@ VkResult initialize(void)
     {
         fprintf(gpFILE, "initialize() : createImagesAndImageViews() failed (%d).\n", vkResult);
         return(vkResult);
-    }
-    else
-    {
-        fprintf(gpFILE, "initialize() : createImagesAndImageViews() succeeded.\n");
     }
 
     // STEP 14 : Create command pool
@@ -581,10 +582,6 @@ VkResult initialize(void)
         fprintf(gpFILE, "initialize() : createCommandPool() failed (%d).\n", vkResult);
         return(vkResult);
     }
-    else
-    {
-        fprintf(gpFILE, "initialize() : createCommandPool() succeeded.\n");
-    }
 
     // STEP 15 : Create command buffers
     vkResult = createCommandBuffers();
@@ -592,10 +589,6 @@ VkResult initialize(void)
     {
         fprintf(gpFILE, "initialize() : createCommandBuffers() failed (%d).\n", vkResult);
         return(vkResult);
-    }
-    else
-    {
-        fprintf(gpFILE, "initialize() : createCommandBuffers() succeeded.\n");
     }
 
     //create vertex buffer
@@ -606,10 +599,14 @@ VkResult initialize(void)
         fprintf(gpFILE, "initialize() : createVertexBuffer() failed (%d).\n", vkResult);
         return(vkResult);
     }
-    else
-    {
-        fprintf(gpFILE, "initialize() : createVertexBuffer() succeeded.\n");
-    }
+
+    //create uniform buffer
+    vkResult = createUniformBuffer();
+	if (vkResult != VK_SUCCESS)
+	{
+		fprintf(gpFILE, "initialize() : createUniformBuffer() failed (%d).\n", vkResult);
+		return(vkResult);
+	}
 
      // STEP  : Create shaders
     vkResult = createShaders();
@@ -618,20 +615,12 @@ VkResult initialize(void)
         fprintf(gpFILE, "initialize() : createShaders() failed (%d).\n", vkResult);
         return(vkResult);
     }
-    else
-    {
-        fprintf(gpFILE, "initialize() : createShaders() succeeded.\n");
-    }
 
-	vkResult = createDiscriptorSetLayout();
+	vkResult = createDescriptorSetLayout();
     if (vkResult != VK_SUCCESS)
     {
         fprintf(gpFILE, "initialize() : createDescriptorSetLayout() failed (%d).\n", vkResult);
         return(vkResult);
-    }
-    else
-    {
-        fprintf(gpFILE, "initialize() : createDescriptorSetLayout() succeeded.\n");
     }
 
 	//pipeline layout
@@ -641,11 +630,22 @@ VkResult initialize(void)
 		fprintf(gpFILE, "initialize() : createPipelineLayout() failed (%d).\n", vkResult);
 		return(vkResult);
 	}
-	else
+
+	//Create Descriptor Pool
+	vkResult = createDescriptorPool();
+	if (vkResult != VK_SUCCESS)
 	{
-		fprintf(gpFILE, "initialize() : createPipelineLayout() succeeded.\n");
+		fprintf(gpFILE, "initialize() : createDiscriptorPool() failed (%d).\n", vkResult);
+		return(vkResult);
 	}
 
+	//Create Descriptor Set
+	vkResult = createDescriptorSet();
+	if (vkResult != VK_SUCCESS)
+	{
+		fprintf(gpFILE, "initialize() : createDiscriptorSet() failed (%d).\n", vkResult);
+		return(vkResult);
+	}
 
     // STEP 16 : Create RenderPass
     vkResult = createRenderPass();
@@ -653,10 +653,6 @@ VkResult initialize(void)
     {
         fprintf(gpFILE, "initialize() : createRenderPass() failed (%d).\n", vkResult);
         return(vkResult);
-    }
-    else
-    {
-        fprintf(gpFILE, "initialize() : createRenderPass() succeeded.\n");
     }
 
     //pipeline
@@ -667,10 +663,6 @@ VkResult initialize(void)
 		fprintf(gpFILE, "initialize() : createGraphicsPipeline() failed (%d).\n", vkResult);
 		return(vkResult);
 	}
-	else
-	{
-		fprintf(gpFILE, "initialize() : createGraphicsPipeline() succeeded.\n");
-	}
 
     //  Create Framebuffers
     vkResult = createFramebuffers();
@@ -678,10 +670,6 @@ VkResult initialize(void)
     {
         fprintf(gpFILE, "initialize() : createFramebuffers() failed (%d).\n", vkResult);
         return(vkResult);
-    }
-    else
-    {
-        fprintf(gpFILE, "initialize() : createFramebuffers() succeeded.\n");
     }
 
     // STEP 18 : Create semaphores and fences
@@ -691,20 +679,12 @@ VkResult initialize(void)
         fprintf(gpFILE, "initialize() : createSemaphores() failed (%d).\n", vkResult);
         return(vkResult);
     }
-    else
-    {
-        fprintf(gpFILE, "initialize() : createSemaphores() succeeded.\n");
-    }
 
     vkResult = createFences();
     if (vkResult != VK_SUCCESS)
     {
         fprintf(gpFILE, "initialize() : createFences() failed (%d).\n", vkResult);
         return(vkResult);
-    }
-    else
-    {
-        fprintf(gpFILE, "initialize() : createFences() succeeded.\n");
     }
 
     // initialize clear color values
@@ -1144,6 +1124,7 @@ VkResult display_(void)
 VkResult display(void)
 {
     VkResult buildCommandBuffers(uint32_t curIndex);
+    VkResult updateUniformBuffer(uint32_t curIndex);
 
     VkResult vkResult = VK_SUCCESS;
 
@@ -1244,6 +1225,13 @@ VkResult display(void)
         return vkResult;
     }
 
+	vkResult = updateUniformBuffer(curIndex);
+	if (vkResult != VK_SUCCESS)
+	{
+		fprintf(gpFILE, "display() : updateUniformBuffer() failed (%d).\n", vkResult);
+		return vkResult;
+	}
+
     // Advance to next frame
     currentFrame++;
 
@@ -1269,16 +1257,10 @@ void uninitialize(void)
         gbFullscreen = FALSE;
     }
 
-    if (gpFILE)
-    {
-        fprintf(gpFILE, LINE_END);
-    }
-
     // Before destroying the device (and any other vulkan related destruction), ensure that all operations on that device are finished. Till then, wait on that device.
     if (vkDevice)
     {
         vkDeviceWaitIdle(vkDevice);
-        fprintf(gpFILE, "uninitialize() : vkDeviceWaitIdle() is done.\n");
     }
 
 #ifdef IMGUI_ENABLE
@@ -1302,13 +1284,11 @@ void uninitialize(void)
             vkDestroyFence(vkDevice, vkFence_Array[i], NULL);
             vkFence_Array[i] = VK_NULL_HANDLE;
 
-            fprintf(gpFILE, "uninitialize() : vkDestroyFence() succeeded for iteration %d.\n", i);
         }
 
         free(vkFence_Array);
         vkFence_Array = NULL;
 
-        fprintf(gpFILE, "uninitialize() : successfully freed the memory allocated to vkFence_Array.\n");
     }
 
     // sub-step 8 for step (18)
@@ -1320,7 +1300,6 @@ void uninitialize(void)
             vkDestroySemaphore(vkDevice, vkSemaphore_RenderComplete[i], NULL);
             vkSemaphore_RenderComplete[i] = VK_NULL_HANDLE;
 
-            fprintf(gpFILE, "uninitialize() : vkDestroySemaphore() succeeded for the render complete semaphore.\n");
         }
 
         if (vkSemaphore_BackBuffer[i])
@@ -1328,7 +1307,6 @@ void uninitialize(void)
             vkDestroySemaphore(vkDevice, vkSemaphore_BackBuffer[i], NULL);
             vkSemaphore_BackBuffer[i] = VK_NULL_HANDLE;
 
-            fprintf(gpFILE, "uninitialize() : vkDestroySemaphore() succeeded for the back buffer semaphore.\n");
         }
     }
 
@@ -1348,13 +1326,11 @@ void uninitialize(void)
             vkDestroyFramebuffer(vkDevice, vkFramebuffer_Array[i], NULL);
 			vkFramebuffer_Array[i] = VK_NULL_HANDLE;
 
-            fprintf(gpFILE, "uninitialize() : vkDestroyFramebuffer() succeeded for iteration %d.\n", i);
         }
 
         free(vkFramebuffer_Array);
         vkFramebuffer_Array = NULL;
 
-        fprintf(gpFILE, "uninitialize() : successfully freed the memory allocated to vkFramebuffer_Array.\n");
     }
 
     // pipeline
@@ -1363,7 +1339,6 @@ void uninitialize(void)
         vkDestroyPipeline(vkDevice, vkPipeline, NULL);
         vkPipeline = VK_NULL_HANDLE;
 
-        fprintf(gpFILE, "uninitialize() : vkDestroyPipeline() succeeded.\n");
     }
 
     // renderpass
@@ -1372,15 +1347,24 @@ void uninitialize(void)
         vkDestroyRenderPass(vkDevice, vkRenderPass, NULL);
         vkRenderPass = VK_NULL_HANDLE;
 
-        fprintf(gpFILE, "uninitialize() : vkDestroyRenderPass() succeeded.\n");
     }
+
+	//discriptor pool // no need to destroy discriptor set if we destroy discriptor pool
+	if (vkDescriptorPool)
+	{
+		vkDestroyDescriptorPool(vkDevice, vkDescriptorPool, NULL);
+		vkDescriptorPool = VK_NULL_HANDLE;
+		vkDescriptorSets[0] = VK_NULL_HANDLE; // set to NULL to avoid dangling pointer
+		vkDescriptorSets[1] = VK_NULL_HANDLE; // set to NULL to avoid dangling pointer
+
+	}
+
 
     //pipeline layout
     if (vkPipelineLayout)
     {
         vkDestroyPipelineLayout(vkDevice, vkPipelineLayout, NULL);
         vkPipelineLayout = VK_NULL_HANDLE;
-        fprintf(gpFILE, "uninitialize() : vkDestroyPipelineLayout() succeeded.\n");
     }
 
 	//descriptor set layout
@@ -1389,7 +1373,6 @@ void uninitialize(void)
 		vkDestroyDescriptorSetLayout(vkDevice, vkDescriptorSetLayout, NULL);
 		vkDescriptorSetLayout = VK_NULL_HANDLE;
 
-		fprintf(gpFILE, "uninitialize() : vkDestroyDescriptorSetLayout() succeeded.\n");
 	}
 
 
@@ -1419,11 +1402,31 @@ void uninitialize(void)
         vertexData_position.vkBuffer = VK_NULL_HANDLE;
     }
 
+	//uniform buffer
+	for (uint32_t i = 0; i < MAX_FRAMES; i++)
+	{
+        // Unmap the uniformData memory
+        vkUnmapMemory(vkDevice, uniformData_transform[i].vkDeviceMemory);
+
+        //uniformData
+        if (uniformData_transform[i].vkDeviceMemory)
+        {
+            vkFreeMemory(vkDevice, uniformData_transform[i].vkDeviceMemory, NULL);
+            uniformData_transform[i].vkDeviceMemory = VK_NULL_HANDLE;
+        }
+        if (uniformData_transform[i].vkBuffer)
+        {
+            vkDestroyBuffer(vkDevice, uniformData_transform[i].vkBuffer, NULL);
+            uniformData_transform[i].vkBuffer = VK_NULL_HANDLE;
+        }
+	}
+
+
+
     // sub-step 4 for step (15)
     for (uint32_t i = 0; i < swapchainImageCount; i++)
     {
         vkFreeCommandBuffers(vkDevice, vkCommandPool, 1, &vkCommandBuffer_Array[i]);
-        fprintf(gpFILE, "uninitialize() : vkFreeCommandBuffers() succeeded for iteration %d.\n", i);
     }
 
     // sub-step 5 for step (15)
@@ -1432,7 +1435,6 @@ void uninitialize(void)
         free(vkCommandBuffer_Array);
         vkCommandBuffer_Array = NULL;
 
-        fprintf(gpFILE, "uninitialize() : successfully freed memory for the command buffer array.\n");
     }
 
     // sub-step 3 for step (14)
@@ -1441,14 +1443,12 @@ void uninitialize(void)
         vkDestroyCommandPool(vkDevice, vkCommandPool, NULL);
         vkCommandPool = VK_NULL_HANDLE;
 
-        fprintf(gpFILE, "uninitialize() : vkDestroyCommandPool() succeeded.\n");
     }
 
     // sub-step 9 for step (13)
     for (uint32_t i = 0; i < swapchainImageCount; i++)
     {
         vkDestroyImageView(vkDevice, swapchainImageView_Array[i], NULL);
-        fprintf(gpFILE, "uninitialize() : vkDestroyImageView() succeeded for iteration %d.\n", i);
     }
 
     // sub-step 10 for step (13)
@@ -1457,7 +1457,6 @@ void uninitialize(void)
         free(swapchainImageView_Array);
         swapchainImageView_Array = NULL;
 
-        fprintf(gpFILE, "uninitialize() : successfully freed the swapchain image views array.\n");
     }
 
     // sub-step 8 for step (13)
@@ -1466,7 +1465,6 @@ void uninitialize(void)
         free(swapchainImage_Array);
         swapchainImage_Array = NULL;
 
-        fprintf(gpFILE, "uninitialize() : successfully freed the swapchain images array.\n");
     }
 
     // Destroy Vulkan swapchain
@@ -1480,7 +1478,6 @@ void uninitialize(void)
 
         vkSwapchainKHR = VK_NULL_HANDLE;
 
-        fprintf(gpFILE, "uninitialize() : vkDestroySwapchainKHR() succeeded.\n");
     }
 
     /*
@@ -1495,9 +1492,6 @@ void uninitialize(void)
             vkDevice, // [in] Vulkan device handle
             NULL      // [in, optional] pointer to a custom memory allocator
         );
-
-        fprintf(gpFILE, "uninitialize() : vkDestroyDevice() succeeded.\n");
-
         vkDevice = VK_NULL_HANDLE;
     }
 
@@ -1516,7 +1510,6 @@ void uninitialize(void)
 
         vkSurfaceKHR = VK_NULL_HANDLE;
 
-        fprintf(gpFILE, "uninitialize() : vkDestroySurfaceKHR() succeeded.\n");
     }
 
     //validation
@@ -1537,7 +1530,6 @@ void uninitialize(void)
 
         vkInstance = VK_NULL_HANDLE;
 
-        fprintf(gpFILE, "uninitialize() : vkDestroyInstance() succeeded.\n");
     }
 
     // Destroy window
@@ -1545,6 +1537,12 @@ void uninitialize(void)
     {
         DestroyWindow(ghwnd);
         ghwnd = NULL;
+    }
+
+    if (gpFILE)
+    {
+        fprintf(gpFILE, LINE_END);
+        fprintf(gpFILE, LINE_END);
     }
 
     // close the log file
@@ -1576,10 +1574,6 @@ VkResult createVulkanInstance(void)
         fprintf(gpFILE, "createVulkanInstance() : fillInstanceExtensionNames() failed.\n");
         return(vkResult);
     }
-    else
-    {
-        fprintf(gpFILE, "createVulkanInstance() : fillInstanceExtensionNames() succeeded.\n");
-    }
 
     //fill  validation layer
     if (TRUE == bValidation)
@@ -1590,10 +1584,6 @@ VkResult createVulkanInstance(void)
         {
             fprintf(gpFILE, "createVulkanInstance() : fillValidaionLayerNames() failed.\n");
             return(vkResult);
-        }
-        else
-        {
-            fprintf(gpFILE, "createVulkanInstance() : fillValidaionLayerNames() succeeded.\n");
         }
     }
     /*
@@ -1698,10 +1688,6 @@ VkResult fillValidaionLayerNames(void)
         fprintf(gpFILE, "fillValidaionLayerNames() : first call to vkEnumerateInstanceLayerProperties() failed.\n");
         return(vkResult);
     }
-    else
-    {
-        fprintf(gpFILE, "fillValidaionLayerNames() : first call to vkEnumerateInstanceLayerProperties() succeeded.\n");
-    }
 
     VkLayerProperties* vkLayerProperties_array = NULL;
     vkLayerProperties_array = (VkLayerProperties*)malloc(sizeof(VkLayerProperties) * validationLayerCount);
@@ -1716,10 +1702,6 @@ VkResult fillValidaionLayerNames(void)
     {
         fprintf(gpFILE, "fillValidaionLayerNames() : second call to vkEnumerateInstanceLayerProperties() failed.\n");
         return(vkResult);
-    }
-    else
-    {
-        fprintf(gpFILE, "fillValidaionLayerNames() : second call to vkEnumerateInstanceLayerProperties() succeeded.\n");
     }
 
     fprintf(gpFILE, LINE_END);
@@ -1800,10 +1782,6 @@ VkResult createValidationCallbackFunction(void)
         fprintf(gpFILE, "createValidationCallbackFunction() : vkGetInstanceProcAddr failed to get vkCreateDebugReportCallbackEXT_fnptr .\n");
         return vkResult;
     }
-    else
-    {
-        fprintf(gpFILE, "createValidationCallbackFunction() : vkGetInstanceProcAddr succeded to get vkCreateDebugReportCallbackEXT_fnptr .\n");
-    }
 
  //vkDebugReportCallbackEXT 
  //vkDestroyDebugReportCallbackEXT_fnptr ;
@@ -1815,10 +1793,6 @@ VkResult createValidationCallbackFunction(void)
         vkResult = VK_ERROR_INITIALIZATION_FAILED;
         fprintf(gpFILE, "createValidationCallbackFunction() : vkGetInstanceProcAddr failed to get vkDestroyDebugReportCallbackEXT_fnptr .\n");
         return vkResult;
-    }
-    else
-    {
-        fprintf(gpFILE, "createValidationCallbackFunction() : vkGetInstanceProcAddr succeded to get vkDestroyDebugReportCallbackEXT_fnptr .\n");
     }
 
     //get the vulkan debug callback object // 
@@ -1837,10 +1811,6 @@ VkResult createValidationCallbackFunction(void)
     {
         fprintf(gpFILE, "createValidationCallbackFunction() : vkCreateDebugReportCallbackEXT_fnptr failed.\n");
         return(vkResult);
-    }
-    else
-    {
-        fprintf(gpFILE, "createValidationCallbackFunction() : vkCreateDebugReportCallbackEXT_fnptr succeeded.\n");
     }
 
     return vkResult;
@@ -1868,10 +1838,6 @@ VkResult fillInstanceExtensionNames(void)
         fprintf(gpFILE, "fillInstanceExtensionNames() : first call to vkEnumerateInstanceExtensionProperties() failed.\n");
         return(vkResult);
     }
-    else
-    {
-        fprintf(gpFILE, "fillInstanceExtensionNames() : first call to vkEnumerateInstanceExtensionProperties() succeeded.\n");
-    }
 
     /*
      * sub-step 2 : allocate and fill struct VkExtensionProperties array
@@ -1894,10 +1860,6 @@ VkResult fillInstanceExtensionNames(void)
     {
         fprintf(gpFILE, "fillInstanceExtensionNames() : second call to vkEnumerateInstanceExtensionProperties() failed.\n");
         return(vkResult);
-    }
-    else
-    {
-        fprintf(gpFILE, "fillInstanceExtensionNames() : second call to vkEnumerateInstanceExtensionProperties() succeeded.\n");
     }
 
     /*
@@ -2086,10 +2048,6 @@ VkResult getSupportedSurface(void)
         fprintf(gpFILE, "getSupportedSurface() : vkCreateWin32SurfaceKHR() failed (%d).\n", vkResult);
         return(vkResult);
     }
-    else
-    {
-        fprintf(gpFILE, "getSupportedSurface() : vkCreateWin32SurfaceKHR() succeeded.\n");
-    }
 
     return(vkResult);
 }
@@ -2120,10 +2078,7 @@ VkResult getPhysicalDevice(void)
         vkResult = VK_ERROR_INITIALIZATION_FAILED; // hard-coded result
         return(vkResult);
     }
-    else
-    {
-        fprintf(gpFILE, "getPhysicalDevice() : 1st call to vkEnumeratePhysicalDevices() succeeded.\n");
-    }
+
 
     /*
      * sub-step 3 : Allocate VkPhysicalDevice array according to above count.
@@ -2139,10 +2094,6 @@ VkResult getPhysicalDevice(void)
     {
         fprintf(gpFILE, "getPhysicalDevice() : 2nd call to vkEnumeratePhysicalDevices() failed (%d).\n", vkResult);
         return(vkResult);
-    }
-    else
-    {
-        fprintf(gpFILE, "getPhysicalDevice() : 2nd call to vkEnumeratePhysicalDevices() succeeded.\n");
     }
 
     /*
@@ -2229,7 +2180,6 @@ VkResult getPhysicalDevice(void)
             free(isQueueSurfaceSupported_Array);
             isQueueSurfaceSupported_Array = NULL;
 
-            fprintf(gpFILE, "getPhysicalDevice() : succeeded to free isQueueSurfaceSupported_Array.\n");
         }
 
         if (vkQueueFamilyProperties_Array)
@@ -2237,7 +2187,6 @@ VkResult getPhysicalDevice(void)
             free(vkQueueFamilyProperties_Array);
             vkQueueFamilyProperties_Array = NULL;
 
-            fprintf(gpFILE, "getPhysicalDevice() : succeeded to free vkQueueFamilyProperties_Array.\n");
         }
 
         /*
@@ -2263,7 +2212,6 @@ VkResult getPhysicalDevice(void)
             free(vkPhysicalDevice_Array);
             vkPhysicalDevice_Array = NULL;
 
-            fprintf(gpFILE, "getPhysicalDevice() : succeeded to free vkPhysicalDevice_Array.\n");
         }
 
         fprintf(gpFILE, "getPhysicalDevice() : failed to select graphics supported physical device.\n");
@@ -2421,7 +2369,6 @@ VkResult printVkInfo(void)
         free(vkPhysicalDevice_Array);
         vkPhysicalDevice_Array = NULL;
 
-        fprintf(gpFILE, "printVkInfo() : succeeded to free vkPhysicalDevice_Array.\n");
     }
 
     return(vkResult);
@@ -2450,10 +2397,6 @@ VkResult fillDeviceExtensionNames(void)
         fprintf(gpFILE, "fillDeviceExtensionNames() : first call to vkEnumerateDeviceExtensionProperties() failed.\n");
         return(vkResult);
     }
-    else
-    {
-        fprintf(gpFILE, "fillDeviceExtensionNames() : first call to vkEnumerateDeviceExtensionProperties() succeeded.\n");
-    }
 
     /*
      *  allocate and fill struct VkExtensionProperties array
@@ -2473,10 +2416,6 @@ VkResult fillDeviceExtensionNames(void)
     {
         fprintf(gpFILE, "fillDeviceExtensionNames() : second call to vkEnumerateDeviceExtensionProperties() failed.\n");
         return(vkResult);
-    }
-    else
-    {
-        fprintf(gpFILE, "fillDeviceExtensionNames() : second call to vkEnumerateDeviceExtensionProperties() succeeded.\n");
     }
 
     /*
@@ -2550,10 +2489,6 @@ VkResult fillDeviceExtensionNames(void)
         fprintf(gpFILE, "fillDeviceExtensionNames() : VK_KHR_SWAPCHAIN_EXTENSION_NAME not found.\n");
         return(vkResult);
     }
-    else
-    {
-        fprintf(gpFILE, "fillDeviceExtensionNames() : VK_KHR_SWAPCHAIN_EXTENSION_NAME found.\n");
-    }
 
     fprintf(gpFILE, LINE_END);
 
@@ -2592,10 +2527,6 @@ VkResult createVulkanDevice(void)
     {
         fprintf(gpFILE, "createVulkanDevice() : fillDeviceExtensionNames() failed.\n");
         return(vkResult);
-    }
-    else
-    {
-        fprintf(gpFILE, "createVulkanDevice() : fillDeviceExtensionNames() succeeded.\n");
     }
 
     /*
@@ -2649,10 +2580,6 @@ VkResult createVulkanDevice(void)
         fprintf(gpFILE, "createVulkanDevice() : vkCreateDevice() failed.\n");
         return(vkResult);
     }
-    else
-    {
-        fprintf(gpFILE, "createVulkanDevice() : vkCreateDevice() succeeded.\n");
-    }
 
     return(vkResult);
 }
@@ -2676,10 +2603,7 @@ void getDeviceQueue(void)
         fprintf(gpFILE, "getDeviceQueue() : vkGetDeviceQueue() returned NULL for VkQueue.\n");
         return;
     }
-    else
-    {
-        fprintf(gpFILE, "getDeviceQueue() : vkGetDeviceQueue() succeeded.\n");
-    }
+
 }
 
 VkResult getPhysicalDeviceSurfaceFormatAndColorSpace(void)
@@ -2711,10 +2635,6 @@ VkResult getPhysicalDeviceSurfaceFormatAndColorSpace(void)
         fprintf(gpFILE, "getPhysicalDeviceSurfaceFormatAndColorSpace() : Format count is 0.\n");
         return(vkResult);
     }
-    else
-    {
-        fprintf(gpFILE, "getPhysicalDeviceSurfaceFormatAndColorSpace() : vkGetPhysicalDeviceSurfaceFormatsKHR()'s 1st call succeeded.\n");
-    }
 
     /*
      *  Declare and allocate an array of VkSurfaceFormatKHR structure corresponding to above count.
@@ -2736,10 +2656,6 @@ VkResult getPhysicalDeviceSurfaceFormatAndColorSpace(void)
     {
         fprintf(gpFILE, "getPhysicalDeviceSurfaceFormatAndColorSpace() : vkGetPhysicalDeviceSurfaceFormatsKHR()'s 2nd call failed.\n");
         return(vkResult);
-    }
-    else
-    {
-        fprintf(gpFILE, "getPhysicalDeviceSurfaceFormatAndColorSpace() : vkGetPhysicalDeviceSurfaceFormatsKHR()'s 2nd call succeeded.\n");
     }
 
     /*
@@ -2768,7 +2684,6 @@ VkResult getPhysicalDeviceSurfaceFormatAndColorSpace(void)
         free(vkSurfaceFormatKHR_Array);
         vkSurfaceFormatKHR_Array = NULL;
 
-        fprintf(gpFILE, "getPhysicalDeviceSurfaceFormatAndColorSpace() : vkSurfaceFormatKHR_Array is freed successfully.\n");
     }
 
     return(vkResult);
@@ -2803,10 +2718,6 @@ VkResult getPhysicalDevicePresentMode(void)
         fprintf(gpFILE, "getPhysicalDevicePresentMode() : Present mode count is 0.\n");
         return(vkResult);
     }
-    else
-    {
-        fprintf(gpFILE, "getPhysicalDevicePresentMode() : vkGetPhysicalDeviceSurfacePresentModesKHR()'s 1st call succeeded.\n");
-    }
 
     /*
      *  Declare and allocate an array of VkPresentModeKHR enum corresponding to above count.
@@ -2827,10 +2738,6 @@ VkResult getPhysicalDevicePresentMode(void)
     {
         fprintf(gpFILE, "getPhysicalDevicePresentMode() : vkGetPhysicalDeviceSurfacePresentModesKHR()'s 2nd call failed.\n");
         return(vkResult);
-    }
-    else
-    {
-        fprintf(gpFILE, "getPhysicalDevicePresentMode() : vkGetPhysicalDeviceSurfacePresentModesKHR()'s 2nd call succeeded.\n");
     }
 
     /*
@@ -2857,8 +2764,6 @@ VkResult getPhysicalDevicePresentMode(void)
     {
         free(vkPresentModeKHR_Array);
         vkPresentModeKHR_Array = NULL;
-
-        fprintf(gpFILE, "getPhysicalDevicePresentMode() : vkPresentModeKHR_Array is freed successfully.\n");
     }
 
     return(vkResult);
@@ -2883,10 +2788,6 @@ VkResult createSwapchain(VkBool32 vsync) // vsync == vertical synchronisation
         fprintf(gpFILE, "createSwapchain() : getPhysicalDeviceSurfaceFormatAndColorSpace() failed (%d).\n", vkResult);
         return(vkResult);
     }
-    else
-    {
-        fprintf(gpFILE, "createSwapchain() : getPhysicalDeviceSurfaceFormatAndColorSpace() succeeded.\n");
-    }
 
     /*
      * sub-step 2 : Get physical device surface capabilities by using Vulkan API vkGetPhysicalDeviceSurfaceCapabilitiesKHR()
@@ -2904,10 +2805,6 @@ VkResult createSwapchain(VkBool32 vsync) // vsync == vertical synchronisation
     {
         fprintf(gpFILE, "createSwapchain() : vkGetPhysicalDeviceSurfaceCapabilitiesKHR() failed (%d).\n", vkResult);
         return(vkResult);
-    }
-    else
-    {
-        fprintf(gpFILE, "createSwapchain() : vkGetPhysicalDeviceSurfaceCapabilitiesKHR() succeeded.\n");
     }
 
     /*
@@ -3004,12 +2901,7 @@ VkResult createSwapchain(VkBool32 vsync) // vsync == vertical synchronisation
         fprintf(gpFILE, "createSwapchain() : getPhysicalDevicePresentMode() failed (%d).\n", vkResult);
         return(vkResult);
     }
-    else
-    {
-        fprintf(gpFILE, "createSwapchain() : getPhysicalDevicePresentMode() succeeded.\n");
-    }
 
-    
     //sub-step 8 : According to the above data, declare, memset() and initialize VkSwapchainCreateInfoKHR structure.
      
     VkSwapchainCreateInfoKHR vkSwapchainCreateInfoKHR;
@@ -3049,12 +2941,7 @@ VkResult createSwapchain(VkBool32 vsync) // vsync == vertical synchronisation
         fprintf(gpFILE, "createSwapchain() : vkCreateSwapchainKHR() failed (%d).\n", vkResult);
         return(vkResult);
     }
-    else
-    {
-        fprintf(gpFILE, "createSwapchain() : vkCreateSwapchainKHR() succeeded.\n");
-    }
-
-    
+ 
       // When done, destroy it in uninitialize() by using vkDestroySwapchain() Vulkan API.
      
 
@@ -3090,7 +2977,6 @@ VkResult createImagesAndImageViews(void)
     }
     else
     {
-        fprintf(gpFILE, "createImagesAndImageViews() : vkGetSwapchainImagesKHR()'s 1st call succeeded.\n");
         fprintf(gpFILE, "createImagesAndImageViews() : gives swapchain image count = %d\n", swapchainImageCount);
     }
 
@@ -3109,10 +2995,6 @@ VkResult createImagesAndImageViews(void)
     {
         fprintf(gpFILE, "createImagesAndImageViews() : vkGetSwapchainImagesKHR()'s 2nd call failed.\n");
         return(vkResult);
-    }
-    else
-    {
-        fprintf(gpFILE, "createImagesAndImageViews() : vkGetSwapchainImagesKHR()'s 2nd call succeeded.\n");
     }
 
     //  Declare another global array of type VkImageView and allocate it to the size of swapchain image count.
@@ -3157,10 +3039,6 @@ VkResult createImagesAndImageViews(void)
             fprintf(gpFILE, "createImagesAndImageViews() : vkCreateImageView() failed for iteration %d. (%d)\n", i, vkResult);
             return(vkResult);
         }
-        else
-        {
-            fprintf(gpFILE, "createImagesAndImageViews() : vkCreateImageView() succeeded for iteration %d.\n", i);
-        }
     }
 
     return(vkResult);
@@ -3193,10 +3071,6 @@ VkResult createCommandPool(void)
     {
         fprintf(gpFILE, "createCommandPool() : vkCreateCommandPool() failed.\n");
         return(vkResult);
-    }
-    else
-    {
-        fprintf(gpFILE, "createCommandPool() : vkCreateCommandPool() succeeded.\n");
     }
 
     return(vkResult);
@@ -3233,10 +3107,6 @@ VkResult createCommandBuffers(void)
             fprintf(gpFILE, "createCommandBuffers() : vkAllocateCommandBuffers failed for iteration %d.\n", i);
             return(vkResult);
         }
-        else
-        {
-            fprintf(gpFILE, "createCommandBuffers() : vkAllocateCommandBuffers succeeded for iteration %d.\n", i);
-        }
     }
 
     return(vkResult);
@@ -3254,7 +3124,7 @@ VkResult createVertexBuffer_(void)
         1.0f,-1.0f,0.0f
     };
 
-    memset((void*)&vertexData_position, 0, sizeof(VertexData));
+    memset((void*)&vertexData_position, 0, sizeof(VulkanData));
 
     VkBufferCreateInfo vkBufferCreateInfo;
     memset((void*)&vkBufferCreateInfo, 0, sizeof(VkBufferCreateInfo));
@@ -3271,10 +3141,6 @@ VkResult createVertexBuffer_(void)
     {
         fprintf(gpFILE, "createVertexBuffer() -> vkCreateBuffer():  failed.\n");
         return(vkResult);
-    }
-    else
-    {
-        fprintf(gpFILE, "createVertexBuffer() -> vkCreateBuffer():  succeeded.\n");
     }
 
     //------------
@@ -3314,10 +3180,7 @@ VkResult createVertexBuffer_(void)
         fprintf(gpFILE, "createVertexBuffer() -> vkAllocateMemory() :  failed.\n");
         return(vkResult);
     }
-    else
-    {
-        fprintf(gpFILE, "createVertexBuffer() -> vkAllocateMemory() :  succeeded.\n");
-    }
+
     
     //---------------
     vkResult = vkBindBufferMemory(vkDevice, vertexData_position.vkBuffer, vertexData_position.vkDeviceMemory,0);
@@ -3326,10 +3189,7 @@ VkResult createVertexBuffer_(void)
         fprintf(gpFILE, "createVertexBuffer() -> vkBindBufferMemory() :  failed.\n");
         return(vkResult);
     }
-    else
-    {
-        fprintf(gpFILE, "createVertexBuffer() -> vkBindBufferMemory() :  succeeded.\n");
-    }
+
 
     //----------------
     void* data = NULL;
@@ -3339,10 +3199,7 @@ VkResult createVertexBuffer_(void)
         fprintf(gpFILE, "createVertexBuffer() -> vkMapMemory() :  failed.\n");
         return(vkResult);
     }
-    else
-    {
-        fprintf(gpFILE, "createVertexBuffer() -> vkMapMemory() :  succeeded.\n");
-    }
+
 
     //-------actual memory mapped io
     memcpy(data, triangle_position, sizeof(triangle_position));
@@ -3360,14 +3217,14 @@ VkResult createVertexBuffer(void)
 
     float triangle_position[] =
     {
-        0.0f,1.0f,0.0f,
-        -1.0f,-1.0f,0.0f,
-        1.0f,-1.0f,0.0f
+        0.0f,50.0f,0.0f,
+        -50.0f,-50.0f,0.0f,
+        50.0f,-50.0f,0.0f
     };
 
 	//staging buffer
-	VertexData vertexData_stagingBffer_position;
-	memset((void*)&vertexData_stagingBffer_position, 0, sizeof(VertexData));
+    VulkanData vertexData_stagingBffer_position;
+	memset((void*)&vertexData_stagingBffer_position, 0, sizeof(VulkanData));
 
 	VkBufferCreateInfo vkBufferCreateInfo_stagingBuffer;
 	memset((void*)&vkBufferCreateInfo_stagingBuffer, 0, sizeof(VkBufferCreateInfo));
@@ -3385,10 +3242,6 @@ VkResult createVertexBuffer(void)
     {
         fprintf(gpFILE, "createVertexBuffer() -> vkCreateBuffer():  failed.\n");
         return(vkResult);
-    }
-    else
-    {
-        fprintf(gpFILE, "createVertexBuffer() -> vkCreateBuffer():  succeeded.\n");
     }
 
 	//------------
@@ -3429,10 +3282,7 @@ VkResult createVertexBuffer(void)
 		fprintf(gpFILE, "createVertexBuffer() -> vkAllocateMemory() :  failed.\n");
 		return(vkResult);
 	}
-	else
-	{
-		fprintf(gpFILE, "createVertexBuffer() -> vkAllocateMemory() :  succeeded.\n");
-	}
+
 	//---------------
 	// Bind the staging buffer memory to the staging buffer
 	vkResult = vkBindBufferMemory(vkDevice, vertexData_stagingBffer_position.vkBuffer, vertexData_stagingBffer_position.vkDeviceMemory, 0);
@@ -3440,10 +3290,6 @@ VkResult createVertexBuffer(void)
 	{
 		fprintf(gpFILE, "createVertexBuffer() -> vkBindBufferMemory() :  failed.\n");
 		return(vkResult);
-	}
-	else
-	{
-		fprintf(gpFILE, "createVertexBuffer() -> vkBindBufferMemory() :  succeeded.\n");
 	}
 
 	//----------------
@@ -3454,10 +3300,7 @@ VkResult createVertexBuffer(void)
 		fprintf(gpFILE, "createVertexBuffer() -> vkMapMemory() :  failed.\n");
 		return(vkResult);
 	}
-	else
-	{
-		fprintf(gpFILE, "createVertexBuffer() -> vkMapMemory() :  succeeded.\n");
-	}
+
 
 	//-------actual memory mapped io
 	memcpy(data, triangle_position, sizeof(triangle_position));
@@ -3467,7 +3310,7 @@ VkResult createVertexBuffer(void)
 	//-----------------------------------------------------------------------------------
 
 	//device buffer
-	memset((void*)&vertexData_position, 0, sizeof(VertexData));
+	memset((void*)&vertexData_position, 0, sizeof(VulkanData));
 	VkBufferCreateInfo vkBufferCreateInfo_deviceBuffer;
 	memset((void*)&vkBufferCreateInfo_deviceBuffer, 0, sizeof(VkBufferCreateInfo));
 	vkBufferCreateInfo_deviceBuffer.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
@@ -3483,10 +3326,7 @@ VkResult createVertexBuffer(void)
 		fprintf(gpFILE, "createVertexBuffer() -> vkCreateBuffer():  failed.\n");
 		return(vkResult);
 	}
-	else
-	{
-		fprintf(gpFILE, "createVertexBuffer() -> vkCreateBuffer():  succeeded.\n");
-	}
+
 
 	//------------
 	// Get memory requirements for the device local buffer
@@ -3527,10 +3367,7 @@ VkResult createVertexBuffer(void)
 		fprintf(gpFILE, "createVertexBuffer() -> vkAllocateMemory() :  failed.\n");
 		return(vkResult);
 	}
-	else
-	{
-		fprintf(gpFILE, "createVertexBuffer() -> vkAllocateMemory() :  succeeded.\n");
-	}
+
 	//---------------
 	// Bind the device local buffer memory to the device local buffer
 	vkResult = vkBindBufferMemory(vkDevice, vertexData_position.vkBuffer, vertexData_position.vkDeviceMemory, 0);
@@ -3539,10 +3376,7 @@ VkResult createVertexBuffer(void)
 		fprintf(gpFILE, "createVertexBuffer() -> vkBindBufferMemory() :  failed.\n");
         return(vkResult);
 	}
-	else
-	{
-		fprintf(gpFILE, "createVertexBuffer() -> vkBindBufferMemory() :  succeeded.\n");
-	}
+
 
 	//----------------
 	//command buffer for copy
@@ -3561,10 +3395,7 @@ VkResult createVertexBuffer(void)
     	fprintf(gpFILE, "createVertexBuffer() -> vkAllocateCommandBuffers() :  failed.\n");
 		return(vkResult);
 	}
-	else
-	{
-		fprintf(gpFILE, "createVertexBuffer() -> vkAllocateCommandBuffers() :  succeeded.\n");
-	}
+
 
 	//----------------
 	
@@ -3581,10 +3412,7 @@ VkResult createVertexBuffer(void)
 		fprintf(gpFILE, "createVertexBuffer() -> vkBeginCommandBuffer() :  failed.\n");
 		return(vkResult);
 	}
-	else
-	{
-		fprintf(gpFILE, "createVertexBuffer() -> vkBeginCommandBuffer() :  succeeded.\n");
-	}
+
 
 	//----------------
 	// Record the command to copy data from staging buffer to device local buffer
@@ -3602,10 +3430,7 @@ VkResult createVertexBuffer(void)
 		fprintf(gpFILE, "createVertexBuffer() -> vkEndCommandBuffer() :  failed.\n");
 		return(vkResult);
 	}
-	else
-	{
-		fprintf(gpFILE, "createVertexBuffer() -> vkEndCommandBuffer() :  succeeded.\n");
-	}
+
 
 	//----------------
 	// Submit the command buffer to the queue
@@ -3628,10 +3453,7 @@ VkResult createVertexBuffer(void)
 		fprintf(gpFILE, "createVertexBuffer() -> vkQueueSubmit() :  failed.\n");
 		return(vkResult);
 	}
-	else
-	{
-		fprintf(gpFILE, "createVertexBuffer() -> vkQueueSubmit() :  succeeded.\n");
-	}
+
 	// Wait for the queue to finish processing
 	vkResult = vkQueueWaitIdle(vkQueue);
 	if (vkResult != VK_SUCCESS)
@@ -3639,10 +3461,7 @@ VkResult createVertexBuffer(void)
 		fprintf(gpFILE, "createVertexBuffer() -> vkQueueWaitIdle() :  failed.\n");
 		return(vkResult);
 	}
-	else
-	{
-		fprintf(gpFILE, "createVertexBuffer() -> vkQueueWaitIdle() :  succeeded.\n");
-	}
+
 
 	//----------------
 	// Free the staging buffer
@@ -3650,19 +3469,14 @@ VkResult createVertexBuffer(void)
 	{
 		vkDestroyBuffer(vkDevice, vertexData_stagingBffer_position.vkBuffer, NULL);
 		vertexData_stagingBffer_position.vkBuffer = VK_NULL_HANDLE;
-		fprintf(gpFILE, "createVertexBuffer() -> vkDestroyBuffer() :  staging buffer destroyed.\n");
 	}
-	else
-	{
-		fprintf(gpFILE, "createVertexBuffer() -> vkDestroyBuffer() :  staging buffer already destroyed.\n");
-	}
+
 
 	// Free the staging buffer memory
 	if (vertexData_stagingBffer_position.vkDeviceMemory)
 	{
 		vkFreeMemory(vkDevice, vertexData_stagingBffer_position.vkDeviceMemory, NULL);
 		vertexData_stagingBffer_position.vkDeviceMemory = VK_NULL_HANDLE;
-		fprintf(gpFILE, "createVertexBuffer() -> vkFreeMemory() :  staging buffer memory freed.\n");
 	}
 
 	//-----------------------------------------------------------------------------------
@@ -3673,14 +3487,173 @@ VkResult createVertexBuffer(void)
 	{
 		vkFreeCommandBuffers(vkDevice, vkCommandPool, 1, &vkCommandBuffer_Copy);
 		vkCommandBuffer_Copy = VK_NULL_HANDLE;
-		fprintf(gpFILE, "createVertexBuffer() -> vkFreeCommandBuffers() :  command buffer freed.\n");
-	}
-    else
-    {
-	    fprintf(gpFILE, "createVertexBuffer() -> vkFreeCommandBuffers() :  command buffer already freed.\n");
 	}
 
     return vkResult;
+}
+
+//VkResult createDiscriptorSet(void)
+//{
+//    // local variables
+//    VkResult vkResult = VK_SUCCESS;
+//
+//    // code
+//    // Declare and initialize VkDescriptorSetAllocateInfo structure.
+//    VkDescriptorSetAllocateInfo vkDescriptorSetAllocateInfo;
+//    memset((void*)&vkDescriptorSetAllocateInfo, 0, sizeof(VkDescriptorSetAllocateInfo));
+//
+//    vkDescriptorSetAllocateInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
+//    vkDescriptorSetAllocateInfo.pNext = NULL;
+//    vkDescriptorSetAllocateInfo.descriptorPool = vkDescriptorPool; // global descriptor pool
+//    vkDescriptorSetAllocateInfo.descriptorSetCount = 1; // we are allocating only one descriptor set
+//    vkDescriptorSetAllocateInfo.pSetLayouts = &vkDescriptorSetLayout; // pointer to the descriptor set layout
+//
+//    // Call vkAllocateDescriptorSets() to allocate the descriptor set
+//    vkResult = vkAllocateDescriptorSets(vkDevice, &vkDescriptorSetAllocateInfo, &vkDescriptorSet);
+//
+//    if (vkResult != VK_SUCCESS)
+//    {
+//        fprintf(gpFILE, "createDiscriptorSet() : vkAllocateDescriptorSets() failed.\n");
+//        return(vkResult);
+//    }
+//    else
+//    {
+//        fprintf(gpFILE, "createDiscriptorSet() : vkAllocateDescriptorSets() succeeded.\n");
+//    }
+//
+//    return(vkResult);
+//}
+
+VkResult createUniformBuffer(void)
+{
+	VkResult updateUniformBuffer(uint32_t curIndex);
+
+	VkResult vkResult = VK_SUCCESS;
+
+
+    for (uint32_t k = 0; k < MAX_FRAMES; k++)
+    {
+        //code
+        VkBufferCreateInfo vkBufferCreateInfo;
+        memset((void*)&vkBufferCreateInfo, 0, sizeof(VkBufferCreateInfo));
+
+        vkBufferCreateInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
+        vkBufferCreateInfo.pNext = NULL;
+        vkBufferCreateInfo.flags = 0;
+        vkBufferCreateInfo.size = sizeof(UniformTransformBufferObject);
+        vkBufferCreateInfo.usage = VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT;
+
+        memset((void*)&uniformData_transform[k], 0, sizeof(UniformData));
+
+        vkResult = vkCreateBuffer(vkDevice, &vkBufferCreateInfo, NULL, &uniformData_transform[k].vkBuffer);
+
+        if (vkResult != VK_SUCCESS)
+        {
+            fprintf(gpFILE, "createUniformBuffer() -> vkCreateBuffer():  failed.\n");
+            return(vkResult);
+        }
+
+        //------------
+        VkMemoryRequirements vkMemoryRequirements;
+        memset((void*)&vkMemoryRequirements, 0, sizeof(vkMemoryRequirements));
+
+        vkGetBufferMemoryRequirements(vkDevice, uniformData_transform[0].vkBuffer, &vkMemoryRequirements);
+
+        //------------
+        VkMemoryAllocateInfo vkMemoryAllocateInfo;
+        memset((void*)&vkMemoryAllocateInfo, 0, sizeof(vkMemoryAllocateInfo));
+
+        vkMemoryAllocateInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
+        vkMemoryAllocateInfo.pNext = NULL;
+        vkMemoryAllocateInfo.allocationSize = vkMemoryRequirements.size;
+        vkMemoryAllocateInfo.memoryTypeIndex = 0;
+
+        //-------------
+        for (uint32_t i = 0; i < vkPhysicalDeviceMemoryProperties.memoryTypeCount; i++)
+        {
+            if ((vkMemoryRequirements.memoryTypeBits & 1) == 1)
+            {
+                if (vkPhysicalDeviceMemoryProperties.memoryTypes[i].propertyFlags & VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT)
+                {
+                    vkMemoryAllocateInfo.memoryTypeIndex = i;
+                    break;
+                }
+            }
+
+            vkMemoryRequirements.memoryTypeBits >>= 1;
+        }
+
+        //--------------
+        vkResult = vkAllocateMemory(vkDevice, &vkMemoryAllocateInfo, NULL, &uniformData_transform[k].vkDeviceMemory);
+        if (vkResult != VK_SUCCESS)
+        {
+            fprintf(gpFILE, "createUniformBuffer() -> vkAllocateMemory() :  failed.\n");
+            return(vkResult);
+        }
+
+
+        //---------------
+        vkResult = vkBindBufferMemory(vkDevice, uniformData_transform[k].vkBuffer, uniformData_transform[k].vkDeviceMemory, 0);
+        if (vkResult != VK_SUCCESS)
+        {
+            fprintf(gpFILE, "createUniformBuffer() -> vkBindBufferMemory() :  failed.\n");
+            return(vkResult);
+        }
+
+        // Map the uniform buffer memory
+
+        vkResult = vkMapMemory(vkDevice, uniformData_transform[k].vkDeviceMemory, 0, sizeof(UniformTransformBufferObject), 0, &uniformData_transform[k].pData);
+        if (vkResult != VK_SUCCESS)
+        {
+            fprintf(gpFILE, "createUniformBuffer() -> vkMapMemory() :  failed.\n");
+            return(vkResult);
+        }
+
+        //call updateUniformBuffer() to update the uniform buffer with initial data
+        vkResult = updateUniformBuffer(k);
+        if (vkResult != VK_SUCCESS)
+        {
+            fprintf(gpFILE, "createUniformBuffer() -> updateUniformBuffer() :  failed.\n");
+            return(vkResult);
+        }
+    }
+
+
+	return vkResult;
+}
+
+VkResult updateUniformBuffer(uint32_t curIndex)
+{
+	// local variables
+	VkResult vkResult = VK_SUCCESS;
+
+	// code
+	UniformTransformBufferObject uniformTransformBufferObject;
+	memset((void*)&uniformTransformBufferObject, 0, sizeof(UniformTransformBufferObject));
+	// Initialize the uniform buffer object with some data
+    
+	uniformTransformBufferObject.model = glm::mat4(1.0f); // identity matrix
+	uniformTransformBufferObject.view = glm::mat4(1.0f); // identity matrix
+	//uniformTransformBufferObject.proj = glm::mat4(1.0f); // identity matrix
+
+    glm::mat4 ortho = glm::mat4(1.0f);
+
+	if (winWidth <=  winHeight )
+	{
+		ortho = glm::ortho(-100.0f, 100.0f, -100.0f * (float)winHeight / (float)winWidth, 100.0f * (float)winHeight / (float)winWidth, -100.0f, 100.0f);
+	}
+	else
+	{
+		ortho = glm::ortho(-100.0f * (float)winWidth / (float)winHeight, 100.0f * (float)winWidth / (float)winHeight, -100.0f, 100.0f, -100.0f, 100.0f);
+	}
+
+	uniformTransformBufferObject.proj = ortho; // orthographic projection matrix
+
+	// Copy the data to the uniform buffer
+	memcpy(uniformData_transform[curIndex].pData, &uniformTransformBufferObject, sizeof(UniformTransformBufferObject));
+
+
+	return vkResult;    
 }
 
 VkResult createShaders(void)
@@ -3701,10 +3674,7 @@ VkResult createShaders(void)
         vkResult = VK_ERROR_INITIALIZATION_FAILED;
         return vkResult;
     }
-    else
-    {
-        fprintf(gpFILE, "createShaders() -> fopen_s() :  succeeded.\n");
-    }
+
 
     fseek(fp, 0L, SEEK_END);
     size = ftell(fp);
@@ -3729,10 +3699,7 @@ VkResult createShaders(void)
         vkResult = VK_ERROR_INITIALIZATION_FAILED;
         return vkResult;
     }
-    else
-    {
-        fprintf(gpFILE, "createShaders() -> fread() :  succeeded.\n");
-    }
+
 
     fclose(fp);
 
@@ -3751,10 +3718,6 @@ VkResult createShaders(void)
     {
         fprintf(gpFILE, "createShaders() -> vkCreateShaderModule() :  failed.\n");
         return(vkResult);
-    }
-    else
-    {
-        fprintf(gpFILE, "createShaders() ->  vertex vkCreateShaderModule() :  succeeded.\n");
     }
 
     if (shaderData)
@@ -3780,10 +3743,6 @@ VkResult createShaders(void)
         vkResult = VK_ERROR_INITIALIZATION_FAILED;
         return vkResult;
     }
-    else
-    {
-        fprintf(gpFILE, "createShaders() -> fopen_s() :  succeeded.\n");
-    }
 
     fseek(fp, 0L, SEEK_END);
     size = ftell(fp);
@@ -3808,10 +3767,6 @@ VkResult createShaders(void)
         vkResult = VK_ERROR_INITIALIZATION_FAILED;
         return vkResult;
     }
-    else
-    {
-        fprintf(gpFILE, "createShaders() -> fread() :  succeeded.\n");
-    }
 
     fclose(fp);
 
@@ -3831,10 +3786,6 @@ VkResult createShaders(void)
         fprintf(gpFILE, "createShaders() -> vkCreateShaderModule() :  failed.\n");
         return(vkResult);
     }
-    else
-    {
-        fprintf(gpFILE, "createShaders() ->  fragment vkCreateShaderModule() :  succeeded.\n");
-    }
 
     if (shaderData)
     {
@@ -3845,18 +3796,19 @@ VkResult createShaders(void)
     return vkResult;
 }
 
-VkResult createDiscriptorSetLayout(void)
+VkResult createDescriptorSetLayout(void)
 {
     // variable declarations
     VkResult vkResult = VK_SUCCESS;
 
+	// Declare and initialize VkDescriptorSetLayoutBinding structure which will have information about the descriptor set layout binding.
     VkDescriptorSetLayoutBinding vkDescriptorSetLayoutBinding;
     memset((void*)&vkDescriptorSetLayoutBinding, 0, sizeof(VkDescriptorSetLayoutBinding));
 
-    vkDescriptorSetLayoutBinding.binding = 0;
+	vkDescriptorSetLayoutBinding.binding = 0; // 0 means the index number of the binding
     vkDescriptorSetLayoutBinding.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
     vkDescriptorSetLayoutBinding.descriptorCount = 1;
-    vkDescriptorSetLayoutBinding.stageFlags = VK_SHADER_STAGE_VERTEX_BIT ;
+    vkDescriptorSetLayoutBinding.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
     vkDescriptorSetLayoutBinding.pImmutableSamplers = NULL;
 
     // code
@@ -3875,10 +3827,6 @@ VkResult createDiscriptorSetLayout(void)
     {
         fprintf(gpFILE, "createDiscriptorSetLayout() -> vkCreateDescriptorSetLayout() :  failed: %d.\n", vkResult);
         return(vkResult);
-	}
-	else
-	{
-		fprintf(gpFILE, "createDiscriptorSetLayout() -> vkCreateDescriptorSetLayout() :  succeeded.\n");
 	}
 
     return(vkResult);
@@ -3908,10 +3856,107 @@ VkResult createPipelineLayout(void)
 		fprintf(gpFILE, "createPipelineLayout() -> vkCreatePipelineLayout() :  failed: %d.\n", vkResult);
 		return(vkResult);
 	}
-	else
+
+	return(vkResult);
+}
+
+VkResult createDescriptorPool(void)
+{
+	// local variables
+	VkResult vkResult = VK_SUCCESS;
+
+	// code
+	// Declare and initialize VkDescriptorPoolSize structure which will have information about the descriptor pool size.
+	VkDescriptorPoolSize vkDescriptorPoolSize;
+	memset((void*)&vkDescriptorPoolSize, 0, sizeof(VkDescriptorPoolSize));
+
+	vkDescriptorPoolSize.type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+	vkDescriptorPoolSize.descriptorCount = MAX_FRAMES; // we are allocating only one descriptor set
+
+	// Declare and initialize VkDescriptorPoolCreateInfo structure and refer above VkDescriptorPoolSize into it.
+	VkDescriptorPoolCreateInfo vkDescriptorPoolCreateInfo;
+	memset((void*)&vkDescriptorPoolCreateInfo, 0, sizeof(VkDescriptorPoolCreateInfo));
+
+	vkDescriptorPoolCreateInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
+	vkDescriptorPoolCreateInfo.pNext = NULL;
+	vkDescriptorPoolCreateInfo.flags = 0; // no flags
+	vkDescriptorPoolCreateInfo.maxSets = MAX_FRAMES; // we are allocating only one descriptor set
+	vkDescriptorPoolCreateInfo.poolSizeCount = 1; // we are using only one descriptor pool size
+	vkDescriptorPoolCreateInfo.pPoolSizes = &vkDescriptorPoolSize;
+
+	// Call vkCreateDescriptorPool() to create the actual descriptor pool.
+	vkResult = vkCreateDescriptorPool(vkDevice, &vkDescriptorPoolCreateInfo, NULL, &vkDescriptorPool);
+
+	if (vkResult != VK_SUCCESS)
 	{
-		fprintf(gpFILE, "createPipelineLayout() -> vkCreatePipelineLayout() :  succeeded.\n");
+		fprintf(gpFILE, "createDescriptorPool() -> vkCreateDescriptorPool() :  failed: %d.\n", vkResult);
+		return(vkResult);
 	}
+
+	return(vkResult);
+
+}
+
+VkResult createDescriptorSet(void)
+{
+	// local variables
+	VkResult vkResult = VK_SUCCESS;
+
+	// code
+	// Declare and initialize VkDescriptorSetAllocateInfo structure.
+	VkDescriptorSetAllocateInfo vkDescriptorSetAllocateInfo;
+	memset((void*)&vkDescriptorSetAllocateInfo, 0, sizeof(VkDescriptorSetAllocateInfo));
+
+    VkDescriptorSetLayout layouts[MAX_FRAMES]{};
+    for (uint32_t i = 0; i < MAX_FRAMES; i++)
+        layouts[i] = vkDescriptorSetLayout;
+
+    //------------------------------------------------------------------------------------------------
+	vkDescriptorSetAllocateInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
+	vkDescriptorSetAllocateInfo.pNext = NULL;
+	vkDescriptorSetAllocateInfo.descriptorPool = vkDescriptorPool; // global descriptor pool
+    vkDescriptorSetAllocateInfo.descriptorSetCount = MAX_FRAMES;//
+	vkDescriptorSetAllocateInfo.pSetLayouts = layouts; // pointer to the descriptor set layout
+
+
+	// Call vkAllocateDescriptorSets() to allocate the descriptor set
+	vkResult = vkAllocateDescriptorSets(vkDevice, &vkDescriptorSetAllocateInfo, vkDescriptorSets);
+
+	if (vkResult != VK_SUCCESS)
+	{
+		fprintf(gpFILE, "createDiscriptorSet() : vkAllocateDescriptorSets() failed.\n");
+		return(vkResult);
+	}
+
+    for (size_t i = 0; i < MAX_FRAMES; i++)
+    {
+        // Declare and initialize VkDescriptorBufferInfo structure which will have information about the uniform buffer.
+        VkDescriptorBufferInfo vkDescriptorBufferInfo;
+        memset((void*)&vkDescriptorBufferInfo, 0, sizeof(VkDescriptorBufferInfo));
+        vkDescriptorBufferInfo.buffer = uniformData_transform[i].vkBuffer; // uniform buffer
+        vkDescriptorBufferInfo.offset = 0; // offset in the buffer
+        vkDescriptorBufferInfo.range = sizeof(UniformTransformBufferObject); // size of the buffer
+
+        //write or copy the descriptor set with the uniform buffer information
+        // Declare and initialize VkWriteDescriptorSet structure which will have information about the descriptor set.
+        VkWriteDescriptorSet vkWriteDescriptorSet;
+        memset((void*)&vkWriteDescriptorSet, 0, sizeof(VkWriteDescriptorSet));
+        vkWriteDescriptorSet.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+        vkWriteDescriptorSet.pNext = NULL;
+        vkWriteDescriptorSet.dstSet = vkDescriptorSets[i]; // descriptor set
+        vkWriteDescriptorSet.dstBinding = 0; // 0 means the index number of the binding
+        vkWriteDescriptorSet.dstArrayElement = 0; // 0 means the index number of the array element
+        vkWriteDescriptorSet.descriptorCount = 1; // we are using only one descriptor
+        vkWriteDescriptorSet.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER; // type of the descriptor
+        vkWriteDescriptorSet.pImageInfo = NULL; // no image info
+        vkWriteDescriptorSet.pBufferInfo = &vkDescriptorBufferInfo; // pointer to the buffer info
+        vkWriteDescriptorSet.pTexelBufferView = NULL; // no texel buffer view
+
+        // Call vkUpdateDescriptorSets() to update the descriptor set with the uniform buffer information.
+        vkUpdateDescriptorSets(vkDevice, 1, &vkWriteDescriptorSet, 0, NULL);
+    }
+
+
 
 	return(vkResult);
 }
@@ -3993,10 +4038,6 @@ VkResult createRenderPass(void)
     {
         fprintf(gpFILE, "createRenderPass() : vkCreateRenderPass() failed.\n");
         return(vkResult);
-    }
-    else
-    {
-        fprintf(gpFILE, "createRenderPass() : vkCreateRenderPass() succeeded.\n");
     }
 
     return(vkResult);
@@ -4174,10 +4215,6 @@ VkResult createGraphicsPipeline(void)
 		fprintf(gpFILE, "createGraphicsPipeline() : vkCreatePipelineCache() failed: %d .\n", vkResult);
 		return(vkResult);
 	}
-	else
-	{
-		fprintf(gpFILE, "createGraphicsPipeline() : vkCreatePipelineCache() succeeded.\n");
-	}
 
 	//  Declare and initialize VkGraphicsPipelineCreateInfo structure.
 	VkGraphicsPipelineCreateInfo vkGraphicsPipelineCreateInfo;
@@ -4215,10 +4252,6 @@ VkResult createGraphicsPipeline(void)
         vkPipelineCache = VK_NULL_HANDLE;
 
 		return(vkResult);
-	}
-	else
-	{
-		fprintf(gpFILE, "createGraphicsPipeline() : vkCreateGraphicsPipelines() succeeded.\n");
 	}
 
 	//destroy pipeline cache
@@ -4266,10 +4299,7 @@ VkResult createFramebuffers(void)
             fprintf(gpFILE, "createFramebuffers() : vkCreateFramebuffer() failed for iteration %d.\n", i);
             return(vkResult);
         }
-        else
-        {
-            fprintf(gpFILE, "createFramebuffers() : vkCreateFramebuffer() succeeded for iteration %d.\n", i);
-        }
+
     }
 
     return(vkResult);
@@ -4293,7 +4323,7 @@ VkResult createSemaphores(void)
     vkSemaphore_RenderComplete = (VkSemaphore*)malloc(sizeof(VkSemaphore) * swapchainImageCount);
 
 
-	for (int i = 0; i < swapchainImageCount; i++)
+	for (uint32_t i = 0; i < swapchainImageCount; i++)
 	{
         //Now call vkCreateSemaphore() API 2 times to create our 2 semaphore objects. Remember, both will use the same create info structure.
         vkResult = vkCreateSemaphore(
@@ -4308,10 +4338,6 @@ VkResult createSemaphores(void)
             fprintf(gpFILE, "createSemaphores() : vkCreateSemaphore() failed for back buffer semaphore.\n");
             return(vkResult);
         }
-        else
-        {
-            fprintf(gpFILE, "createSemaphores() : vkCreateSemaphore() succeeded for back buffer semaphore.\n");
-        }
 
         vkResult = vkCreateSemaphore(
             vkDevice,
@@ -4325,10 +4351,7 @@ VkResult createSemaphores(void)
             fprintf(gpFILE, "createSemaphores() : vkCreateSemaphore() failed for render complete semaphore.\n");
             return(vkResult);
         }
-        else
-        {
-            fprintf(gpFILE, "createSemaphores() : vkCreateSemaphore() succeeded for render complete semaphore.\n");
-        }
+
 	}
 
     
@@ -4361,10 +4384,6 @@ VkResult createFences(void)
         {
             fprintf(gpFILE, "createFences() : vkCreateFence() failed for iteration %d.\n", i);
             return(vkResult);
-        }
-        else
-        {
-            fprintf(gpFILE, "createFences() : vkCreateFence() succeeded for iteration %d.\n", i);
         }
     }
 
@@ -4449,8 +4468,9 @@ VkResult buildCommandBuffers(uint32_t curIndex)
 
     vkCmdBeginRenderPass(vkCommandBuffer_Array[curIndex], &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
 
-    // Draw triangle
+	// Bind the pipeline and descriptor sets
     vkCmdBindPipeline(vkCommandBuffer_Array[curIndex], VK_PIPELINE_BIND_POINT_GRAPHICS, vkPipeline);
+	vkCmdBindDescriptorSets(vkCommandBuffer_Array[curIndex], VK_PIPELINE_BIND_POINT_GRAPHICS, vkPipelineLayout, 0, 1, &vkDescriptorSets[0], 0, NULL);
 
     VkDeviceSize offset = 0;
     vkCmdBindVertexBuffers(vkCommandBuffer_Array[curIndex], 0, 1, &vertexData_position.vkBuffer, &offset);
