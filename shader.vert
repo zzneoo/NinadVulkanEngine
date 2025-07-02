@@ -11,5 +11,5 @@ layout(binding = 0) uniform Transform
 
 void main(void)
 {
-	gl_Position = transform.projection * vPosition;
+	gl_Position = transform.projection * transform.model * vec4(vPosition.xyz,1.0);
 }

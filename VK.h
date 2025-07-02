@@ -1,5 +1,5 @@
 #pragma once
-#include"vmath.h"
+//#include"vmath.h"
 
 #define MYICON 101
 

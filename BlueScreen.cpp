@@ -163,7 +163,8 @@ UniformData uniformData_transform[MAX_FRAMES];
 
 //shader related variables
 VkShaderModule vkShaderModule_vertex_shader = VK_NULL_HANDLE;
-VkShaderModule vkShaderModule_fragment_shader = VK_NULL_HANDLE;
+VkShaderModule vkShaderModule_basic_fs = VK_NULL_HANDLE;
+//VkShaderModule vkShaderModule_fragment_shader = VK_NULL_HANDLE;
 
 //desccriptor set layout 
 VkDescriptorSetLayout vkDescriptorSetLayout = VK_NULL_HANDLE;
@@ -1377,10 +1378,10 @@ void uninitialize(void)
 
 
     //shaderModule 
-    if (vkShaderModule_fragment_shader)
+    if (vkShaderModule_basic_fs)
     {
-        vkDestroyShaderModule(vkDevice, vkShaderModule_fragment_shader, NULL);
-        vkShaderModule_fragment_shader = VK_NULL_HANDLE;
+        vkDestroyShaderModule(vkDevice, vkShaderModule_basic_fs, NULL);
+        vkShaderModule_basic_fs = VK_NULL_HANDLE;
     }
     if (vkShaderModule_vertex_shader)
     {
@@ -2850,8 +2851,8 @@ VkResult createSwapchain(VkBool32 vsync) // vsync == vertical synchronisation
         vkExtent2D.width = (uint32_t)winWidth;
         vkExtent2D.height = (uint32_t)winHeight;
 
-        vkExtent2D_Swapchain.width = vmath::max(vkSurfaceCapabilitiesKHR.minImageExtent.width, vmath::min(vkSurfaceCapabilitiesKHR.maxImageExtent.width, vkExtent2D.width)); // clamp the width between minImageExtent.width and maxImageExtent.width
-        vkExtent2D_Swapchain.height = vmath::max(vkSurfaceCapabilitiesKHR.minImageExtent.height, vmath::min(vkSurfaceCapabilitiesKHR.maxImageExtent.height, vkExtent2D.height)); // clamp the height between minImageExtent.height and maxImageExtent.height
+        vkExtent2D_Swapchain.width = glm::max(vkSurfaceCapabilitiesKHR.minImageExtent.width, glm::min(vkSurfaceCapabilitiesKHR.maxImageExtent.width, vkExtent2D.width)); // clamp the width between minImageExtent.width and maxImageExtent.width
+        vkExtent2D_Swapchain.height = glm::max(vkSurfaceCapabilitiesKHR.minImageExtent.height, glm::min(vkSurfaceCapabilitiesKHR.maxImageExtent.height, vkExtent2D.height)); // clamp the height between minImageExtent.height and maxImageExtent.height
 
         /*
          * Example of clamping between minimum and maximum values:
@@ -3217,9 +3218,9 @@ VkResult createVertexBuffer(void)
 
     float triangle_position[] =
     {
-        0.0f,50.0f,0.0f,
-        -50.0f,-50.0f,0.0f,
-        50.0f,-50.0f,0.0f
+        0.0f,1.0f,0.0f,
+        -1.0f,-1.0f,0.0f,
+        1.0f,-1.0f,0.0f
     };
 
 	//staging buffer
@@ -3632,22 +3633,28 @@ VkResult updateUniformBuffer(uint32_t curIndex)
 	memset((void*)&uniformTransformBufferObject, 0, sizeof(UniformTransformBufferObject));
 	// Initialize the uniform buffer object with some data
     
-	uniformTransformBufferObject.model = glm::mat4(1.0f); // identity matrix
+	//uniformTransformBufferObject.model = glm::mat4(1.0f); // identity matrix
+	uniformTransformBufferObject.model = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.0f, -10.0f)); // translate to origin
+
 	uniformTransformBufferObject.view = glm::mat4(1.0f); // identity matrix
-	//uniformTransformBufferObject.proj = glm::mat4(1.0f); // identity matrix
 
-    glm::mat4 ortho = glm::mat4(1.0f);
 
-	if (winWidth <=  winHeight )
-	{
-		ortho = glm::ortho(-100.0f, 100.0f, -100.0f * (float)winHeight / (float)winWidth, 100.0f * (float)winHeight / (float)winWidth, -100.0f, 100.0f);
-	}
-	else
-	{
-		ortho = glm::ortho(-100.0f * (float)winWidth / (float)winHeight, 100.0f * (float)winWidth / (float)winHeight, -100.0f, 100.0f, -100.0f, 100.0f);
-	}
+    //glm::mat4 ortho = glm::mat4(1.0f);
 
-	uniformTransformBufferObject.proj = ortho; // orthographic projection matrix
+	//if (winWidth <=  winHeight )
+	//{
+	//	ortho = glm::ortho(-100.0f, 100.0f, 100.0f * (float)winHeight / (float)winWidth, -100.0f * (float)winHeight / (float)winWidth, -100.0f, 100.0f);
+	//}
+	//else
+	//{
+	//	ortho = glm::ortho(-100.0f * (float)winWidth / (float)winHeight, 100.0f * (float)winWidth / (float)winHeight, 100.0f, -100.0f, -100.0f, 100.0f);
+	//}
+
+    glm::mat4 perspective = glm::mat4(1.0f);
+	perspective = glm::perspective(glm::radians(45.0f), (float)winWidth / (float)winHeight, 0.1f, 100.0f);
+	perspective[1][1] *= -1.0f; // flip the Y axis for Vulkan
+
+	uniformTransformBufferObject.proj = perspective; //  projection matrix
 
 	// Copy the data to the uniform buffer
 	memcpy(uniformData_transform[curIndex].pData, &uniformTransformBufferObject, sizeof(UniformTransformBufferObject));
@@ -3656,6 +3663,105 @@ VkResult updateUniformBuffer(uint32_t curIndex)
 	return vkResult;    
 }
 
+VkResult createShaderModule(VkShaderModule* shaderModule, const char* fileName)
+{
+	// local variables
+	VkResult vkResult = VK_SUCCESS;
+
+    FILE* fp = NULL;
+    size_t size = 0;
+
+    errno_t err = fopen_s(&fp, fileName, "rb");
+
+    if (err != 0)
+    {
+        fprintf(gpFILE, "createShaders() -> fopen_s() :  failed.\n");
+        vkResult = VK_ERROR_INITIALIZATION_FAILED;
+        return vkResult;
+    }
+
+
+    fseek(fp, 0L, SEEK_END);
+    size = ftell(fp);
+
+
+    fseek(fp, 0L, SEEK_SET);
+
+    char* shaderData = (char*)malloc(sizeof(char) * size);
+
+    if (!shaderData)
+    {
+        fprintf(gpFILE, "createShaders() -> shaderData size failed.\n");
+        vkResult = VK_ERROR_INITIALIZATION_FAILED;
+        return vkResult;
+    }
+
+    size_t retVal = fread(shaderData, size, 1, fp);
+
+    if (retVal != 1)
+    {
+        fprintf(gpFILE, "createShaders() -> fread() :  failed.\n");
+        vkResult = VK_ERROR_INITIALIZATION_FAILED;
+        return vkResult;
+    }
+
+
+    fclose(fp);
+
+    VkShaderModuleCreateInfo vkShaderModuleCreateInfo;
+    memset((void*)&vkShaderModuleCreateInfo, 0, sizeof(VkShaderModuleCreateInfo));
+
+    vkShaderModuleCreateInfo.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
+    vkShaderModuleCreateInfo.pNext = NULL;
+    vkShaderModuleCreateInfo.flags = 0;
+    vkShaderModuleCreateInfo.codeSize = size;
+    vkShaderModuleCreateInfo.pCode = (uint32_t*)shaderData;
+
+    vkResult = vkCreateShaderModule(vkDevice, &vkShaderModuleCreateInfo, NULL, shaderModule);
+
+    if (vkResult != VK_SUCCESS)
+    {
+        fprintf(gpFILE, "createShaders() -> vkCreateShaderModule() :  failed.\n");
+        return(vkResult);
+    }
+
+    if (shaderData)
+    {
+        free(shaderData);
+        shaderData = NULL;
+    }
+	
+
+	return vkResult;
+
+}
+
+VkResult createShaders(void)
+{
+    VkResult createShaderModule(VkShaderModule * shaderModule, const char* fileName);
+    // local variables
+    VkResult vkResult = VK_SUCCESS;
+
+	vkResult = createShaderModule(&vkShaderModule_vertex_shader, "shader.vert.spv");
+	if (vkResult != VK_SUCCESS)
+	{
+		fprintf(gpFILE, "createShaders() -> createShaderModule() for vertex shader failed.\n");
+		return vkResult;
+	}
+
+	vkResult = createShaderModule(&vkShaderModule_basic_fs, "shader.frag.spv");
+	if (vkResult != VK_SUCCESS)
+	{
+		fprintf(gpFILE, "createShaders() -> createShaderModule() for fragment shader failed.\n");
+		return vkResult;
+	}
+
+
+
+    return vkResult;
+}
+
+/*
 VkResult createShaders(void)
 {
     // local variables
@@ -3779,7 +3885,7 @@ VkResult createShaders(void)
     vkShaderModuleCreateInfo.codeSize = size;
     vkShaderModuleCreateInfo.pCode = (uint32_t*)shaderData;
 
-    vkResult = vkCreateShaderModule(vkDevice, &vkShaderModuleCreateInfo, NULL, &vkShaderModule_fragment_shader);
+    vkResult = vkCreateShaderModule(vkDevice, &vkShaderModuleCreateInfo, NULL, &vkShaderModule_basic_fs);
 
     if (vkResult != VK_SUCCESS)
     {
@@ -3795,6 +3901,7 @@ VkResult createShaders(void)
 
     return vkResult;
 }
+*/
 
 VkResult createDescriptorSetLayout(void)
 {
@@ -4047,7 +4154,7 @@ VkResult createGraphicsPipeline(void)
 {
 	// local variables
 	VkResult vkResult = VK_SUCCESS;
-
+    
     // code
     // 
 	//vertex input state
@@ -4100,7 +4207,7 @@ VkResult createGraphicsPipeline(void)
 	vkPipelineRasterizationStateCreateInfo.rasterizerDiscardEnable = VK_FALSE; // no rasterizer discard
 	vkPipelineRasterizationStateCreateInfo.polygonMode = VK_POLYGON_MODE_FILL; // fill mode
 	vkPipelineRasterizationStateCreateInfo.cullMode = VK_CULL_MODE_BACK_BIT; // back face culling
-	vkPipelineRasterizationStateCreateInfo.frontFace = VK_FRONT_FACE_CLOCKWISE; //  clockwise front face
+	vkPipelineRasterizationStateCreateInfo.frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE; //  anti clockwise front face
 	vkPipelineRasterizationStateCreateInfo.lineWidth = 1.0f; // line width
 
 	// Color blend state
@@ -4191,7 +4298,7 @@ VkResult createGraphicsPipeline(void)
 	vkPipelineShaderStageCreateInfo[1].pNext = NULL;
 	vkPipelineShaderStageCreateInfo[1].flags = 0;
 	vkPipelineShaderStageCreateInfo[1].stage = VK_SHADER_STAGE_FRAGMENT_BIT; // fragment shader
-	vkPipelineShaderStageCreateInfo[1].module = vkShaderModule_fragment_shader; // fragment shader module
+	vkPipelineShaderStageCreateInfo[1].module = vkShaderModule_basic_fs; // fragment shader module
 	vkPipelineShaderStageCreateInfo[1].pName = "main"; // entry point name
 	vkPipelineShaderStageCreateInfo[1].pSpecializationInfo = NULL; // no specialization info
 
