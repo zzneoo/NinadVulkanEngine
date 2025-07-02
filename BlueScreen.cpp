@@ -158,6 +158,14 @@ typedef struct
 
 // position
 VulkanData vertexData_position;
+VulkanData vertexData_position_index;
+
+
+const uint32_t triangle_indices[] =
+{
+	0, 1, 2, // first triangle
+};
+
 
 UniformData uniformData_transform[MAX_FRAMES];
 
@@ -1387,6 +1395,20 @@ void uninitialize(void)
     {
         vkDestroyShaderModule(vkDevice, vkShaderModule_vertex_shader, NULL);
         vkShaderModule_vertex_shader = VK_NULL_HANDLE;
+    }
+
+    //indexData    
+    if (vertexData_position_index.vkDeviceMemory)
+    {
+        vkFreeMemory(vkDevice, vertexData_position_index.vkDeviceMemory, NULL);
+        vertexData_position_index.vkDeviceMemory = VK_NULL_HANDLE;
+
+    }
+
+    if (vertexData_position_index.vkBuffer)
+    {
+        vkDestroyBuffer(vkDevice, vertexData_position_index.vkBuffer, NULL);
+        vertexData_position_index.vkBuffer = VK_NULL_HANDLE;
     }
 
     //vertexData
@@ -3490,6 +3512,94 @@ VkResult createVertexBuffer(void)
 		vkCommandBuffer_Copy = VK_NULL_HANDLE;
 	}
 
+
+
+
+    //position index buffer
+    //----------------------------------------------------------------------------------------------------
+    memset((void*)&vertexData_position_index, 0, sizeof(VulkanData));
+
+    VkBufferCreateInfo vkBufferCreateInfo;
+    memset((void*)&vkBufferCreateInfo, 0, sizeof(VkBufferCreateInfo));
+
+    vkBufferCreateInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
+    vkBufferCreateInfo.pNext = NULL;
+    vkBufferCreateInfo.flags = 0;
+    vkBufferCreateInfo.size = sizeof(triangle_indices);
+    vkBufferCreateInfo.usage = VK_BUFFER_USAGE_INDEX_BUFFER_BIT;
+
+    vkResult = vkCreateBuffer(vkDevice, &vkBufferCreateInfo, NULL, &vertexData_position_index.vkBuffer);
+
+    if (vkResult != VK_SUCCESS)
+    {
+        fprintf(gpFILE, "createVertexBuffer() -> vkCreateBuffer() (index):  failed.\n");
+        return(vkResult);
+    }
+
+    //------------
+    VkMemoryRequirements vkMemoryRequirements;
+    memset((void*)&vkMemoryRequirements, 0, sizeof(vkMemoryRequirements));
+
+    vkGetBufferMemoryRequirements(vkDevice, vertexData_position_index.vkBuffer, &vkMemoryRequirements);
+
+    //------------
+    VkMemoryAllocateInfo vkMemoryAllocateInfo;
+    memset((void*)&vkMemoryAllocateInfo, 0, sizeof(vkMemoryAllocateInfo));
+
+    vkMemoryAllocateInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
+    vkMemoryAllocateInfo.pNext = NULL;
+    vkMemoryAllocateInfo.allocationSize = vkMemoryRequirements.size;
+    vkMemoryAllocateInfo.memoryTypeIndex = 0;
+
+    //-------------
+    for (uint32_t i = 0; i < vkPhysicalDeviceMemoryProperties.memoryTypeCount; i++)
+    {
+        if ((vkMemoryRequirements.memoryTypeBits & 1) == 1)
+        {
+            if (vkPhysicalDeviceMemoryProperties.memoryTypes[i].propertyFlags & VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT)
+            {
+                vkMemoryAllocateInfo.memoryTypeIndex = i;
+                break;
+            }
+        }
+
+        vkMemoryRequirements.memoryTypeBits >>= 1;
+    }
+
+    //--------------
+    vkResult = vkAllocateMemory(vkDevice, &vkMemoryAllocateInfo, NULL, &vertexData_position_index.vkDeviceMemory);
+    if (vkResult != VK_SUCCESS)
+    {
+        fprintf(gpFILE, "createVertexBuffer() -> vkAllocateMemory() :  failed.\n");
+        return(vkResult);
+    }
+
+
+    //---------------
+    vkResult = vkBindBufferMemory(vkDevice, vertexData_position_index.vkBuffer, vertexData_position_index.vkDeviceMemory, 0);
+    if (vkResult != VK_SUCCESS)
+    {
+        fprintf(gpFILE, "createVertexBuffer() -> vkBindBufferMemory() :  failed.\n");
+        return(vkResult);
+    }
+
+
+    //----------------
+    void* dataIndex = NULL;
+    vkResult = vkMapMemory(vkDevice, vertexData_position_index.vkDeviceMemory, 0, vkMemoryAllocateInfo.allocationSize, 0, &dataIndex);
+    if (vkResult != VK_SUCCESS)
+    {
+        fprintf(gpFILE, "createVertexBuffer() -> vkMapMemory() :  failed.\n");
+        return(vkResult);
+    }
+
+
+    //-------actual memory mapped io
+    memcpy(dataIndex, triangle_indices, sizeof(triangle_indices));
+
+    //-------unmap memory
+    vkUnmapMemory(vkDevice, vertexData_position_index.vkDeviceMemory);
+
     return vkResult;
 }
 
@@ -4581,7 +4691,11 @@ VkResult buildCommandBuffers(uint32_t curIndex)
 
     VkDeviceSize offset = 0;
     vkCmdBindVertexBuffers(vkCommandBuffer_Array[curIndex], 0, 1, &vertexData_position.vkBuffer, &offset);
-    vkCmdDraw(vkCommandBuffer_Array[curIndex], 3, 1, 0, 0);
+	vkCmdBindIndexBuffer(vkCommandBuffer_Array[curIndex], vertexData_position_index.vkBuffer, 0, VK_INDEX_TYPE_UINT32);
+    //vkCmdDraw(vkCommandBuffer_Array[curIndex], 3, 1, 0, 0);
+	// Draw the indexed triangle
+	vkCmdDrawIndexed(vkCommandBuffer_Array[curIndex], (uint32_t)(sizeof(triangle_indices)/sizeof(triangle_indices[0])), 1, 0, 0, 0);
+
 
 #ifdef IMGUI_ENABLE
     // Render ImGui
