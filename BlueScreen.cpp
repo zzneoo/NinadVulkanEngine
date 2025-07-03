@@ -3,6 +3,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+//#define PRINT_EXTENIONS
+
 #define MAX_FRAMES 2 // for double buffering
 
 // Vulkan related header files
@@ -15,7 +17,7 @@
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 
-//#define IMGUI_ENABLE
+#define IMGUI_ENABLE
 
 #ifdef IMGUI_ENABLE
 #include "imgui.h"
@@ -32,7 +34,7 @@
 // macros
 #define WIN_WIDTH  1920
 #define WIN_HEIGHT 1080
-#define WIN_TITLE  TEXT(" Vulkan ")
+#define WIN_TITLE  TEXT("NDT:Vulkan AstroMediComp")
 #define LINE_END     "-------------------------------------------------------------------------------------\n"
 
 // global function declarations
@@ -168,7 +170,7 @@ const uint32_t triangle_indices[] =
 };
 
 
-UniformData uniformData_transform[MAX_FRAMES];
+UniformData uniformBufferData_camera[MAX_FRAMES];
 
 //shader related variables
 VkShaderModule vkShaderModule_vertex_shader = VK_NULL_HANDLE;
@@ -432,7 +434,7 @@ void ToggleFullscreen(void)
                     SWP_NOZORDER | SWP_FRAMECHANGED
                 );
 
-                ShowCursor(FALSE);
+                //ShowCursor(FALSE);
 
                 gbFullscreen = TRUE;
             }
@@ -452,7 +454,7 @@ void ToggleFullscreen(void)
             SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_NOOWNERZORDER | SWP_FRAMECHANGED
         );
 
-        ShowCursor(TRUE);
+        //ShowCursor(TRUE);
 
         gbFullscreen = FALSE;
     }
@@ -976,19 +978,19 @@ VkResult resize(int width, int height)
         return(vkResult);
     }
 
-    //build command buffers
-    vkResult = buildCommandBuffers(0); // passing 0 as curIndex since we are not using fences here
-    if (vkResult != VK_SUCCESS)
-    {
-        fprintf(gpFILE, "resize() : buildCommandBuffers() failed (%d).\n", vkResult);
-        return(vkResult);
-    }
-    vkResult = buildCommandBuffers(1);// passing 1 as curIndex since we are not using fences here
-    if (vkResult != VK_SUCCESS)
-    {
-        fprintf(gpFILE, "resize() : buildCommandBuffers() failed (%d).\n", vkResult);
-        return(vkResult);
-    }
+    ////build command buffers
+    //vkResult = buildCommandBuffers(0); // passing 0 as curIndex since we are not using fences here
+    //if (vkResult != VK_SUCCESS)
+    //{
+    //    fprintf(gpFILE, "resize() : buildCommandBuffers() failed (%d).\n", vkResult);
+    //    return(vkResult);
+    //}
+    //vkResult = buildCommandBuffers(1);// passing 1 as curIndex since we are not using fences here
+    //if (vkResult != VK_SUCCESS)
+    //{
+    //    fprintf(gpFILE, "resize() : buildCommandBuffers() failed (%d).\n", vkResult);
+    //    return(vkResult);
+    //}
 
 
     bInitialized = TRUE; // set to true to allow display() to work
@@ -1445,18 +1447,18 @@ void uninitialize(void)
     for (uint32_t i = 0; i < MAX_FRAMES; i++)
     {
         // Unmap the uniformData memory
-        vkUnmapMemory(vkDevice, uniformData_transform[i].vkDeviceMemory);
+        vkUnmapMemory(vkDevice, uniformBufferData_camera[i].vkDeviceMemory);
 
         //uniformData
-        if (uniformData_transform[i].vkDeviceMemory)
+        if (uniformBufferData_camera[i].vkDeviceMemory)
         {
-            vkFreeMemory(vkDevice, uniformData_transform[i].vkDeviceMemory, NULL);
-            uniformData_transform[i].vkDeviceMemory = VK_NULL_HANDLE;
+            vkFreeMemory(vkDevice, uniformBufferData_camera[i].vkDeviceMemory, NULL);
+            uniformBufferData_camera[i].vkDeviceMemory = VK_NULL_HANDLE;
         }
-        if (uniformData_transform[i].vkBuffer)
+        if (uniformBufferData_camera[i].vkBuffer)
         {
-            vkDestroyBuffer(vkDevice, uniformData_transform[i].vkBuffer, NULL);
-            uniformData_transform[i].vkBuffer = VK_NULL_HANDLE;
+            vkDestroyBuffer(vkDevice, uniformBufferData_camera[i].vkBuffer, NULL);
+            uniformBufferData_camera[i].vkBuffer = VK_NULL_HANDLE;
         }
     }
 
@@ -1690,10 +1692,10 @@ VkResult createVulkanInstance(void)
         fprintf(gpFILE, "createVulkanInstance() : vkCreateInstance() failed due to [unknown reason] (%d).\n", vkResult);
         return(vkResult);
     }
-    else
-    {
-        fprintf(gpFILE, "createVulkanInstance() : vkCreateInstance() succeeded.\n");
-    }
+    //else
+    //{
+    //    fprintf(gpFILE, "createVulkanInstance() : vkCreateInstance() succeeded.\n");
+    //}
 
     /*
      *  destroy VkInstance in uninitialize()
@@ -1756,8 +1758,10 @@ VkResult fillValidaionLayerNames(void)
             vkLayerProperties_array[i].layerName,            // source
             strlen(vkLayerProperties_array[i].layerName) + 1 // length
         );
-
+#ifdef PRINT_EXTENIONS
         fprintf(gpFILE, "fillValidaionLayerNames() : Vulkan instance extension name = %s\n", validationLayerNames_array[i]);
+#endif //PRINT_EXTENIONS
+
     }
 
     fprintf(gpFILE, LINE_END);
@@ -1919,7 +1923,9 @@ VkResult fillInstanceExtensionNames(void)
             strlen(vkExtensionProperties_Array[i].extensionName) + 1 // length
         );
 
+#ifdef PRINT_EXTENIONS
         fprintf(gpFILE, "fillInstanceExtensionNames() : Vulkan instance extension name = %s\n", instanceExtensionNames_Array[i]);
+#endif //PRINT_EXTENIONS
     }
 
     fprintf(gpFILE, LINE_END);
@@ -2475,7 +2481,10 @@ VkResult fillDeviceExtensionNames(void)
             strlen(vkExtensionProperties_Array[i].extensionName) + 1 // length
         );
 
+#ifdef PRINT_EXTENIONS
         fprintf(gpFILE, "fillDeviceExtensionNames() : Vulkan device extension name = %s\n", deviceExtensionNames_Array[i]);
+#endif // PRINT_EXTENIONS
+
     }
 
     fprintf(gpFILE, LINE_END);
@@ -3667,12 +3676,12 @@ VkResult createUniformBuffer(void)
         vkBufferCreateInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
         vkBufferCreateInfo.pNext = NULL;
         vkBufferCreateInfo.flags = 0;
-        vkBufferCreateInfo.size = sizeof(UniformTransformBufferObject);
+        vkBufferCreateInfo.size = sizeof(UniformBufferObject_camera);
         vkBufferCreateInfo.usage = VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT;
 
-        memset((void*)&uniformData_transform[k], 0, sizeof(UniformData));
+        memset((void*)&uniformBufferData_camera[k], 0, sizeof(UniformData));
 
-        vkResult = vkCreateBuffer(vkDevice, &vkBufferCreateInfo, NULL, &uniformData_transform[k].vkBuffer);
+        vkResult = vkCreateBuffer(vkDevice, &vkBufferCreateInfo, NULL, &uniformBufferData_camera[k].vkBuffer);
 
         if (vkResult != VK_SUCCESS)
         {
@@ -3684,7 +3693,7 @@ VkResult createUniformBuffer(void)
         VkMemoryRequirements vkMemoryRequirements;
         memset((void*)&vkMemoryRequirements, 0, sizeof(vkMemoryRequirements));
 
-        vkGetBufferMemoryRequirements(vkDevice, uniformData_transform[0].vkBuffer, &vkMemoryRequirements);
+        vkGetBufferMemoryRequirements(vkDevice, uniformBufferData_camera[0].vkBuffer, &vkMemoryRequirements);
 
         //------------
         VkMemoryAllocateInfo vkMemoryAllocateInfo;
@@ -3711,7 +3720,7 @@ VkResult createUniformBuffer(void)
         }
 
         //--------------
-        vkResult = vkAllocateMemory(vkDevice, &vkMemoryAllocateInfo, NULL, &uniformData_transform[k].vkDeviceMemory);
+        vkResult = vkAllocateMemory(vkDevice, &vkMemoryAllocateInfo, NULL, &uniformBufferData_camera[k].vkDeviceMemory);
         if (vkResult != VK_SUCCESS)
         {
             fprintf(gpFILE, "createUniformBuffer() -> vkAllocateMemory() :  failed.\n");
@@ -3720,7 +3729,7 @@ VkResult createUniformBuffer(void)
 
 
         //---------------
-        vkResult = vkBindBufferMemory(vkDevice, uniformData_transform[k].vkBuffer, uniformData_transform[k].vkDeviceMemory, 0);
+        vkResult = vkBindBufferMemory(vkDevice, uniformBufferData_camera[k].vkBuffer, uniformBufferData_camera[k].vkDeviceMemory, 0);
         if (vkResult != VK_SUCCESS)
         {
             fprintf(gpFILE, "createUniformBuffer() -> vkBindBufferMemory() :  failed.\n");
@@ -3729,7 +3738,7 @@ VkResult createUniformBuffer(void)
 
         // Map the uniform buffer memory
 
-        vkResult = vkMapMemory(vkDevice, uniformData_transform[k].vkDeviceMemory, 0, sizeof(UniformTransformBufferObject), 0, &uniformData_transform[k].pData);
+        vkResult = vkMapMemory(vkDevice, uniformBufferData_camera[k].vkDeviceMemory, 0, sizeof(UniformBufferObject_camera), 0, &uniformBufferData_camera[k].pData);
         if (vkResult != VK_SUCCESS)
         {
             fprintf(gpFILE, "createUniformBuffer() -> vkMapMemory() :  failed.\n");
@@ -3755,12 +3764,11 @@ VkResult updateUniformBuffer(uint32_t curIndex)
     VkResult vkResult = VK_SUCCESS;
 
     // code
-    UniformTransformBufferObject uniformTransformBufferObject;
-    memset((void*)&uniformTransformBufferObject, 0, sizeof(UniformTransformBufferObject));
+    UniformBufferObject_camera uniformTransformBufferObject;
+    memset((void*)&uniformTransformBufferObject, 0, sizeof(UniformBufferObject_camera));
     // Initialize the uniform buffer object with some data
 
     //uniformTransformBufferObject.model = glm::mat4(1.0f); // identity matrix
-    uniformTransformBufferObject.model = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.0f, -10.0f)); // translate to origin
 
     uniformTransformBufferObject.view = glm::mat4(1.0f); // identity matrix
 
@@ -3783,7 +3791,7 @@ VkResult updateUniformBuffer(uint32_t curIndex)
     uniformTransformBufferObject.proj = perspective; //  projection matrix
 
     // Copy the data to the uniform buffer
-    memcpy(uniformData_transform[curIndex].pData, &uniformTransformBufferObject, sizeof(UniformTransformBufferObject));
+    memcpy(uniformBufferData_camera[curIndex].pData, &uniformTransformBufferObject, sizeof(UniformBufferObject_camera));
 
 
     return vkResult;
@@ -4071,7 +4079,16 @@ VkResult createPipelineLayout(void)
     VkResult vkResult = VK_SUCCESS;
 
 
-    // code
+    //push constant
+	// Declare and initialize VkPushConstantRange structure which will have information about the push constant range.
+	VkPushConstantRange vkPushConstantRange;
+	memset((void*)&vkPushConstantRange, 0, sizeof(VkPushConstantRange));
+	vkPushConstantRange.stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT; // stage flags for the push constant range
+	vkPushConstantRange.offset = 0; // offset in the push constant range
+	vkPushConstantRange.size = sizeof(PushConstants); // size of the push constant range
+
+
+	// Declare and initialize VkPipelineLayoutCreateInfo structure which will have information about the pipeline layout.
     VkPipelineLayoutCreateInfo vkPipelineLayoutCreateInfo;
     memset((void*)&vkPipelineLayoutCreateInfo, 0, sizeof(VkPipelineLayoutCreateInfo));
 
@@ -4080,8 +4097,8 @@ VkResult createPipelineLayout(void)
     vkPipelineLayoutCreateInfo.flags = 0;
     vkPipelineLayoutCreateInfo.setLayoutCount = 1;
     vkPipelineLayoutCreateInfo.pSetLayouts = &vkDescriptorSetLayout;
-    vkPipelineLayoutCreateInfo.pushConstantRangeCount = 0;
-    vkPipelineLayoutCreateInfo.pPushConstantRanges = NULL;
+    vkPipelineLayoutCreateInfo.pushConstantRangeCount = 1;
+    vkPipelineLayoutCreateInfo.pPushConstantRanges = &vkPushConstantRange;
 
     vkResult = vkCreatePipelineLayout(vkDevice, &vkPipelineLayoutCreateInfo, NULL, &vkPipelineLayout);
     if (vkResult != VK_SUCCESS)
@@ -4166,9 +4183,9 @@ VkResult createDescriptorSet(void)
         // Declare and initialize VkDescriptorBufferInfo structure which will have information about the uniform buffer.
         VkDescriptorBufferInfo vkDescriptorBufferInfo;
         memset((void*)&vkDescriptorBufferInfo, 0, sizeof(VkDescriptorBufferInfo));
-        vkDescriptorBufferInfo.buffer = uniformData_transform[i].vkBuffer; // uniform buffer
+        vkDescriptorBufferInfo.buffer = uniformBufferData_camera[i].vkBuffer; // uniform buffer
         vkDescriptorBufferInfo.offset = 0; // offset in the buffer
-        vkDescriptorBufferInfo.range = sizeof(UniformTransformBufferObject); // size of the buffer
+        vkDescriptorBufferInfo.range = sizeof(UniformBufferObject_camera); // size of the buffer
 
         //write or copy the descriptor set with the uniform buffer information
         // Declare and initialize VkWriteDescriptorSet structure which will have information about the descriptor set.
@@ -4659,28 +4676,28 @@ VkResult buildCommandBuffers(uint32_t curIndex)
     ImGui_ImplWin32_NewFrame();
     ImGui::NewFrame();
 
+    static float f = 0.0f;
+    static glm::vec3 v3Color = glm::vec3(0.0f);
     // UI
     //  Show a simple window that we create ourselves. We use a Begin/End pair to create a named window.
     {
-        static float f = 0.0f;
-        static int counter = 0;
-        static bool enableFirst = false;
-        static bool enableSecond = false;
-        static vmath::vec3 v3Color = vmath::vec3(0.0f);
+        //static int counter = 0;
+        //static bool enableFirst = false;
+        //static bool enableSecond = false;
 
-        ImGui::Begin("Hello, world!");                          // Create a window called "Hello, world!" and append into it.
+        ImGui::Begin("Basic Settings");                          // Create a window called "Hello, world!" and append into it.
 
-        ImGui::Text("This is some useful text.");               // Display some text (you can use a format strings too)
-        ImGui::Checkbox("Demo Window", &enableFirst);      // Edit bools storing our window open/close state
-        ImGui::Checkbox("Another Window", &enableSecond);
+        //ImGui::Text("This is some useful text.");               // Display some text (you can use a format strings too)
+        //ImGui::Checkbox("Demo Window", &enableFirst);      // Edit bools storing our window open/close state
+        //ImGui::Checkbox("Another Window", &enableSecond);
 
-        ImGui::SliderFloat("float", &f, 0.0f, 1.0f);            // Edit 1 float using a slider from 0.0f to 1.0f
-        ImGui::ColorEdit3("clear color", (float*)&v3Color); // Edit 3 floats representing a color
+        ImGui::SliderFloat("fFactor", &f, 0.0f, 1.0f);            // Edit 1 float using a slider from 0.0f to 1.0f
+        ImGui::ColorEdit3("v3Color", (float*)&v3Color); // Edit 3 floats representing a color
 
-        if (ImGui::Button("Button"))                            // Buttons return true when clicked (most widgets return true when edited/activated)
-            counter++;
-        ImGui::SameLine();
-        ImGui::Text("counter = %d", counter);
+        //if (ImGui::Button("Button"))                            // Buttons return true when clicked (most widgets return true when edited/activated)
+        //    counter++;
+        //ImGui::SameLine();
+        //ImGui::Text("counter = %d", counter);
 
         ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / g_io->Framerate, g_io->Framerate);
         ImGui::End();
@@ -4730,8 +4747,30 @@ VkResult buildCommandBuffers(uint32_t curIndex)
     vkCmdBindPipeline(vkCommandBuffer_Array[curIndex], VK_PIPELINE_BIND_POINT_GRAPHICS, vkPipeline);
     vkCmdBindDescriptorSets(vkCommandBuffer_Array[curIndex], VK_PIPELINE_BIND_POINT_GRAPHICS, vkPipelineLayout, 0, 1, &vkDescriptorSets[0], 0, NULL);
 
-    VkDeviceSize offset_position = 0;
 
+	PushConstants pushConstants;
+    pushConstants.model = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.0f, -10.0f));
+
+#ifdef IMGUI_ENABLE
+    pushConstants.v3Color = v3Color;
+    pushConstants.fFactor = f;
+#else
+    pushConstants.v3Color = glm::vec3(1.0);
+    pushConstants.fFactor = 1.0f;
+#endif //IMGUI_ENABLE
+
+
+        // Push the model matrix
+    vkCmdPushConstants(
+        vkCommandBuffer_Array[curIndex],
+        vkPipelineLayout,
+		VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, // stages where the push constant will be used
+        0,                                      // offset
+        sizeof(PushConstants),                  // size
+        &pushConstants                          // pointer to our data
+    );
+
+    VkDeviceSize offset_position = 0;
     vkCmdBindVertexBuffers(vkCommandBuffer_Array[curIndex], 0, 1, &vertexData_position.vkBuffer, &offset_position);
 
     vkCmdBindIndexBuffer(vkCommandBuffer_Array[curIndex], vertexData_position_index.vkBuffer, 0, VK_INDEX_TYPE_UINT32);

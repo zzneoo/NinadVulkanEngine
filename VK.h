@@ -3,9 +3,9 @@
 
 #define MYICON 101
 
-struct UniformTransformBufferObject 
+struct UniformBufferObject_camera
 {
-    glm::mat4 model;
+    ///glm::mat4 model;
     glm::mat4 view;
     glm::mat4 proj;
 };
@@ -14,4 +14,11 @@ struct VertexData
 {
 	glm::vec3 pos;
 	glm::vec3 color;
+};
+
+struct PushConstants
+{
+	glm::mat4 model;
+	glm::vec3 v3Color;
+	float fFactor;
 };
