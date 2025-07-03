@@ -2,7 +2,9 @@
 
 layout(location = 0) out vec4 fragColor;
 
+layout(location = 0) in vec3 outColor;
+
 void main(void)
 {
-	fragColor = vec4(1.0);
+	fragColor = vec4(outColor,1.0);
 }

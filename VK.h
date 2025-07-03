@@ -9,3 +9,9 @@ struct UniformTransformBufferObject
     glm::mat4 view;
     glm::mat4 proj;
 };
+
+struct VertexData
+{
+	glm::vec3 pos;
+	glm::vec3 color;
+};
