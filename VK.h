@@ -10,10 +10,15 @@ struct UniformBufferObject_camera
     glm::mat4 proj;
 };
 
-struct VertexData
+struct VertexData_PositionColor
 {
 	glm::vec3 pos;
 	glm::vec3 color;
+};
+
+struct VertexData_Position
+{
+	glm::vec3 pos;
 };
 
 struct PushConstants
