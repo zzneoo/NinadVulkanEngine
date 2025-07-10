@@ -3,6 +3,7 @@
 
 #define MYICON 101
 
+//Uniform Buffer Objects------------------------------------------------
 struct UniformBufferObject_camera
 {
     ///glm::mat4 model;
@@ -10,10 +11,26 @@ struct UniformBufferObject_camera
     glm::mat4 proj;
 };
 
+struct UniformBufferObject_FrameData
+{
+    float fDeltaTime;
+    uint32_t frameID;
+    // pad to 16 bytes (std140 rules)
+    float    _pad[2];
+};
+
+//----------------------------------------------------------------------
+
 struct VertexData_PositionColor
 {
 	glm::vec3 pos;
 	glm::vec3 color;
+};
+
+struct VertexData_PositionTexCoord
+{
+	glm::vec3 pos;
+	glm::vec2 texCoord;
 };
 
 struct VertexData_Position
