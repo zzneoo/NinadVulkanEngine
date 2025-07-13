@@ -44,3 +44,21 @@ struct PushConstants
 	glm::vec3 v3Color;
 	float fFactor;
 };
+
+//win32
+struct CamStruct
+{
+	bool bCameraMoving_Forward;
+	bool bCameraMoving_Backward;
+	bool bCameraMoving_Right;
+	bool bCameraMoving_Left;
+	USHORT mouseX;
+	USHORT mouseY;
+	float CameraTurboSpeed = 1.0f;
+};
+
+struct ClientSize
+{
+	USHORT ClientWidth;
+	USHORT ClientHeight;
+};

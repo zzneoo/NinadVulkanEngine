@@ -16,6 +16,7 @@ VkPipelineLayout(VkDescriptorSetLayout)
 //-----------------------------------------------------------------------------------------------//
 
 Next to do...
+0) convert coloredQuad to uvQuad(pipeline + uv attribute)
 1) group together pipeline and pipelineLayout
 2) Billboard(start with uv quad)
 
