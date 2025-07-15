@@ -6119,24 +6119,14 @@ VkResult createFramebuffers(void)
     // local variables
     VkResult vkResult = VK_SUCCESS;
 
-    // code
-    // Declare an array of VkImageView equal to the number of attachments. Means in our example, an array of 1 member.
-    VkImageView vkImageView_Attachments_Array[1];
-    memset((void*)vkImageView_Attachments_Array, 0, sizeof(VkImageView) * _ARRAYSIZE(vkImageView_Attachments_Array));
+    VkImageView attachments[2];
+	memset((void*)attachments, 0, sizeof(VkImageView) * _ARRAYSIZE(attachments));
+
+	//attachments[1] = vkImageView_Depth; // depth attachment
 
     //  Declare and initialize VkFramebufferCreateInfo structure.
     VkFramebufferCreateInfo vkFramebufferCreateInfo;
     memset((void*)&vkFramebufferCreateInfo, 0, sizeof(VkFramebufferCreateInfo));
-
-    vkFramebufferCreateInfo.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
-    vkFramebufferCreateInfo.pNext = NULL;
-    vkFramebufferCreateInfo.flags = 0;
-    vkFramebufferCreateInfo.renderPass = vkRenderPass;
-    vkFramebufferCreateInfo.attachmentCount = _ARRAYSIZE(vkImageView_Attachments_Array);
-    vkFramebufferCreateInfo.pAttachments = vkImageView_Attachments_Array;
-    vkFramebufferCreateInfo.width = vkExtent2D_Swapchain.width;
-    vkFramebufferCreateInfo.height = vkExtent2D_Swapchain.height;
-    vkFramebufferCreateInfo.layers = 1;
 
     //  Allocate the framebuffer array by malloc() equal to the size of swapchain image count.
     vkFramebuffer_Array = (VkFramebuffer*)malloc(sizeof(VkFramebuffer) * swapchainImageCount);
@@ -6144,7 +6134,16 @@ VkResult createFramebuffers(void)
     //  Start a loop for swapchain image count and call vkCreateFramebuffer() API to create framebuffers.
     for (uint32_t i = 0; i < swapchainImageCount; i++)
     {
-        vkImageView_Attachments_Array[0] = swapchainImageView_Array[i];
+        
+        vkFramebufferCreateInfo.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
+        vkFramebufferCreateInfo.pNext = NULL;
+        vkFramebufferCreateInfo.flags = 0;
+        vkFramebufferCreateInfo.renderPass = vkRenderPass;
+        vkFramebufferCreateInfo.attachmentCount = 1; // we are using only one attachment (color attachment)
+        vkFramebufferCreateInfo.pAttachments = &swapchainImageView_Array[i]; // use address of the array element
+        vkFramebufferCreateInfo.width = vkExtent2D_Swapchain.width;
+        vkFramebufferCreateInfo.height = vkExtent2D_Swapchain.height;
+        vkFramebufferCreateInfo.layers = 1;
 
         vkResult = vkCreateFramebuffer(vkDevice, &vkFramebufferCreateInfo, NULL, &vkFramebuffer_Array[i]);
         if (vkResult != VK_SUCCESS)
