@@ -115,9 +115,7 @@ VkSwapchainKHR vkSwapchainKHR = VK_NULL_HANDLE;
 VkExtent2D     vkExtent2D_Swapchain;
 
 // Swapchain images and swapchain image views
-uint32_t     swapchainImageCount = UINT32_MAX;
-VkImage* swapchainImage_Array = NULL;
-VkImageView* swapchainImageView_Array = NULL;
+uint32_t     gSwapchainImageCount = UINT32_MAX;
 
 // Command pool
 VkCommandPool vkCommandPool = VK_NULL_HANDLE;
@@ -173,12 +171,22 @@ typedef struct
     VkImageView    vkImageView;
 }ImageData;
 
+typedef struct
+{
+    VkImage* swapchainImage_Array;
+    VkImageView* swapchainImageView_Array;
+    ImageData imageData_depthBuffer;
+}SwapChainResourceData;
+
+// Swapchain resources
+SwapChainResourceData gSwapChainResourceData;
+
 // position
 VulkanData vertexData_coloredTriangle;
 VulkanData vertexData_uvQuad;
 VulkanData vertexData_uvQuad_index;
 
-ImageData imageData_depthBuffer;
+
 
 const uint16_t triangle_indices[] =
 {
@@ -252,7 +260,7 @@ int WINAPI WinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, _
 
     // code
     // open the log file
-    fopen_s(&gpFILE, "Log.txt", "w");
+    fopen_s(&gpFILE, "ZzLog.txt", "w");
     if (gpFILE == NULL)
     {
         MessageBox(NULL, TEXT("WinMain() : fopen() failed to open the log file."), TEXT("Error"), MB_OK | MB_ICONERROR);
@@ -680,7 +688,7 @@ VkResult initialize(void)
     VkResult createVulkanDevice(void);
     void getDeviceQueue(void);
     VkResult createSwapchain(VkBool32);
-    VkResult createImagesAndImageViews(void);
+    VkResult createSwapchainResources(void);
     VkResult createCommandPool(void);
     VkResult createCommandBuffers(void);
 	VkResult createVertexBuffer_coloredTriangle(void);
@@ -696,6 +704,7 @@ VkResult initialize(void)
 
     VkResult createRenderPass(void);
     VkResult createGraphicsPipelines(void);
+	VkResult createDepthResources(void);
     VkResult createFramebuffers(void);
     VkResult createSemaphores(void);
     VkResult createFences(void);
@@ -758,13 +767,12 @@ VkResult initialize(void)
         return(vkResult);
     }
 
-    // STEP 13 : Create Vulkan images and image views
-    vkResult = createImagesAndImageViews();
+	vkResult = createSwapchainResources();
     if (vkResult != VK_SUCCESS)
     {
-        fprintf(gpFILE, "initialize() : createImagesAndImageViews() failed (%d).\n", vkResult);
+        fprintf(gpFILE, "initialize() : createSwapchainResources() failed (%d).\n", vkResult);
         return(vkResult);
-    }
+	}
 
     // STEP 14 : Create command pool
     vkResult = createCommandPool();
@@ -878,6 +886,7 @@ VkResult initialize(void)
         return(vkResult);
     }
 
+
     //  Create Framebuffers
     vkResult = createFramebuffers();
     if (vkResult != VK_SUCCESS)
@@ -966,7 +975,7 @@ VkResult initialize(void)
     init_info.RenderPass = vkRenderPass;      // Must match your swapchain render pass
     init_info.Subpass = 0;
     init_info.MinImageCount = 2;    // e.g. 2 or 3
-    init_info.ImageCount = swapchainImageCount; // Match your swapchain image count
+    init_info.ImageCount = gSwapchainImageCount; // Match your swapchain image count
     init_info.MSAASamples = VK_SAMPLE_COUNT_1_BIT;
     init_info.Allocator = nullptr;
     init_info.CheckVkResultFn = check_vk_result;
@@ -1001,11 +1010,12 @@ VkResult resize(int width, int height)
 {
     // function declarations
     VkResult createSwapchain(VkBool32);
-    VkResult createImagesAndImageViews(void);
+    void destroySwapchainResources(void);
     VkResult createCommandBuffers(void);
     VkResult createPipelineLayout(void);
     VkResult createGraphicsPipelines(void);
     VkResult createRenderPass(void);
+	VkResult createSwapchainResources(void);
     VkResult createFramebuffers(void);
     VkResult buildCommandBuffers(uint32_t curIndex);
 
@@ -1048,7 +1058,7 @@ VkResult resize(int width, int height)
     //destroy framebuffers
     if (vkFramebuffer_Array)
     {
-        for (uint32_t i = 0; i < swapchainImageCount; i++)
+        for (uint32_t i = 0; i < gSwapchainImageCount; i++)
         {
             vkDestroyFramebuffer(vkDevice, vkFramebuffer_Array[i], NULL);
             vkFramebuffer_Array[i] = VK_NULL_HANDLE;
@@ -1063,7 +1073,7 @@ VkResult resize(int width, int height)
     }
 
     // vkCommandBuffer
-    for (uint32_t i = 0; i < swapchainImageCount; i++)
+    for (uint32_t i = 0; i < gSwapchainImageCount; i++)
     {
         vkFreeCommandBuffers(vkDevice, vkCommandPool, 1, &vkCommandBuffer_Array[i]);
         // fprintf(gpFILE, "resize() : vkFreeCommandBuffers() succeeded for iteration %d.\n", i);
@@ -1088,29 +1098,9 @@ VkResult resize(int width, int height)
         //fprintf(gpFILE, "resize() : vkDestroyRenderPass() succeeded.\n");
     }
 
+	//destroy swapchain resources
+	destroySwapchainResources();
 
-    // ImageView
-    for (uint32_t i = 0; i < swapchainImageCount; i++)
-    {
-        vkDestroyImageView(vkDevice, swapchainImageView_Array[i], NULL);
-        //fprintf(gpFILE, "resize() : vkDestroyImageView() succeeded for iteration %d.\n", i);
-    }
-    if (swapchainImageView_Array)
-    {
-        free(swapchainImageView_Array);
-        swapchainImageView_Array = NULL;
-
-        //fprintf(gpFILE, "resize() : successfully freed the swapchain image views array.\n");
-    }
-
-    // Image
-    if (swapchainImage_Array)
-    {
-        free(swapchainImage_Array);
-        swapchainImage_Array = NULL;
-
-        //fprintf(gpFILE, "uninitialize() : successfully freed the swapchain images array.\n");
-    }
 
     // destroy swapchain
     if (vkSwapchainKHR)
@@ -1131,11 +1121,10 @@ VkResult resize(int width, int height)
         return(vkResult);
     }
 
-    //create images and image views
-    vkResult = createImagesAndImageViews();
+    vkResult = createSwapchainResources();
     if (vkResult != VK_SUCCESS)
     {
-        fprintf(gpFILE, "resize() : createImagesAndImageViews() failed (%d).\n", vkResult);
+        fprintf(gpFILE, "initialize() : createSwapchainResources() failed (%d).\n", vkResult);
         return(vkResult);
     }
 
@@ -1358,7 +1347,7 @@ VkResult display(void)
 
     // Use per-frame index
     static uint32_t currentFrame = 0;
-    uint32_t curIndex = currentFrame % swapchainImageCount;
+    uint32_t curIndex = currentFrame % gSwapchainImageCount;
 
     // Wait for GPU to finish work on the previous frame
     vkResult = vkWaitForFences(vkDevice, 1, &vkFence_Array[curIndex], VK_TRUE, UINT64_MAX);
@@ -1484,6 +1473,7 @@ void uninitialize(void)
     // function declarations
     void ToggleFullscreen(void);
 	void destroyGraphicsPipelines(void);
+	void destroySwapchainResources(void);
 
     // code
     // if application is exitting in fullscreen
@@ -1515,7 +1505,7 @@ void uninitialize(void)
     // sub-step 7 for step (18)
     if (vkFence_Array)
     {
-        for (uint32_t i = 0; i < swapchainImageCount; i++)
+        for (uint32_t i = 0; i < gSwapchainImageCount; i++)
         {
             vkDestroyFence(vkDevice, vkFence_Array[i], NULL);
             vkFence_Array[i] = VK_NULL_HANDLE;
@@ -1529,7 +1519,7 @@ void uninitialize(void)
 
     // sub-step 8 for step (18)
 
-    for (size_t i = 0; i < swapchainImageCount; i++)
+    for (size_t i = 0; i < gSwapchainImageCount; i++)
     {
         if (vkSemaphore_RenderComplete[i])
         {
@@ -1557,7 +1547,7 @@ void uninitialize(void)
     // sub-step 5 for Step (17)
     if (vkFramebuffer_Array)
     {
-        for (uint32_t i = 0; i < swapchainImageCount; i++)
+        for (uint32_t i = 0; i < gSwapchainImageCount; i++)
         {
             vkDestroyFramebuffer(vkDevice, vkFramebuffer_Array[i], NULL);
             vkFramebuffer_Array[i] = VK_NULL_HANDLE;
@@ -1755,13 +1745,11 @@ void uninitialize(void)
 		}	
 	}
 
-    // sub-step 4 for step (15)
-    for (uint32_t i = 0; i < swapchainImageCount; i++)
+    for (uint32_t i = 0; i < gSwapchainImageCount; i++)
     {
         vkFreeCommandBuffers(vkDevice, vkCommandPool, 1, &vkCommandBuffer_Array[i]);
     }
 
-    // sub-step 5 for step (15)
     if (vkCommandBuffer_Array)
     {
         free(vkCommandBuffer_Array);
@@ -1769,7 +1757,6 @@ void uninitialize(void)
 
     }
 
-    // sub-step 3 for step (14)
     if (vkCommandPool)
     {
         vkDestroyCommandPool(vkDevice, vkCommandPool, NULL);
@@ -1777,27 +1764,11 @@ void uninitialize(void)
 
     }
 
-    // sub-step 9 for step (13)
-    for (uint32_t i = 0; i < swapchainImageCount; i++)
-    {
-        vkDestroyImageView(vkDevice, swapchainImageView_Array[i], NULL);
-    }
+    //-----------------------------------------------------------
 
-    // sub-step 10 for step (13)
-    if (swapchainImageView_Array)
-    {
-        free(swapchainImageView_Array);
-        swapchainImageView_Array = NULL;
+	// Destroy swapchain resources
+	 destroySwapchainResources();
 
-    }
-
-    // sub-step 8 for step (13)
-    if (swapchainImage_Array)
-    {
-        free(swapchainImage_Array);
-        swapchainImage_Array = NULL;
-
-    }
 
     // Destroy Vulkan swapchain
     if (vkSwapchainKHR)
@@ -3299,7 +3270,7 @@ VkResult createImagesAndImageViews(void)
     vkResult = vkGetSwapchainImagesKHR(
         vkDevice,             // [in] VkDevice (logical device)
         vkSwapchainKHR,       // [in] VkSwapchainKHR
-        &swapchainImageCount, // [out] Swapchain Image Count
+        &gSwapchainImageCount, // [out] Swapchain Image Count
         NULL                  // [out, optional] Swapchain Image array
     );
 
@@ -3308,7 +3279,7 @@ VkResult createImagesAndImageViews(void)
         fprintf(gpFILE, "createImagesAndImageViews() : vkGetSwapchainImagesKHR()'s 1st call failed.\n");
         return(vkResult);
     }
-    else if (swapchainImageCount == 0)
+    else if (gSwapchainImageCount == 0)
     {
         vkResult = VK_ERROR_INITIALIZATION_FAILED;
         fprintf(gpFILE, "createImagesAndImageViews() : Swapchain image count is 0.\n");
@@ -3316,18 +3287,18 @@ VkResult createImagesAndImageViews(void)
     }
     else
     {
-        fprintf(gpFILE, "createImagesAndImageViews() : gives swapchain image count = %d\n", swapchainImageCount);
+        fprintf(gpFILE, "createImagesAndImageViews() : gives swapchain image count = %d\n", gSwapchainImageCount);
     }
 
     // Declare a global VkImage array and allocate it to the swapchain image count using malloc().
-    swapchainImage_Array = (VkImage*)malloc(sizeof(VkImage) * swapchainImageCount);
+    gSwapChainResourceData.swapchainImage_Array = (VkImage*)malloc(sizeof(VkImage) * gSwapchainImageCount);
 
     // Now call the same function again, which we called in step 1 and fill this array.
     vkResult = vkGetSwapchainImagesKHR(
         vkDevice,
         vkSwapchainKHR,
-        &swapchainImageCount,
-        swapchainImage_Array
+        &gSwapchainImageCount,
+        gSwapChainResourceData.swapchainImage_Array
     );
 
     if (vkResult != VK_SUCCESS)
@@ -3337,7 +3308,7 @@ VkResult createImagesAndImageViews(void)
     }
 
     //  Declare another global array of type VkImageView and allocate it to the size of swapchain image count.
-    swapchainImageView_Array = (VkImageView*)malloc(sizeof(VkImageView) * swapchainImageCount);
+    gSwapChainResourceData.swapchainImageView_Array = (VkImageView*)malloc(sizeof(VkImageView) * gSwapchainImageCount);
 
     // Declare and initialize VkImageViewCreateInfo struct except its “.image” member.
     VkImageViewCreateInfo vkImageViewCreateInfo;
@@ -3362,15 +3333,15 @@ VkResult createImagesAndImageViews(void)
     //  Now, start a loop for swapchain image count and inside this loop initialize the above “.image” member 
     //              to the swapchain image array index we obtained above and then call vkCreateImageView() API 
     //              to fill the above image view array.
-    for (uint32_t i = 0; i < swapchainImageCount; i++)
+    for (uint32_t i = 0; i < gSwapchainImageCount; i++)
     {
-        vkImageViewCreateInfo.image = swapchainImage_Array[i];
+        vkImageViewCreateInfo.image = gSwapChainResourceData.swapchainImage_Array[i];
 
         vkResult = vkCreateImageView(
             vkDevice,                    // [in] VkDevice
             &vkImageViewCreateInfo,      // [in] VkImageViewCreateInfo *
             NULL,                        // [in] custom memory allocator
-            &swapchainImageView_Array[i] // [out] VkImageView * 
+            &gSwapChainResourceData.swapchainImageView_Array[i] // [out] VkImageView * 
         );
 
         if (vkResult != VK_SUCCESS)
@@ -3432,13 +3403,13 @@ VkResult createCommandBuffers(void)
     vkCommandBufferAllocateInfo.commandBufferCount = 1;
 
     // sub-step 2 : Declare a command buffer array globally and allocate it to the size of swapchain image count.
-    vkCommandBuffer_Array = (VkCommandBuffer*)malloc(sizeof(VkCommandBuffer) * swapchainImageCount);
+    vkCommandBuffer_Array = (VkCommandBuffer*)malloc(sizeof(VkCommandBuffer) * gSwapchainImageCount);
 
     // sub-step 3 : In a loop which is equal to swapchain image count, allocate each command buffer 
     //              in the above array by using vkAllocateCommandBuffers() API. 
     //              Remember, at the time of allocation, all buffers are going to be empty. 
     //              Later we will record graphics / compute commands into them.
-    for (uint32_t i = 0; i < swapchainImageCount; i++)
+    for (uint32_t i = 0; i < gSwapchainImageCount; i++)
     {
         vkResult = vkAllocateCommandBuffers(vkDevice, &vkCommandBufferAllocateInfo, &vkCommandBuffer_Array[i]);
         if (vkResult != VK_SUCCESS)
@@ -5087,35 +5058,134 @@ VkResult createDepthResources(void)
     imageInfo.samples = VK_SAMPLE_COUNT_1_BIT;
     imageInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
 
-	vkResult = vkCreateImage(vkDevice, &imageInfo, NULL, &imageData_depthBuffer.vkImage);
-	if (vkResult != VK_SUCCESS) 
+    //for(uint32_t i = 0; i < MAX_FRAMES; i++)
     {
-		fprintf(gpFILE, "Failed to create depth image.\n");
-		return vkResult;
+        vkResult = vkCreateImage(vkDevice, &imageInfo, NULL, &gSwapChainResourceData.imageData_depthBuffer.vkImage);
+        if (vkResult != VK_SUCCESS)
+        {
+            fprintf(gpFILE, "Failed to create depth image.\n");
+            return vkResult;
+        }
+
+        VkMemoryRequirements memRequirements;
+        vkGetImageMemoryRequirements(vkDevice, gSwapChainResourceData.imageData_depthBuffer.vkImage, &memRequirements);
+
+        VkMemoryAllocateInfo allocInfo;
+        memset(&allocInfo, 0, sizeof(VkMemoryAllocateInfo));
+
+        allocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
+        allocInfo.allocationSize = memRequirements.size;
+        allocInfo.memoryTypeIndex = findMemoryType(
+            memRequirements.memoryTypeBits,
+            VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT
+        );
+
+        vkResult = vkAllocateMemory(vkDevice, &allocInfo, NULL, &gSwapChainResourceData.imageData_depthBuffer.vkDeviceMemory);
+        if (vkResult != VK_SUCCESS)
+        {
+            fprintf(gpFILE, "Failed to allocate depth image memory.\n");
+            return vkResult;
+        }
+
+
+        vkBindImageMemory(vkDevice, gSwapChainResourceData.imageData_depthBuffer.vkImage, gSwapChainResourceData.imageData_depthBuffer.vkDeviceMemory, 0);
+
+
+		//Image View 
+        VkImageViewCreateInfo viewInfo = {};
+        viewInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+        viewInfo.image = gSwapChainResourceData.imageData_depthBuffer.vkImage;
+        viewInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
+        viewInfo.format = VK_FORMAT_D32_SFLOAT;
+        viewInfo.subresourceRange.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT;
+        viewInfo.subresourceRange.baseMipLevel = 0;
+        viewInfo.subresourceRange.levelCount = 1;
+        viewInfo.subresourceRange.baseArrayLayer = 0;
+        viewInfo.subresourceRange.layerCount = 1;
+
+        vkResult = vkCreateImageView(vkDevice, &viewInfo, nullptr, &gSwapChainResourceData.imageData_depthBuffer.vkImageView);
+        if (vkResult != VK_SUCCESS) {
+            fprintf(gpFILE, "Failed to create depth image view.\n");
+            return vkResult;
+        }
 	}
 
-    VkMemoryRequirements memRequirements;
-    vkGetImageMemoryRequirements(vkDevice, imageData_depthBuffer.vkImage, &memRequirements);
 
-    VkMemoryAllocateInfo allocInfo;
-	memset(&allocInfo, 0, sizeof(VkMemoryAllocateInfo));
 
-    allocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
-    allocInfo.allocationSize = memRequirements.size;
-    allocInfo.memoryTypeIndex = findMemoryType(
-        memRequirements.memoryTypeBits,
-        VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT
-    );
+}
 
-	vkResult = vkAllocateMemory(vkDevice, &allocInfo, NULL, &imageData_depthBuffer.vkDeviceMemory);
-	if (vkResult != VK_SUCCESS)
-	{
-		fprintf(gpFILE, "Failed to allocate depth image memory.\n");
-		return vkResult;
+VkResult createSwapchainResources(void)
+{
+	VkResult vkResult = VK_SUCCESS;
+	//image and image view
+	vkResult = createImagesAndImageViews();
+    if (vkResult != VK_SUCCESS)
+    {
+        fprintf(gpFILE, "createSwapchainResources() -> createImagesAndImageViews() failed.\n");
+        return vkResult;
 	}
 
+	//depth resources
+	vkResult = createDepthResources();
+    if (vkResult != VK_SUCCESS)
+    {
+        fprintf(gpFILE, "createSwapchainResources() -> createDepthResources() failed.\n");
+        return vkResult;
+	}
 
-    vkBindImageMemory(vkDevice, imageData_depthBuffer.vkImage, imageData_depthBuffer.vkDeviceMemory, 0);
+	return vkResult;
+}
+
+void destroySwapchainResources(void)
+{
+    // local variables
+    VkResult vkResult = VK_SUCCESS;
+    // code
+    //Swapchain images and image views-------------------------------------
+
+        // destroy swapchain images and image views
+    for (uint32_t i = 0; i < gSwapchainImageCount; i++)
+    {
+        vkDestroyImageView(vkDevice, gSwapChainResourceData.swapchainImageView_Array[i], NULL);
+        gSwapChainResourceData.swapchainImageView_Array[i] = VK_NULL_HANDLE;
+
+        //vkDestroyImage(vkDevice, swapchainImage_Array[i], NULL);// Not needed, as images are managed by the swapchain  
+        gSwapChainResourceData.swapchainImage_Array[i] = VK_NULL_HANDLE;
+
+    }
+
+    if (gSwapChainResourceData.swapchainImageView_Array)
+    {
+        free(gSwapChainResourceData.swapchainImageView_Array);
+        gSwapChainResourceData.swapchainImageView_Array = NULL;
+    }
+    if (gSwapChainResourceData.swapchainImage_Array)
+    {
+        free(gSwapChainResourceData.swapchainImage_Array);
+        gSwapChainResourceData.swapchainImage_Array = NULL;
+    }
+
+    //destroy depth resources
+    //image view
+    if (gSwapChainResourceData.imageData_depthBuffer.vkImageView)
+    {
+        vkDestroyImageView(vkDevice, gSwapChainResourceData.imageData_depthBuffer.vkImageView, NULL);
+        gSwapChainResourceData.imageData_depthBuffer.vkImageView = VK_NULL_HANDLE;
+    }
+    //image
+    if (gSwapChainResourceData.imageData_depthBuffer.vkImage)
+    {
+        vkDestroyImage(vkDevice, gSwapChainResourceData.imageData_depthBuffer.vkImage, NULL);
+        gSwapChainResourceData.imageData_depthBuffer.vkImage = VK_NULL_HANDLE;
+    }
+    // free depth buffer memory
+    if (gSwapChainResourceData.imageData_depthBuffer.vkDeviceMemory)
+    {
+        vkFreeMemory(vkDevice, gSwapChainResourceData.imageData_depthBuffer.vkDeviceMemory, NULL);
+        gSwapChainResourceData.imageData_depthBuffer.vkDeviceMemory = VK_NULL_HANDLE;
+    }
+
+    //---------------------------------------------------------------------
 }
 
 VkResult createRenderPass(void)
@@ -5124,26 +5194,40 @@ VkResult createRenderPass(void)
     VkResult vkResult = VK_SUCCESS;
 
     // code
-    // sub-step (1) : Declare and initialize VkAttachmentDescription structures array (Number of elements in the array depends upon number of attachments). Although we have only 1 attachment for this example, we will consider it as an array.
-    VkAttachmentDescription vkAttachmentDescription_Array[1];
-    memset((void*)vkAttachmentDescription_Array, 0, sizeof(VkAttachmentDescription) * _ARRAYSIZE(vkAttachmentDescription_Array));
+    VkAttachmentDescription colorAttachment[1];
+	memset((void*)&colorAttachment, 0, sizeof(VkAttachmentDescription) * _ARRAYSIZE(colorAttachment));
+    colorAttachment[0].format = vkFormat_Color;
+    colorAttachment[0] .samples = VK_SAMPLE_COUNT_1_BIT;
+    colorAttachment[0].loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+    colorAttachment[0].storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+    colorAttachment[0].stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+    colorAttachment[0].stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+    colorAttachment[0].initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+    colorAttachment[0].finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
 
-    vkAttachmentDescription_Array[0].flags = 0;
-    vkAttachmentDescription_Array[0].format = vkFormat_Color;
-    vkAttachmentDescription_Array[0].samples = VK_SAMPLE_COUNT_1_BIT;
-    vkAttachmentDescription_Array[0].loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR; // what to do when entering the RenderPass?
-    vkAttachmentDescription_Array[0].storeOp = VK_ATTACHMENT_STORE_OP_STORE;
-    vkAttachmentDescription_Array[0].stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE; // though it is saying "stencil" as a member, it is for both depth and stencil
-    vkAttachmentDescription_Array[0].stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
-    vkAttachmentDescription_Array[0].initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-    vkAttachmentDescription_Array[0].finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
+    VkAttachmentDescription depthAttachment;
+    memset((void*)&depthAttachment, 0, sizeof(VkAttachmentDescription));
+    depthAttachment.format = VK_FORMAT_D32_SFLOAT;
+    depthAttachment.samples = VK_SAMPLE_COUNT_1_BIT;
+    depthAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+    depthAttachment.storeOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+    depthAttachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+    depthAttachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+    depthAttachment.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+    depthAttachment.finalLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
 
-    // sub-step (2) : Declare and initialize VkAttachmentReference structure which will have information about the attachment which we described above.
-    VkAttachmentReference vkAttachmentReference;
-    memset((void*)&vkAttachmentReference, 0, sizeof(VkAttachmentReference));
+	VkAttachmentDescription vkAttachmentDescription_Array[2] = { colorAttachment[0], depthAttachment };
 
-    vkAttachmentReference.attachment = 0; // 0 means the index number of the attachment 
-    vkAttachmentReference.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+
+    VkAttachmentReference colorRef;
+	memset((void*)&colorRef, 0, sizeof(VkAttachmentReference));
+    colorRef.attachment = 0;
+    colorRef.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+
+    VkAttachmentReference depthRef;
+	memset((void*)&depthRef, 0, sizeof(VkAttachmentReference));
+    depthRef.attachment = 1;
+    depthRef.layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
 
     // sub-step (3) : Declare and initialize VkSubPassDescription structure and keep reference about VkAttachmentReference structure.
     VkSubpassDescription vkSubpassDescription;
@@ -5153,10 +5237,10 @@ VkResult createRenderPass(void)
     vkSubpassDescription.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
     vkSubpassDescription.inputAttachmentCount = 0;
     vkSubpassDescription.pInputAttachments = NULL;
-    vkSubpassDescription.colorAttachmentCount = _ARRAYSIZE(vkAttachmentDescription_Array);
-    vkSubpassDescription.pColorAttachments = &vkAttachmentReference;
+	vkSubpassDescription.colorAttachmentCount = _ARRAYSIZE(colorAttachment);
+	vkSubpassDescription.pColorAttachments = &colorRef; // pointer to the color attachment reference
     vkSubpassDescription.pResolveAttachments = NULL;
-    vkSubpassDescription.pDepthStencilAttachment = NULL;
+	vkSubpassDescription.pDepthStencilAttachment = &depthRef; // pointer to the depth attachment reference
     vkSubpassDescription.preserveAttachmentCount = 0;
     vkSubpassDescription.pPreserveAttachments = NULL;
 
@@ -5173,14 +5257,15 @@ VkResult createRenderPass(void)
 
     ////-------------------------------------------
 
+
     // sub-step (4) : Declare and initialize VkRenderPassCreateInfo structure and refer above VkAttachmentDescription and VkSubPassDescription into it. Remember: here also we need attachment information in the form of image views which will be used by framebuffer later. We also need to specify inter-dependency between subpasses if needed.
     VkRenderPassCreateInfo vkRenderPassCreateInfo;
     memset((void*)&vkRenderPassCreateInfo, 0, sizeof(VkRenderPassCreateInfo));
 
     vkRenderPassCreateInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
     vkRenderPassCreateInfo.pNext = NULL;
-    vkRenderPassCreateInfo.attachmentCount = _ARRAYSIZE(vkAttachmentDescription_Array);
-    vkRenderPassCreateInfo.pAttachments = vkAttachmentDescription_Array;
+	vkRenderPassCreateInfo.attachmentCount = 2; // we are using two attachments: color and depth
+	vkRenderPassCreateInfo.pAttachments = vkAttachmentDescription_Array; // pointer to the attachment description array
     vkRenderPassCreateInfo.subpassCount = 1;
     vkRenderPassCreateInfo.pSubpasses = &vkSubpassDescription;
     vkRenderPassCreateInfo.dependencyCount = 0;
@@ -5281,7 +5366,7 @@ VkResult createGraphicsPipeline_PerVertexColor(void)
     vkPipelineRasterizationStateCreateInfo.depthBiasSlopeFactor = 0.0f; // no depth bias slope factor
     vkPipelineRasterizationStateCreateInfo.rasterizerDiscardEnable = VK_FALSE; // no rasterizer discard
     vkPipelineRasterizationStateCreateInfo.polygonMode = VK_POLYGON_MODE_FILL; // fill mode
-    vkPipelineRasterizationStateCreateInfo.cullMode = VK_CULL_MODE_BACK_BIT; // back face culling
+    vkPipelineRasterizationStateCreateInfo.cullMode = VK_CULL_MODE_NONE; // no culling
     vkPipelineRasterizationStateCreateInfo.frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE; //  anti clockwise front face
     vkPipelineRasterizationStateCreateInfo.lineWidth = 1.0f; // line width
 
@@ -5339,6 +5424,23 @@ VkResult createGraphicsPipeline_PerVertexColor(void)
     //memset((void*)&vkPipelineDepthStencilStateCreateInfo, 0, sizeof(VkPipelineDepthStencilStateCreateInfo));
     //vkPipelineDepthStencilStateCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
     //vkPipelineDepthStencilStateCreateInfo.pNext = NULL;
+
+	//depth stencil state
+	VkPipelineDepthStencilStateCreateInfo vkPipelineDepthStencilStateCreateInfo;
+	memset((void*)&vkPipelineDepthStencilStateCreateInfo, 0, sizeof(VkPipelineDepthStencilStateCreateInfo));
+	vkPipelineDepthStencilStateCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
+	vkPipelineDepthStencilStateCreateInfo.pNext = NULL;
+	vkPipelineDepthStencilStateCreateInfo.flags = 0;
+	vkPipelineDepthStencilStateCreateInfo.depthTestEnable = VK_TRUE; // enable depth test
+	vkPipelineDepthStencilStateCreateInfo.depthWriteEnable = VK_TRUE; // enable depth write
+	vkPipelineDepthStencilStateCreateInfo.depthCompareOp = VK_COMPARE_OP_LESS; // depth compare operation
+	vkPipelineDepthStencilStateCreateInfo.depthBoundsTestEnable = VK_FALSE; // no depth bounds test
+	vkPipelineDepthStencilStateCreateInfo.stencilTestEnable = VK_FALSE; // no stencil test
+	vkPipelineDepthStencilStateCreateInfo.front = {}; // no front stencil state
+	vkPipelineDepthStencilStateCreateInfo.back = {}; // no back stencil state
+	vkPipelineDepthStencilStateCreateInfo.minDepthBounds = 0.0f; // min depth bounds
+	vkPipelineDepthStencilStateCreateInfo.maxDepthBounds = 1.0f; // max depth bounds
+
 
     //dynamic state (viewport, scissor ,depth bias ,blend constants, stensil mask,line width, etc)
     //no dynamic state right now
@@ -5410,7 +5512,7 @@ VkResult createGraphicsPipeline_PerVertexColor(void)
     vkGraphicsPipelineCreateInfo.pViewportState = &vkPipelineViewportStateCreateInfo;
     vkGraphicsPipelineCreateInfo.pRasterizationState = &vkPipelineRasterizationStateCreateInfo;
     vkGraphicsPipelineCreateInfo.pMultisampleState = &vkPipelineMultisampleStateCreateInfo;
-    vkGraphicsPipelineCreateInfo.pDepthStencilState = NULL; // no depth stencil state
+    vkGraphicsPipelineCreateInfo.pDepthStencilState = &vkPipelineDepthStencilStateCreateInfo; // no depth stencil state
     vkGraphicsPipelineCreateInfo.pColorBlendState = &vkPipelineColorBlendStateCreateInfo;
     vkGraphicsPipelineCreateInfo.pDynamicState = NULL; // no dynamic state
     vkGraphicsPipelineCreateInfo.layout = vkPipelineLayout; // pipeline layout
@@ -5569,6 +5671,23 @@ VkResult createGraphicsPipeline_Impostor(void)
     //vkPipelineDepthStencilStateCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
     //vkPipelineDepthStencilStateCreateInfo.pNext = NULL;
 
+    //depth stencil state
+    VkPipelineDepthStencilStateCreateInfo vkPipelineDepthStencilStateCreateInfo;
+    memset((void*)&vkPipelineDepthStencilStateCreateInfo, 0, sizeof(VkPipelineDepthStencilStateCreateInfo));
+    vkPipelineDepthStencilStateCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
+    vkPipelineDepthStencilStateCreateInfo.pNext = NULL;
+    vkPipelineDepthStencilStateCreateInfo.flags = 0;
+    vkPipelineDepthStencilStateCreateInfo.depthTestEnable = VK_TRUE; // enable depth test
+    vkPipelineDepthStencilStateCreateInfo.depthWriteEnable = VK_TRUE; // enable depth write
+    vkPipelineDepthStencilStateCreateInfo.depthCompareOp = VK_COMPARE_OP_LESS; // depth compare operation
+    vkPipelineDepthStencilStateCreateInfo.depthBoundsTestEnable = VK_FALSE; // no depth bounds test
+    vkPipelineDepthStencilStateCreateInfo.stencilTestEnable = VK_FALSE; // no stencil test
+    vkPipelineDepthStencilStateCreateInfo.front = {}; // no front stencil state
+    vkPipelineDepthStencilStateCreateInfo.back = {}; // no back stencil state
+    vkPipelineDepthStencilStateCreateInfo.minDepthBounds = 0.0f; // min depth bounds
+    vkPipelineDepthStencilStateCreateInfo.maxDepthBounds = 1.0f; // max depth bounds
+
+
     //dynamic state (viewport, scissor ,depth bias ,blend constants, stensil mask,line width, etc)
     //no dynamic state right now
 
@@ -5639,7 +5758,7 @@ VkResult createGraphicsPipeline_Impostor(void)
     vkGraphicsPipelineCreateInfo.pViewportState = &vkPipelineViewportStateCreateInfo;
     vkGraphicsPipelineCreateInfo.pRasterizationState = &vkPipelineRasterizationStateCreateInfo;
     vkGraphicsPipelineCreateInfo.pMultisampleState = &vkPipelineMultisampleStateCreateInfo;
-    vkGraphicsPipelineCreateInfo.pDepthStencilState = NULL; // no depth stencil state
+    vkGraphicsPipelineCreateInfo.pDepthStencilState = &vkPipelineDepthStencilStateCreateInfo; 
     vkGraphicsPipelineCreateInfo.pColorBlendState = &vkPipelineColorBlendStateCreateInfo;
     vkGraphicsPipelineCreateInfo.pDynamicState = NULL; // no dynamic state
     vkGraphicsPipelineCreateInfo.layout = vkPipelineLayout_Impostor; // pipeline layout
@@ -5767,11 +5886,21 @@ VkResult createGraphicsPipeline_PreviewImage(void)
     vkPipelineViewportStateCreateInfo.scissorCount = 1; // 1 scissor
     vkPipelineViewportStateCreateInfo.pScissors = &vkRect2D_Scissor; // scissor
 
-    //// depth stencil state
-    //VkPipelineDepthStencilStateCreateInfo vkPipelineDepthStencilStateCreateInfo;   
-    //memset((void*)&vkPipelineDepthStencilStateCreateInfo, 0, sizeof(VkPipelineDepthStencilStateCreateInfo));
-    //vkPipelineDepthStencilStateCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
-    //vkPipelineDepthStencilStateCreateInfo.pNext = NULL;
+    //depth stencil state
+    VkPipelineDepthStencilStateCreateInfo vkPipelineDepthStencilStateCreateInfo;
+    memset((void*)&vkPipelineDepthStencilStateCreateInfo, 0, sizeof(VkPipelineDepthStencilStateCreateInfo));
+    vkPipelineDepthStencilStateCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
+    vkPipelineDepthStencilStateCreateInfo.pNext = NULL;
+    vkPipelineDepthStencilStateCreateInfo.flags = 0;
+    vkPipelineDepthStencilStateCreateInfo.depthTestEnable = VK_FALSE; // 
+    vkPipelineDepthStencilStateCreateInfo.depthWriteEnable = VK_FALSE; // 
+    vkPipelineDepthStencilStateCreateInfo.depthCompareOp = VK_COMPARE_OP_LESS; // depth compare operation
+    vkPipelineDepthStencilStateCreateInfo.depthBoundsTestEnable = VK_FALSE; // no depth bounds test
+    vkPipelineDepthStencilStateCreateInfo.stencilTestEnable = VK_FALSE; // no stencil test
+    vkPipelineDepthStencilStateCreateInfo.front = {}; // no front stencil state
+    vkPipelineDepthStencilStateCreateInfo.back = {}; // no back stencil state
+    vkPipelineDepthStencilStateCreateInfo.minDepthBounds = 0.0f; // min depth bounds
+    vkPipelineDepthStencilStateCreateInfo.maxDepthBounds = 1.0f; // max depth bounds
 
     //dynamic state (viewport, scissor ,depth bias ,blend constants, stensil mask,line width, etc)
     //no dynamic state right now
@@ -5843,7 +5972,7 @@ VkResult createGraphicsPipeline_PreviewImage(void)
     vkGraphicsPipelineCreateInfo.pViewportState = &vkPipelineViewportStateCreateInfo;
     vkGraphicsPipelineCreateInfo.pRasterizationState = &vkPipelineRasterizationStateCreateInfo;
     vkGraphicsPipelineCreateInfo.pMultisampleState = &vkPipelineMultisampleStateCreateInfo;
-    vkGraphicsPipelineCreateInfo.pDepthStencilState = NULL; // no depth stencil state
+	vkGraphicsPipelineCreateInfo.pDepthStencilState = &vkPipelineDepthStencilStateCreateInfo;
     vkGraphicsPipelineCreateInfo.pColorBlendState = &vkPipelineColorBlendStateCreateInfo;
     vkGraphicsPipelineCreateInfo.pDynamicState = NULL; // no dynamic state
     vkGraphicsPipelineCreateInfo.layout = vkPipelineLayout_previewImage; // pipeline layout
@@ -6011,6 +6140,22 @@ VkResult createGraphicsPipeline_WhiteVertex(void)
     //vkPipelineDepthStencilStateCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
     //vkPipelineDepthStencilStateCreateInfo.pNext = NULL;
 
+        //depth stencil state
+    VkPipelineDepthStencilStateCreateInfo vkPipelineDepthStencilStateCreateInfo;
+    memset((void*)&vkPipelineDepthStencilStateCreateInfo, 0, sizeof(VkPipelineDepthStencilStateCreateInfo));
+    vkPipelineDepthStencilStateCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
+    vkPipelineDepthStencilStateCreateInfo.pNext = NULL;
+    vkPipelineDepthStencilStateCreateInfo.flags = 0;
+    vkPipelineDepthStencilStateCreateInfo.depthTestEnable = VK_FALSE; // 
+    vkPipelineDepthStencilStateCreateInfo.depthWriteEnable = VK_FALSE; // 
+    vkPipelineDepthStencilStateCreateInfo.depthCompareOp = VK_COMPARE_OP_LESS; // depth compare operation
+    vkPipelineDepthStencilStateCreateInfo.depthBoundsTestEnable = VK_FALSE; // no depth bounds test
+    vkPipelineDepthStencilStateCreateInfo.stencilTestEnable = VK_FALSE; // no stencil test
+    vkPipelineDepthStencilStateCreateInfo.front = {}; // no front stencil state
+    vkPipelineDepthStencilStateCreateInfo.back = {}; // no back stencil state
+    vkPipelineDepthStencilStateCreateInfo.minDepthBounds = 0.0f; // min depth bounds
+    vkPipelineDepthStencilStateCreateInfo.maxDepthBounds = 1.0f; // max depth bounds
+
     //dynamic state (viewport, scissor ,depth bias ,blend constants, stensil mask,line width, etc)
     //no dynamic state right now
 
@@ -6081,7 +6226,7 @@ VkResult createGraphicsPipeline_WhiteVertex(void)
     vkGraphicsPipelineCreateInfo.pViewportState = &vkPipelineViewportStateCreateInfo;
     vkGraphicsPipelineCreateInfo.pRasterizationState = &vkPipelineRasterizationStateCreateInfo;
     vkGraphicsPipelineCreateInfo.pMultisampleState = &vkPipelineMultisampleStateCreateInfo;
-    vkGraphicsPipelineCreateInfo.pDepthStencilState = NULL; // no depth stencil state
+	vkGraphicsPipelineCreateInfo.pDepthStencilState = &vkPipelineDepthStencilStateCreateInfo; // depth stencil state
     vkGraphicsPipelineCreateInfo.pColorBlendState = &vkPipelineColorBlendStateCreateInfo;
     vkGraphicsPipelineCreateInfo.pDynamicState = NULL; // no dynamic state
     vkGraphicsPipelineCreateInfo.layout = vkPipelineLayout; // pipeline layout
@@ -6121,6 +6266,7 @@ VkResult createFramebuffers(void)
 
     VkImageView attachments[2];
 	memset((void*)attachments, 0, sizeof(VkImageView) * _ARRAYSIZE(attachments));
+	attachments[1] = gSwapChainResourceData.imageData_depthBuffer.vkImageView; // depth attachment
 
 	//attachments[1] = vkImageView_Depth; // depth attachment
 
@@ -6129,18 +6275,20 @@ VkResult createFramebuffers(void)
     memset((void*)&vkFramebufferCreateInfo, 0, sizeof(VkFramebufferCreateInfo));
 
     //  Allocate the framebuffer array by malloc() equal to the size of swapchain image count.
-    vkFramebuffer_Array = (VkFramebuffer*)malloc(sizeof(VkFramebuffer) * swapchainImageCount);
+    vkFramebuffer_Array = (VkFramebuffer*)malloc(sizeof(VkFramebuffer) * gSwapchainImageCount);
 
     //  Start a loop for swapchain image count and call vkCreateFramebuffer() API to create framebuffers.
-    for (uint32_t i = 0; i < swapchainImageCount; i++)
+    for (uint32_t i = 0; i < gSwapchainImageCount; i++)
     {
+
+		attachments[0] = gSwapChainResourceData.swapchainImageView_Array[i]; // color attachment
         
         vkFramebufferCreateInfo.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
         vkFramebufferCreateInfo.pNext = NULL;
         vkFramebufferCreateInfo.flags = 0;
         vkFramebufferCreateInfo.renderPass = vkRenderPass;
-        vkFramebufferCreateInfo.attachmentCount = 1; // we are using only one attachment (color attachment)
-        vkFramebufferCreateInfo.pAttachments = &swapchainImageView_Array[i]; // use address of the array element
+		vkFramebufferCreateInfo.attachmentCount = 2; // color and depth attachments
+		vkFramebufferCreateInfo.pAttachments = attachments; // array of attachments 
         vkFramebufferCreateInfo.width = vkExtent2D_Swapchain.width;
         vkFramebufferCreateInfo.height = vkExtent2D_Swapchain.height;
         vkFramebufferCreateInfo.layers = 1;
@@ -6171,11 +6319,11 @@ VkResult createSemaphores(void)
     vkSemaphoreCreateInfo.pNext = NULL; // by default, the semaphore will be created as a binary semaphore. 
     vkSemaphoreCreateInfo.flags = 0;    // MUST be 0, this member is reserved.
 
-    vkSemaphore_BackBuffer = (VkSemaphore*)malloc(sizeof(VkSemaphore) * swapchainImageCount);
-    vkSemaphore_RenderComplete = (VkSemaphore*)malloc(sizeof(VkSemaphore) * swapchainImageCount);
+    vkSemaphore_BackBuffer = (VkSemaphore*)malloc(sizeof(VkSemaphore) * gSwapchainImageCount);
+    vkSemaphore_RenderComplete = (VkSemaphore*)malloc(sizeof(VkSemaphore) * gSwapchainImageCount);
 
 
-    for (uint32_t i = 0; i < swapchainImageCount; i++)
+    for (uint32_t i = 0; i < gSwapchainImageCount; i++)
     {
         //Now call vkCreateSemaphore() API 2 times to create our 2 semaphore objects. Remember, both will use the same create info structure.
         vkResult = vkCreateSemaphore(
@@ -6226,10 +6374,10 @@ VkResult createFences(void)
     vkFenceCreateInfo.flags = VK_FENCE_CREATE_SIGNALED_BIT;
 
     //  In this function, allocate our global fence array to the size of the swapchain image count using malloc().
-    vkFence_Array = (VkFence*)malloc(sizeof(VkFence) * swapchainImageCount); // for the sake of brevity, we are avoiding error checking for malloc()
+    vkFence_Array = (VkFence*)malloc(sizeof(VkFence) * gSwapchainImageCount); // for the sake of brevity, we are avoiding error checking for malloc()
 
     //  Now in a loop, call vkCreateFence() to initialize our global fences array.
-    for (uint32_t i = 0; i < swapchainImageCount; i++)
+    for (uint32_t i = 0; i < gSwapchainImageCount; i++)
     {
         vkResult = vkCreateFence(vkDevice, &vkFenceCreateInfo, NULL, &vkFence_Array[i]);
         if (vkResult != VK_SUCCESS)
@@ -6393,16 +6541,25 @@ VkResult buildCommandBuffers(uint32_t curIndex)
         return vkResult;
     }
 
-    VkClearValue clearValue = {};
-    clearValue.color = vkClearColorValue;
+ //   VkClearValue clearValue = {};
+ //   clearValue.color = vkClearColorValue;
+	//clearValue.depthStencil = vkClearDepthStencilValue;
+
+    VkClearValue clearValues[2];
+    clearValues[0].color.float32[0] = 0.0f;
+    clearValues[0].color.float32[1] = 0.0f;
+    clearValues[0].color.float32[2] = 0.0f;
+    clearValues[0].color.float32[3] = 1.0f;
+    clearValues[1].depthStencil.depth = 1.0f;
+    clearValues[1].depthStencil.stencil = 0;
 
     VkRenderPassBeginInfo renderPassInfo = {};
     renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
     renderPassInfo.renderPass = vkRenderPass;
     renderPassInfo.framebuffer = vkFramebuffer_Array[curIndex];
     renderPassInfo.renderArea.extent = vkExtent2D_Swapchain;
-    renderPassInfo.clearValueCount = 1;
-    renderPassInfo.pClearValues = &clearValue;
+    renderPassInfo.clearValueCount = 2;
+    renderPassInfo.pClearValues = clearValues;
 
     vkCmdBeginRenderPass(vkCommandBuffer_Array[curIndex], &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
 
