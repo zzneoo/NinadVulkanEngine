@@ -144,10 +144,10 @@
     <ClInclude Include="imgui\imstb_truetype.h" />
     <ClInclude Include="MyWin32.h" />
     <ClInclude Include="Resource.h" />
+    <ClInclude Include="stb_image.h" />
     <ClInclude Include="targetver.h" />
     <ClInclude Include="VertexInputState.h" />
     <ClInclude Include="VK.h" />
-    <ClInclude Include="VkPipelineVertexInputState.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="BlueScreen.cpp" />
@@ -159,8 +159,6 @@
     <ClCompile Include="imgui\imgui_tables.cpp" />
     <ClCompile Include="imgui\imgui_widgets.cpp" />
     <ClCompile Include="MyWin32.cpp" />
-    <ClCompile Include="VertexInputState.cpp" />
-    <ClCompile Include="VkPipelineVertexInputState.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="BlueScreen.rc" />

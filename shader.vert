@@ -9,7 +9,8 @@ layout(binding = 0) uniform Camera
 	mat4 projection;
 } cam;
 
-layout(push_constant) uniform PushConstants {
+layout(push_constant) uniform PushConstants 
+{
     mat4 model;
 	vec3 v3Color;
 	float fFactor;

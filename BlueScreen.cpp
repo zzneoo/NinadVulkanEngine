@@ -3,6 +3,9 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+#define STB_IMAGE_IMPLEMENTATION
+#include "stb_image.h"
+
 //#define PRINT_EXTENIONS
 
 #define MAX_FRAMES 2 // for double buffering
@@ -216,13 +219,19 @@ VkShaderModule vkShaderModule_previewImage_fs = VK_NULL_HANDLE;
 VkShaderModule vkShaderModule_impostor_vs = VK_NULL_HANDLE;
 VkShaderModule vkShaderModule_impostor_fs = VK_NULL_HANDLE;
 
+//GrassImage
+ImageData grassTextureData;
+
+//Samplers
+VkSampler vkSampler_LinearClampAniso = VK_NULL_HANDLE;
+
 //desccriptor set layout 
 VkDescriptorSetLayout vkDescriptorSetLayout = VK_NULL_HANDLE;
+VkDescriptorSetLayout vkDescriptorSetLayout_CamImage = VK_NULL_HANDLE;
+
 VkDescriptorPool vkDescriptorPool = VK_NULL_HANDLE;
 VkDescriptorSet  vkDescriptorSets[MAX_FRAMES];
-
-//vkPipeline Layout
-VkPipelineLayout vkPipelineLayout = VK_NULL_HANDLE;
+VkDescriptorSet  vkDescriptorSets_camImage[MAX_FRAMES];
 
 //pipeline
 VkViewport vkViewport;
@@ -231,6 +240,7 @@ VkRect2D vkRect2D_Scissor;
 //All pipelines
 VkPipeline vkPipeline_WhiteVertex = VK_NULL_HANDLE;
 VkPipeline vkPipeline_PerVertexColor = VK_NULL_HANDLE;
+VkPipelineLayout vkPipelineLayout = VK_NULL_HANDLE;
 
 VkPipeline vkPipeline_Impostor = VK_NULL_HANDLE;
 VkPipelineLayout vkPipelineLayout_Impostor = VK_NULL_HANDLE;
@@ -650,24 +660,24 @@ static void check_vk_result(VkResult err)
     if (err == 0)
         return;
 
-    fprintf(stderr, "[vulkan] Error: VkResult = %d\n", err);
+    fprintf(gpFILE, "[vulkan] Error: VkResult = %d\n", err);
 
     // Optionally you can translate the error code to something more readable:
     switch (err)
     {
-    case VK_ERROR_OUT_OF_HOST_MEMORY:       fprintf(stderr, "VK_ERROR_OUT_OF_HOST_MEMORY\n"); break;
-    case VK_ERROR_OUT_OF_DEVICE_MEMORY:     fprintf(stderr, "VK_ERROR_OUT_OF_DEVICE_MEMORY\n"); break;
-    case VK_ERROR_INITIALIZATION_FAILED:    fprintf(stderr, "VK_ERROR_INITIALIZATION_FAILED\n"); break;
-    case VK_ERROR_DEVICE_LOST:              fprintf(stderr, "VK_ERROR_DEVICE_LOST\n"); break;
-    case VK_ERROR_MEMORY_MAP_FAILED:        fprintf(stderr, "VK_ERROR_MEMORY_MAP_FAILED\n"); break;
-    case VK_ERROR_LAYER_NOT_PRESENT:        fprintf(stderr, "VK_ERROR_LAYER_NOT_PRESENT\n"); break;
-    case VK_ERROR_EXTENSION_NOT_PRESENT:    fprintf(stderr, "VK_ERROR_EXTENSION_NOT_PRESENT\n"); break;
-    case VK_ERROR_FEATURE_NOT_PRESENT:      fprintf(stderr, "VK_ERROR_FEATURE_NOT_PRESENT\n"); break;
-    case VK_ERROR_INCOMPATIBLE_DRIVER:      fprintf(stderr, "VK_ERROR_INCOMPATIBLE_DRIVER\n"); break;
-    case VK_ERROR_TOO_MANY_OBJECTS:         fprintf(stderr, "VK_ERROR_TOO_MANY_OBJECTS\n"); break;
-    case VK_ERROR_FORMAT_NOT_SUPPORTED:     fprintf(stderr, "VK_ERROR_FORMAT_NOT_SUPPORTED\n"); break;
-    case VK_ERROR_FRAGMENTED_POOL:          fprintf(stderr, "VK_ERROR_FRAGMENTED_POOL\n"); break;
-    default:                                fprintf(stderr, "Unknown Vulkan error\n"); break;
+    case VK_ERROR_OUT_OF_HOST_MEMORY:       fprintf(gpFILE, "VK_ERROR_OUT_OF_HOST_MEMORY\n"); break;
+    case VK_ERROR_OUT_OF_DEVICE_MEMORY:     fprintf(gpFILE, "VK_ERROR_OUT_OF_DEVICE_MEMORY\n"); break;
+    case VK_ERROR_INITIALIZATION_FAILED:    fprintf(gpFILE, "VK_ERROR_INITIALIZATION_FAILED\n"); break;
+    case VK_ERROR_DEVICE_LOST:              fprintf(gpFILE, "VK_ERROR_DEVICE_LOST\n"); break;
+    case VK_ERROR_MEMORY_MAP_FAILED:        fprintf(gpFILE, "VK_ERROR_MEMORY_MAP_FAILED\n"); break;
+    case VK_ERROR_LAYER_NOT_PRESENT:        fprintf(gpFILE, "VK_ERROR_LAYER_NOT_PRESENT\n"); break;
+    case VK_ERROR_EXTENSION_NOT_PRESENT:    fprintf(gpFILE, "VK_ERROR_EXTENSION_NOT_PRESENT\n"); break;
+    case VK_ERROR_FEATURE_NOT_PRESENT:      fprintf(gpFILE, "VK_ERROR_FEATURE_NOT_PRESENT\n"); break;
+    case VK_ERROR_INCOMPATIBLE_DRIVER:      fprintf(gpFILE, "VK_ERROR_INCOMPATIBLE_DRIVER\n"); break;
+    case VK_ERROR_TOO_MANY_OBJECTS:         fprintf(gpFILE, "VK_ERROR_TOO_MANY_OBJECTS\n"); break;
+    case VK_ERROR_FORMAT_NOT_SUPPORTED:     fprintf(gpFILE, "VK_ERROR_FORMAT_NOT_SUPPORTED\n"); break;
+    case VK_ERROR_FRAGMENTED_POOL:          fprintf(gpFILE, "VK_ERROR_FRAGMENTED_POOL\n"); break;
+    default:                                fprintf(gpFILE, "Unknown Vulkan error\n"); break;
     }
 
 #ifdef _DEBUG
@@ -696,11 +706,15 @@ VkResult initialize(void)
     VkResult createUniformBuffer(void);
     VkResult createShaders(void);
     VkResult createDescriptorSetLayout(void);
+	VkResult createDescriptorSetLayout_CamImage(void);
     VkResult createPipelineLayout(void);
     VkResult createPipelineLayout_previewImage(void);
 	VkResult createPipelineLayout_Impostor(void);
     VkResult createDescriptorPool(void);
     VkResult createDescriptorSet(void);
+	VkResult createDescriptorSet_CamImage(void);
+
+	VkResult createSamplers(void);
 
     VkResult createRenderPass(void);
     VkResult createGraphicsPipelines(void);
@@ -708,7 +722,8 @@ VkResult initialize(void)
     VkResult createFramebuffers(void);
     VkResult createSemaphores(void);
     VkResult createFences(void);
-    VkResult buildCommandBuffers(void);
+
+    VkResult loadTextureData(ImageData * imageData, const char* filePath);
 
     // variable declarations
     VkResult vkResult = VK_SUCCESS;
@@ -782,6 +797,23 @@ VkResult initialize(void)
         return(vkResult);
     }
 
+	//samplers
+	vkResult = createSamplers();
+    if (vkResult != VK_SUCCESS)
+    {
+        fprintf(gpFILE, "initialize() : createSamplers() failed (%d).\n", vkResult);
+        return(vkResult);
+    }
+
+	//load all textures
+	vkResult = loadTextureData(&grassTextureData, "GrassImage.png");
+	if (vkResult != VK_SUCCESS)
+	{
+		fprintf(gpFILE, "initialize() : loadTextureData() failed (%d).\n", vkResult);
+		return(vkResult);
+	}
+
+
     // STEP 15 : Create command buffers
     vkResult = createCommandBuffers();
     if (vkResult != VK_SUCCESS)
@@ -830,6 +862,14 @@ VkResult initialize(void)
         return(vkResult);
     }
 
+	//descriptor set layout for impostor
+	vkResult = createDescriptorSetLayout_CamImage();
+    if (vkResult != VK_SUCCESS)
+    {
+        fprintf(gpFILE, "initialize() : createDescriptorSetLayout_CamImage() failed (%d).\n", vkResult);
+        return(vkResult);
+	}
+
     //pipeline layout
     vkResult = createPipelineLayout();
     if (vkResult != VK_SUCCESS)
@@ -868,6 +908,14 @@ VkResult initialize(void)
         fprintf(gpFILE, "initialize() : createDiscriptorSet() failed (%d).\n", vkResult);
         return(vkResult);
     }
+
+	//Create Descriptor Set for Camera Image
+	vkResult = createDescriptorSet_CamImage();
+    if (vkResult != VK_SUCCESS)
+    {
+        fprintf(gpFILE, "initialize() : createDiscriptorSet_CamImage() failed (%d).\n", vkResult);
+        return(vkResult);
+	}
 
     // STEP 16 : Create RenderPass
     vkResult = createRenderPass();
@@ -1006,20 +1054,36 @@ VkResult initialize(void)
     return(vkResult);
 }
 
+// Helper: find a memory type index with required properties
+uint32_t findMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties) {
+    VkPhysicalDeviceMemoryProperties memProperties;
+    vkGetPhysicalDeviceMemoryProperties(vkPhysicalDevice_Selected, &memProperties);
+
+    for (uint32_t i = 0; i < memProperties.memoryTypeCount; i++) {
+        if ((typeFilter & (1 << i)) &&
+            (memProperties.memoryTypes[i].propertyFlags & properties) == properties) {
+            return i;
+        }
+    }
+
+    fprintf(gpFILE, "Failed to find suitable memory type.\n");
+    exit(EXIT_FAILURE);
+}
+
 VkResult resize(int width, int height)
 {
     // function declarations
     VkResult createSwapchain(VkBool32);
-    void destroySwapchainResources(void);
     VkResult createCommandBuffers(void);
     VkResult createPipelineLayout(void);
     VkResult createGraphicsPipelines(void);
     VkResult createRenderPass(void);
 	VkResult createSwapchainResources(void);
     VkResult createFramebuffers(void);
-    VkResult buildCommandBuffers(uint32_t curIndex);
 
+    void destroySwapchainResources(void);
 	void destroyGraphicsPipelines(void);
+
 
 
     // variable declarations
@@ -1456,7 +1520,6 @@ VkResult display(void)
     return vkResult;
 }
 
-
 void update(void)
 {
     // code
@@ -1474,6 +1537,7 @@ void uninitialize(void)
     void ToggleFullscreen(void);
 	void destroyGraphicsPipelines(void);
 	void destroySwapchainResources(void);
+	void destroySamplers(void);
 
     // code
     // if application is exitting in fullscreen
@@ -1611,6 +1675,12 @@ void uninitialize(void)
 
     }
 
+	//descriptor set layout for impostor
+	if (vkDescriptorSetLayout_CamImage)
+	{
+		vkDestroyDescriptorSetLayout(vkDevice, vkDescriptorSetLayout_CamImage, NULL);
+        vkDescriptorSetLayout_CamImage = VK_NULL_HANDLE;
+	}
 
     //shaderModule 
     if (vkShaderModule_basic_fs)
@@ -1766,6 +1836,23 @@ void uninitialize(void)
 
     //-----------------------------------------------------------
 
+    if(grassTextureData.vkImage)
+    {
+        vkDestroyImage(vkDevice, grassTextureData.vkImage, NULL);
+        grassTextureData.vkImage = VK_NULL_HANDLE;
+	}
+    if (grassTextureData.vkDeviceMemory)
+    {
+        vkFreeMemory(vkDevice, grassTextureData.vkDeviceMemory, NULL);
+        grassTextureData.vkDeviceMemory = VK_NULL_HANDLE;
+    }
+    if (grassTextureData.vkImageView)
+    {
+        vkDestroyImageView(vkDevice, grassTextureData.vkImageView, NULL);
+        grassTextureData.vkImageView = VK_NULL_HANDLE;
+	}
+
+
 	// Destroy swapchain resources
 	 destroySwapchainResources();
 
@@ -1782,6 +1869,7 @@ void uninitialize(void)
         vkSwapchainKHR = VK_NULL_HANDLE;
 
     }
+	destroySamplers();
 
     /*
      * no need to destroy / uninitialize device queue
@@ -1855,6 +1943,369 @@ void uninitialize(void)
         fclose(gpFILE);
         gpFILE = NULL;
     }
+}
+
+VkResult loadTextureData(ImageData *imageData, const char* filePath)
+{
+	VkResult vkResult = VK_SUCCESS;
+
+    // 1) Path to your image file
+    const char* filename = "Resources/StockTextures/grass.png";
+
+    // 2) Variables to receive image metadata
+    int width, height, channels;
+
+    // 3) stbi_load returns a pointer to the pixel data
+    unsigned char* data = stbi_load(filename, &width, &height, &channels, 0);
+    if (!data) 
+    {
+        fprintf(gpFILE, "\nFailed: Error loading '%s': %s\n\n", filename, stbi_failure_reason());
+		vkResult = VK_ERROR_INITIALIZATION_FAILED;
+		return vkResult;
+    }
+
+    fprintf(gpFILE,
+        "\nSuccess: Loaded image '%s' ( %d x %d ), %d channels\n\n",
+        filename, width, height, channels
+    );
+
+	// 4) Create a Vulkan image and upload the pixel data
+	VkBuffer vkBuffer_stagingBuffer;
+	VkDeviceMemory vkDeviceMemory_stagingBuffer;
+	VkDeviceSize imageSize = width * height * channels;//channels
+
+    // Buffer create info
+    VkBufferCreateInfo bufferCreateInfo;
+	memset(&bufferCreateInfo, 0, sizeof(VkBufferCreateInfo));
+
+	bufferCreateInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
+	bufferCreateInfo.size = imageSize; // Size of the buffer in bytes
+	bufferCreateInfo.usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT; // Buffer will be used for transfer operations
+	bufferCreateInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE; // No sharing between queues
+	vkResult = vkCreateBuffer(vkDevice, &bufferCreateInfo, NULL, &vkBuffer_stagingBuffer);
+	if (vkResult != VK_SUCCESS)
+	{
+		fprintf(gpFILE, "loadTextureData() : vkCreateBuffer() failed (%d).\n", vkResult);
+		stbi_image_free(data); // Free the pixel data before returning
+		return vkResult;
+	}
+
+
+	// Allocate memory for the buffer
+	VkMemoryRequirements memoryRequirements;
+	vkGetBufferMemoryRequirements(vkDevice, vkBuffer_stagingBuffer, &memoryRequirements);
+	VkMemoryAllocateInfo memoryAllocateInfo;
+	memset(&memoryAllocateInfo, 0, sizeof(VkMemoryAllocateInfo));
+	memoryAllocateInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
+	memoryAllocateInfo.allocationSize = memoryRequirements.size; // Size of the memory to allocate
+	memoryAllocateInfo.memoryTypeIndex = findMemoryType(
+		memoryRequirements.memoryTypeBits, // Memory type bits from the buffer
+		VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT // Memory properties
+	);
+	if (memoryAllocateInfo.memoryTypeIndex == UINT32_MAX)
+	{
+		fprintf(gpFILE, "loadTextureData() : findMemoryType() failed.\n");
+		vkDestroyBuffer(vkDevice, vkBuffer_stagingBuffer, NULL); // Clean up the buffer
+		stbi_image_free(data); // Free the pixel data before returning
+		return VK_ERROR_MEMORY_MAP_FAILED;
+	}
+	vkResult = vkAllocateMemory(vkDevice, &memoryAllocateInfo, NULL, &vkDeviceMemory_stagingBuffer);
+	if (vkResult != VK_SUCCESS)
+	{
+		fprintf(gpFILE, "loadTextureData() : vkAllocateMemory() failed (%d).\n", vkResult);
+		vkDestroyBuffer(vkDevice, vkBuffer_stagingBuffer, NULL); // Clean up the buffer
+		stbi_image_free(data); // Free the pixel data before returning
+		return vkResult;
+	}
+	// Bind the buffer memory
+	vkResult = vkBindBufferMemory(vkDevice, vkBuffer_stagingBuffer, vkDeviceMemory_stagingBuffer, 0);
+	if (vkResult != VK_SUCCESS)
+	{
+		fprintf(gpFILE, "loadTextureData() : vkBindBufferMemory() failed (%d).\n", vkResult);
+		vkFreeMemory(vkDevice, vkDeviceMemory_stagingBuffer, NULL); // Clean up the memory
+		vkDestroyBuffer(vkDevice, vkBuffer_stagingBuffer, NULL); // Clean up the buffer
+		stbi_image_free(data); // Free the pixel data before returning
+		return vkResult;
+	}
+	// Map the buffer memory and copy the pixel data
+	void* mappedMemory;
+	vkResult = vkMapMemory(vkDevice, vkDeviceMemory_stagingBuffer, 0, imageSize, 0, &mappedMemory);
+	if (vkResult != VK_SUCCESS)
+	{
+		fprintf(gpFILE, "loadTextureData() : vkMapMemory() failed (%d).\n", vkResult);
+		vkFreeMemory(vkDevice, vkDeviceMemory_stagingBuffer, NULL); // Clean up the memory
+		vkDestroyBuffer(vkDevice, vkBuffer_stagingBuffer, NULL); // Clean up the buffer
+		stbi_image_free(data); // Free the pixel data before returning
+		return vkResult;
+	}
+	// Copy the pixel data to the mapped memory
+	memcpy(mappedMemory, data, imageSize);
+	// Unmap the memory after copying
+	vkUnmapMemory(vkDevice, vkDeviceMemory_stagingBuffer);
+
+
+
+    //VK_FORMAT_R8G8B8A8_UNORM, // RGBA format
+    //VK_FORMAT_R8G8B8A8_SRGB,  // SRGB format
+
+    VkFormat linearFormats[4] = {
+        VK_FORMAT_R8_SRGB,        // grayscale
+        VK_FORMAT_R8G8_SRGB,      // two channel (RG)
+        VK_FORMAT_R8G8B8_SRGB,    // three channel RGB
+        VK_FORMAT_R8G8B8A8_SRGB,  // four channel RGBA
+    };
+
+	// Create a Vulkan image to hold the texture data
+	VkImageCreateInfo imageCreateInfo;
+	memset(&imageCreateInfo, 0, sizeof(VkImageCreateInfo));
+	imageCreateInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
+	imageCreateInfo.imageType = VK_IMAGE_TYPE_2D; // 2D image
+	imageCreateInfo.format = VK_FORMAT_R8G8B8A8_UNORM; // Assuming RGBA format
+	imageCreateInfo.extent.width = width; // Width of the image
+	imageCreateInfo.extent.height = height; // Height of the image
+	imageCreateInfo.extent.depth = 1; // Depth of the image (1 for 2D)
+	imageCreateInfo.mipLevels = 1; // No mipmaps
+	imageCreateInfo.arrayLayers = 1; // Single layer
+	imageCreateInfo.samples = VK_SAMPLE_COUNT_1_BIT; // No multisampling
+	imageCreateInfo.tiling = VK_IMAGE_TILING_OPTIMAL; // Optimal tiling for performance
+	imageCreateInfo.usage = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT; // Transfer destination and sampled usage
+	imageCreateInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE; // No sharing between queues
+	vkResult = vkCreateImage(vkDevice, &imageCreateInfo, NULL, &imageData->vkImage);
+	if (vkResult != VK_SUCCESS)
+	{
+		fprintf(gpFILE, "loadTextureData() : vkCreateImage() failed (%d).\n", vkResult);
+		vkUnmapMemory(vkDevice, vkDeviceMemory_stagingBuffer); // Unmap the memory
+		vkFreeMemory(vkDevice, vkDeviceMemory_stagingBuffer, NULL); // Clean up the memory
+		vkDestroyBuffer(vkDevice, vkBuffer_stagingBuffer, NULL); // Clean up the buffer
+		stbi_image_free(data); // Free the pixel data before returning
+		return vkResult;
+	}
+	// Allocate memory for the image
+	VkMemoryRequirements imageMemoryRequirements;
+	vkGetImageMemoryRequirements(vkDevice, imageData->vkImage, &imageMemoryRequirements);
+	VkMemoryAllocateInfo imageMemoryAllocateInfo;
+	memset(&imageMemoryAllocateInfo, 0, sizeof(VkMemoryAllocateInfo));
+	imageMemoryAllocateInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
+	imageMemoryAllocateInfo.allocationSize = imageMemoryRequirements.size; // Size of the memory to allocate
+	imageMemoryAllocateInfo.memoryTypeIndex = findMemoryType(
+		imageMemoryRequirements.memoryTypeBits, // Memory type bits from the image
+		VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT // Memory properties (device local for optimal performance)
+	);
+	if (imageMemoryAllocateInfo.memoryTypeIndex == UINT32_MAX)
+	{
+		fprintf(gpFILE, "loadTextureData() : findMemoryType() failed.\n");
+		vkDestroyImage(vkDevice, imageData->vkImage, NULL); // Clean up the image
+		vkUnmapMemory(vkDevice, vkDeviceMemory_stagingBuffer); // Unmap the memory
+		vkFreeMemory(vkDevice, vkDeviceMemory_stagingBuffer, NULL); // Clean up the memory
+		vkDestroyBuffer(vkDevice, vkBuffer_stagingBuffer, NULL); // Clean up the buffer
+		stbi_image_free(data); // Free the pixel data before returning
+		return VK_ERROR_MEMORY_MAP_FAILED;
+	}
+
+	vkResult = vkAllocateMemory(vkDevice, &imageMemoryAllocateInfo, NULL, &imageData->vkDeviceMemory);
+	if (vkResult != VK_SUCCESS)
+	{
+		fprintf(gpFILE, "loadTextureData() : vkAllocateMemory() failed (%d).\n", vkResult);
+		vkDestroyImage(vkDevice, imageData->vkImage, NULL); // Clean up the image
+		vkUnmapMemory(vkDevice, vkDeviceMemory_stagingBuffer); // Unmap the memory
+		vkFreeMemory(vkDevice, vkDeviceMemory_stagingBuffer, NULL); // Clean up the memory
+		vkDestroyBuffer(vkDevice, vkBuffer_stagingBuffer, NULL); // Clean up the buffer
+		stbi_image_free(data); // Free the pixel data before returning
+		return vkResult;
+	}
+	// Bind the image memory
+	vkResult = vkBindImageMemory(vkDevice, imageData->vkImage, imageData->vkDeviceMemory, 0);
+	if (vkResult != VK_SUCCESS)
+	{
+		fprintf(gpFILE, "loadTextureData() : vkBindImageMemory() failed (%d).\n", vkResult);
+		vkDestroyImage(vkDevice, imageData->vkImage, NULL); // Clean up the image
+		vkUnmapMemory(vkDevice, vkDeviceMemory_stagingBuffer); // Unmap the memory
+		vkFreeMemory(vkDevice, vkDeviceMemory_stagingBuffer, NULL); // Clean up the memory
+		vkFreeMemory(vkDevice, imageData->vkDeviceMemory, NULL); // Clean up the image memory
+		vkDestroyBuffer(vkDevice, vkBuffer_stagingBuffer, NULL); // Clean up the buffer
+		stbi_image_free(data); // Free the pixel data before returning
+		return vkResult;
+	}
+
+
+	// Transition the image layout to VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL
+	VkCommandBuffer commandBuffer;
+	VkCommandBufferAllocateInfo commandBufferAllocateInfo;
+	memset(&commandBufferAllocateInfo, 0, sizeof(VkCommandBufferAllocateInfo));
+	commandBufferAllocateInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+	commandBufferAllocateInfo.commandPool = vkCommandPool; // Command pool for allocation
+	commandBufferAllocateInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY; // Primary command buffer
+	commandBufferAllocateInfo.commandBufferCount = 1; // Allocate one command buffer
+	vkResult = vkAllocateCommandBuffers(vkDevice, &commandBufferAllocateInfo, &commandBuffer);
+	if (vkResult != VK_SUCCESS)
+	{
+		fprintf(gpFILE, "loadTextureData() : vkAllocateCommandBuffers() failed (%d).\n", vkResult);
+		vkDestroyImage(vkDevice, imageData->vkImage, NULL); // Clean up the image
+		vkUnmapMemory(vkDevice, vkDeviceMemory_stagingBuffer); // Unmap the memory
+		vkFreeMemory(vkDevice, vkDeviceMemory_stagingBuffer, NULL); // Clean up the memory
+		vkFreeMemory(vkDevice, imageData->vkDeviceMemory, NULL); // Clean up the image memory
+		vkDestroyBuffer(vkDevice, vkBuffer_stagingBuffer, NULL); // Clean up the buffer
+		stbi_image_free(data); // Free the pixel data before returning
+		return vkResult;
+	}
+	// Begin command buffer recording
+	VkCommandBufferBeginInfo commandBufferBeginInfo;
+	memset(&commandBufferBeginInfo, 0, sizeof(VkCommandBufferBeginInfo));
+	commandBufferBeginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+	commandBufferBeginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT; // One-time use command buffer
+	vkResult = vkBeginCommandBuffer(commandBuffer, &commandBufferBeginInfo);
+	if (vkResult != VK_SUCCESS)
+	{
+		fprintf(gpFILE, "loadTextureData() : vkBeginCommandBuffer() failed (%d).\n", vkResult);
+		vkDestroyImage(vkDevice, imageData->vkImage, NULL); // Clean up the image
+		vkUnmapMemory(vkDevice, vkDeviceMemory_stagingBuffer); // Unmap the memory
+		vkFreeMemory(vkDevice, vkDeviceMemory_stagingBuffer, NULL); // Clean up the memory
+		vkFreeMemory(vkDevice, imageData->vkDeviceMemory, NULL); // Clean up the image memory
+		vkDestroyBuffer(vkDevice, vkBuffer_stagingBuffer, NULL); // Clean up the buffer
+		stbi_image_free(data); // Free the pixel data before returning
+		return vkResult;
+	}
+	// Transition the image layout to VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL
+	VkImageMemoryBarrier imageMemoryBarrier;
+	memset(&imageMemoryBarrier, 0, sizeof(VkImageMemoryBarrier));
+	imageMemoryBarrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+	imageMemoryBarrier.srcAccessMask = 0; // No source access mask
+	imageMemoryBarrier.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT; // Destination access mask for transfer write
+	imageMemoryBarrier.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED; // Old layout is undefined
+	imageMemoryBarrier.newLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL; // New layout is transfer destination optimal
+	imageMemoryBarrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_EXTERNAL; // Source queue family index
+	imageMemoryBarrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_EXTERNAL; // Destination queue family index
+	imageMemoryBarrier.image = imageData->vkImage; // Image to transition
+	imageMemoryBarrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT; // Color aspect
+	imageMemoryBarrier.subresourceRange.baseMipLevel = 0; // Base mip level
+	imageMemoryBarrier.subresourceRange.levelCount = 1; // One mip level
+	imageMemoryBarrier.subresourceRange.baseArrayLayer = 0; // Base array layer
+	imageMemoryBarrier.subresourceRange.layerCount = 1; // One layer
+	vkCmdPipelineBarrier(
+		commandBuffer, // Command buffer to record the barrier
+		VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, // Source stage mask
+		VK_PIPELINE_STAGE_TRANSFER_BIT, // Destination stage mask
+		0, // Dependency flags
+		0, NULL, // No memory barriers
+		0, NULL, // No buffer barriers
+		1, &imageMemoryBarrier // Image memory barrier
+	);
+	// Copy the pixel data from the staging buffer to the image
+	VkBufferImageCopy bufferImageCopy;
+	memset(&bufferImageCopy, 0, sizeof(VkBufferImageCopy));
+	bufferImageCopy.bufferOffset = 0; // Offset in the buffer
+	bufferImageCopy.bufferRowLength = 0; // No row length (image is tightly packed)
+	bufferImageCopy.bufferImageHeight = 0; // No image height (image is tightly packed)
+	bufferImageCopy.imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT; // Color aspect
+	bufferImageCopy.imageSubresource.mipLevel = 0; // Mip level
+	bufferImageCopy.imageSubresource.baseArrayLayer = 0; // Base array layer
+	bufferImageCopy.imageSubresource.layerCount = 1; // One layer
+	bufferImageCopy.imageOffset = { 0, 0, 0 }; // Offset in the image
+	bufferImageCopy.imageExtent = { (uint32_t)width, (uint32_t)height, 1 }; // Extent of the image
+	vkCmdCopyBufferToImage(
+		commandBuffer, // Command buffer to record the copy
+		vkBuffer_stagingBuffer, // Source buffer (staging buffer)
+        imageData->vkImage, // Destination image
+		VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, // Destination image layout
+		1, // Number of regions to copy
+		&bufferImageCopy // Pointer to the buffer image copy region
+	);
+
+	// Transition the image layout to VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
+	imageMemoryBarrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT; // Source access mask for transfer write
+	imageMemoryBarrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT; // Destination access mask for shader read
+	imageMemoryBarrier.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL; // Old layout is transfer destination optimal
+	imageMemoryBarrier.newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL; // New layout is shader read only optimal
+    vkCmdPipelineBarrier(
+        commandBuffer, // Command buffer to record the barrier
+        VK_PIPELINE_STAGE_TRANSFER_BIT, // Source stage mask
+        VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, // Destination stage mask
+        0, // Dependency flags
+        0, NULL, // No memory barriers
+        0, NULL, // No buffer barriers
+        1, &imageMemoryBarrier // Image memory barrier
+	);
+        
+	// End command buffer recording
+	vkResult = vkEndCommandBuffer(commandBuffer);
+	if (vkResult != VK_SUCCESS)
+	{
+		fprintf(gpFILE, "loadTextureData() : vkEndCommandBuffer() failed (%d).\n", vkResult);
+		vkDestroyImage(vkDevice, imageData->vkImage, NULL); // Clean up the image
+		vkUnmapMemory(vkDevice, vkDeviceMemory_stagingBuffer); // Unmap the memory
+		vkFreeMemory(vkDevice, vkDeviceMemory_stagingBuffer, NULL); // Clean up the memory
+		vkFreeMemory(vkDevice, imageData->vkDeviceMemory, NULL); // Clean up the image memory
+		vkDestroyBuffer(vkDevice, vkBuffer_stagingBuffer, NULL); // Clean up the buffer
+		stbi_image_free(data); // Free the pixel data before returning
+		return vkResult;
+	}
+	// Submit the command buffer to the queue
+	VkSubmitInfo submitInfo;
+	memset(&submitInfo, 0, sizeof(VkSubmitInfo));
+	submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+	submitInfo.commandBufferCount = 1; // One command buffer to submit
+	submitInfo.pCommandBuffers = &commandBuffer; // Pointer to the command buffer
+	vkResult = vkQueueSubmit(vkQueue, 1, &submitInfo, VK_NULL_HANDLE);
+	if (vkResult != VK_SUCCESS)
+	{
+		fprintf(gpFILE, "loadTextureData() : vkQueueSubmit() failed (%d).\n", vkResult);
+		vkDestroyImage(vkDevice, imageData->vkImage, NULL); // Clean up the image
+		vkUnmapMemory(vkDevice, vkDeviceMemory_stagingBuffer); // Unmap the memory
+		vkFreeMemory(vkDevice, vkDeviceMemory_stagingBuffer, NULL); // Clean up the memory
+		vkFreeMemory(vkDevice, imageData->vkDeviceMemory, NULL); // Clean up the image memory
+		vkDestroyBuffer(vkDevice, vkBuffer_stagingBuffer, NULL); // Clean up the buffer
+		stbi_image_free(data); // Free the pixel data before returning
+		return vkResult;
+	}
+	// Wait for the queue to finish processing
+	vkResult = vkQueueWaitIdle(vkQueue);
+	if (vkResult != VK_SUCCESS)
+	{
+		fprintf(gpFILE, "loadTextureData() : vkQueueWaitIdle() failed (%d).\n", vkResult);
+		vkDestroyImage(vkDevice, imageData->vkImage, NULL); // Clean up the image
+		vkUnmapMemory(vkDevice, vkDeviceMemory_stagingBuffer); // Unmap the memory
+		vkFreeMemory(vkDevice, vkDeviceMemory_stagingBuffer, NULL); // Clean up the memory
+		vkFreeMemory(vkDevice, imageData->vkDeviceMemory, NULL); // Clean up the image memory
+		vkDestroyBuffer(vkDevice, vkBuffer_stagingBuffer, NULL); // Clean up the buffer
+		stbi_image_free(data); // Free the pixel data before returning
+		return vkResult;
+	}
+	// Clean up the staging buffer and memory
+	vkDestroyBuffer(vkDevice, vkBuffer_stagingBuffer, NULL); // Clean up the staging buffer
+	vkFreeMemory(vkDevice, vkDeviceMemory_stagingBuffer, NULL); // Clean up the staging buffer memory
+	// At this point, the texture image is ready to be used in rendering
+	// 5) Create an image view for the texture image
+	VkImageViewCreateInfo imageViewCreateInfo;
+	memset(&imageViewCreateInfo, 0, sizeof(VkImageViewCreateInfo));
+	imageViewCreateInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+	imageViewCreateInfo.image = imageData->vkImage; // The image to create the view for
+	imageViewCreateInfo.viewType = VK_IMAGE_VIEW_TYPE_2D; // 2D image view
+	imageViewCreateInfo.format = VK_FORMAT_R8G8B8A8_UNORM; // Format of the image
+	imageViewCreateInfo.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT; // Color aspect
+	imageViewCreateInfo.subresourceRange.baseMipLevel = 0; // Base mip level
+	imageViewCreateInfo.subresourceRange.levelCount = 1; // One mip level
+	imageViewCreateInfo.subresourceRange.baseArrayLayer = 0; // Base array layer
+	imageViewCreateInfo.subresourceRange.layerCount = 1; // One layer
+	vkResult = vkCreateImageView(vkDevice, &imageViewCreateInfo, NULL, &imageData->vkImageView);
+	if (vkResult != VK_SUCCESS)
+	{
+		fprintf(gpFILE, "loadTextureData() : vkCreateImageView() failed (%d).\n", vkResult);
+		vkDestroyImage(vkDevice, imageData->vkImage, NULL); // Clean up the image
+		vkUnmapMemory(vkDevice, vkDeviceMemory_stagingBuffer); // Unmap the memory
+		vkFreeMemory(vkDevice, vkDeviceMemory_stagingBuffer, NULL); // Clean up the memory
+		vkFreeMemory(vkDevice, imageData->vkDeviceMemory, NULL); // Clean up the image memory
+		vkDestroyBuffer(vkDevice, vkBuffer_stagingBuffer, NULL); // Clean up the buffer
+		stbi_image_free(data); // Free the pixel data before returning
+		return vkResult;
+	}
+	// At this point, the texture image is ready to be used in rendering
+	fprintf(gpFILE, "loadTextureData() : Texture image loaded successfully.\n");
+    
+    // 13) Free the pixel data when done
+	stbi_image_free(data);
+
+    // 14) Return success
+    return vkResult;
 }
 
 // ---------------------------------------------------------------------------------------------------------------------------------------------
@@ -2070,6 +2521,7 @@ VkResult fillValidaionLayerNames(void)
 
     return vkResult;
 }
+
 VkResult createValidationCallbackFunction(void)
 {
     //code
@@ -2815,9 +3267,6 @@ VkResult fillDeviceExtensionNames(void)
     return(vkResult);
 }
 
-/*
- *  Create a user-defined function “createVulkanDevice()”.
- */
 VkResult createVulkanDevice(void)
 {
     // function declarations
@@ -2858,6 +3307,14 @@ VkResult createVulkanDevice(void)
     vkDeviceQueueCreateInfo.queueCount = 1;
     vkDeviceQueueCreateInfo.pQueuePriorities = queuePriorities; // default queue priority
 
+
+    //ZzNeO features
+    VkPhysicalDeviceFeatures enabledFeatures;
+	memset((void*)&enabledFeatures, 0, sizeof(VkPhysicalDeviceFeatures));
+	enabledFeatures.samplerAnisotropy = VK_TRUE; // enable anisotropic filtering
+	enabledFeatures.tessellationShader = VK_TRUE; // enable tessellation shader
+	//enabledFeatures.geometryShader = VK_TRUE; // enable geometry shader
+
     VkDeviceCreateInfo vkDeviceCreateInfo;
     memset((void*)&vkDeviceCreateInfo, 0, sizeof(VkDeviceCreateInfo));
 
@@ -2868,7 +3325,7 @@ VkResult createVulkanDevice(void)
     vkDeviceCreateInfo.ppEnabledExtensionNames = enabledDeviceExtensionNames_Array;
     vkDeviceCreateInfo.enabledLayerCount = 0;
     vkDeviceCreateInfo.ppEnabledLayerNames = NULL;
-    vkDeviceCreateInfo.pEnabledFeatures = NULL;
+    vkDeviceCreateInfo.pEnabledFeatures = &enabledFeatures;
 
     // newly added code (after vkGetDeviceQueue() was returning VK_NULL_HANDLE)
     vkDeviceCreateInfo.queueCreateInfoCount = 1;
@@ -3077,6 +3534,49 @@ VkResult getPhysicalDevicePresentMode(void)
     }
 
     return(vkResult);
+}
+
+VkResult createSamplers(void)
+{
+	VkResult vkResult = VK_SUCCESS;
+
+    VkSamplerCreateInfo samplerCreateInfo;
+    memset(&samplerCreateInfo, 0, sizeof(VkSamplerCreateInfo));
+    samplerCreateInfo.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
+    samplerCreateInfo.magFilter = VK_FILTER_LINEAR; // Magnification filter
+    samplerCreateInfo.minFilter = VK_FILTER_LINEAR; // Minification filter
+    samplerCreateInfo.addressModeU = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE; // U coordinate addressing mode
+    samplerCreateInfo.addressModeV = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE; // V coordinate addressing mode
+    samplerCreateInfo.addressModeW = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE; // W coordinate addressing mode
+    samplerCreateInfo.anisotropyEnable = VK_TRUE; // Enable anisotropic filtering
+    samplerCreateInfo.maxAnisotropy = 16.0f; // Maximum anisotropy level
+    samplerCreateInfo.borderColor = VK_BORDER_COLOR_INT_OPAQUE_BLACK; // Border color
+    samplerCreateInfo.unnormalizedCoordinates = VK_FALSE; // Use normalized coordinates
+    samplerCreateInfo.compareEnable = VK_FALSE; // No comparison
+    samplerCreateInfo.compareOp = VK_COMPARE_OP_ALWAYS; // Comparison operation (not used here)
+    samplerCreateInfo.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR; // Mipmap mode
+    samplerCreateInfo.mipLodBias = 0.0f; // Mipmap level of detail bias
+    samplerCreateInfo.minLod = 0.0f; // Minimum LOD
+    samplerCreateInfo.maxLod = 0.0f; // Maximum LOD (0 means no mipmaps)
+    vkResult = vkCreateSampler(vkDevice, &samplerCreateInfo, NULL, &vkSampler_LinearClampAniso);
+    if (vkResult != VK_SUCCESS)
+    {
+		fprintf(gpFILE, "createSamplers() : vkCreateSampler() for vkSampler_LinearClampAniso failed (%d).\n", vkResult);
+        return vkResult;
+    }
+
+	return VK_SUCCESS;
+}
+
+void destroySamplers(void)
+{
+    // code
+    if (vkSampler_LinearClampAniso)
+    {
+        vkDestroySampler(vkDevice, vkSampler_LinearClampAniso, NULL);
+        vkSampler_LinearClampAniso = VK_NULL_HANDLE;
+    }
+
 }
 
 VkResult createSwapchain(VkBool32 vsync) // vsync == vertical synchronisation
@@ -4798,6 +5298,43 @@ VkResult createDescriptorSetLayout(void)
     return(vkResult);
 }
 
+VkResult createDescriptorSetLayout_CamImage(void)
+{
+    // variable declarations
+    VkResult vkResult = VK_SUCCESS;
+
+    VkDescriptorSetLayoutBinding vkDescriptorSetLayoutBinding_Array[2];
+	memset((void*)&vkDescriptorSetLayoutBinding_Array, 0, sizeof(vkDescriptorSetLayoutBinding_Array));
+    vkDescriptorSetLayoutBinding_Array[0].binding = 0; // binding index
+    vkDescriptorSetLayoutBinding_Array[0].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER; // descriptor type
+    vkDescriptorSetLayoutBinding_Array[0].descriptorCount = 1; // number of descriptors
+    vkDescriptorSetLayoutBinding_Array[0].stageFlags = VK_SHADER_STAGE_VERTEX_BIT; // stage flags for the descriptor set layout binding
+    vkDescriptorSetLayoutBinding_Array[0].pImmutableSamplers = NULL; // no immutable samplers
+
+    vkDescriptorSetLayoutBinding_Array[1].binding = 1; // binding index
+    vkDescriptorSetLayoutBinding_Array[1].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER; // descriptor type
+    vkDescriptorSetLayoutBinding_Array[1].descriptorCount = 1; // number of descriptors
+    vkDescriptorSetLayoutBinding_Array[1].stageFlags =  VK_SHADER_STAGE_FRAGMENT_BIT; // stage flags for the descriptor set layout binding
+    vkDescriptorSetLayoutBinding_Array[1].pImmutableSamplers = NULL; // no immutable samplers
+    // code
+    VkDescriptorSetLayoutCreateInfo vkDescriptorSetLayoutCreateInfo;
+    memset((void*)&vkDescriptorSetLayoutCreateInfo, 0, sizeof(VkDescriptorSetLayoutCreateInfo));
+    vkDescriptorSetLayoutCreateInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
+    vkDescriptorSetLayoutCreateInfo.pNext = NULL;
+    vkDescriptorSetLayoutCreateInfo.flags = 0;
+	vkDescriptorSetLayoutCreateInfo.bindingCount = 2;
+    vkDescriptorSetLayoutCreateInfo.pBindings = vkDescriptorSetLayoutBinding_Array; // pointer to the descriptor set layout binding array
+    vkResult = vkCreateDescriptorSetLayout(vkDevice, &vkDescriptorSetLayoutCreateInfo, NULL, &vkDescriptorSetLayout_CamImage);
+    if (vkResult != VK_SUCCESS)
+    {
+        fprintf(gpFILE, "createDiscriptorSetLayout_Impostor() -> vkCreateDescriptorSetLayout() :  failed: %d.\n", vkResult);
+        return(vkResult);
+	}
+
+
+	return vkResult;
+}
+
 VkResult createPipelineLayout(void)
 {
     // local variables
@@ -4884,7 +5421,7 @@ VkResult createPipelineLayout_Impostor(void)
     vkPipelineLayoutCreateInfo.pNext = NULL;
     vkPipelineLayoutCreateInfo.flags = 0;
 	vkPipelineLayoutCreateInfo.setLayoutCount = 1;// one descriptor set layout for imposter pipeline layout
-	vkPipelineLayoutCreateInfo.pSetLayouts = &vkDescriptorSetLayout; // pointer to the descriptor set layout
+	vkPipelineLayoutCreateInfo.pSetLayouts = &vkDescriptorSetLayout_CamImage; // pointer to the descriptor set layout
 	vkPipelineLayoutCreateInfo.pushConstantRangeCount = 1; // one push constant range for imposter pipeline layout
 	vkPipelineLayoutCreateInfo.pPushConstantRanges = &vkPushConstantRange; // pointer to the push constant range
 
@@ -4905,11 +5442,11 @@ VkResult createDescriptorPool(void)
 
     // code
     // Declare and initialize VkDescriptorPoolSize structure which will have information about the descriptor pool size.
-    VkDescriptorPoolSize vkDescriptorPoolSize;
-    memset((void*)&vkDescriptorPoolSize, 0, sizeof(VkDescriptorPoolSize));
-
-    vkDescriptorPoolSize.type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-    vkDescriptorPoolSize.descriptorCount = 2 * MAX_FRAMES; // we are allocating only one descriptor set
+    VkDescriptorPoolSize vkDescriptorPoolSizes[] =
+    {
+		{VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 2 * MAX_FRAMES}, // descriptor type and descriptor count
+		{VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1 * MAX_FRAMES} // descriptor type and descriptor count for combined image sampler
+    };
 
     // Declare and initialize VkDescriptorPoolCreateInfo structure and refer above VkDescriptorPoolSize into it.
     VkDescriptorPoolCreateInfo vkDescriptorPoolCreateInfo;
@@ -4918,9 +5455,9 @@ VkResult createDescriptorPool(void)
     vkDescriptorPoolCreateInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
     vkDescriptorPoolCreateInfo.pNext = NULL;
     vkDescriptorPoolCreateInfo.flags = 0; // no flags
-	vkDescriptorPoolCreateInfo.maxSets = MAX_FRAMES; // maximum number of descriptor sets that can be allocated from this pool
-    vkDescriptorPoolCreateInfo.poolSizeCount = 1; // we are using only one descriptor pool size
-    vkDescriptorPoolCreateInfo.pPoolSizes = &vkDescriptorPoolSize;
+	vkDescriptorPoolCreateInfo.maxSets = 2 * MAX_FRAMES; // maximum number of descriptor sets that can be allocated from this pool
+	vkDescriptorPoolCreateInfo.poolSizeCount = _ARRAYSIZE(vkDescriptorPoolSizes); // number of descriptor pool sizes
+    vkDescriptorPoolCreateInfo.pPoolSizes = vkDescriptorPoolSizes;
 
     // Call vkCreateDescriptorPool() to create the actual descriptor pool.
     vkResult = vkCreateDescriptorPool(vkDevice, &vkDescriptorPoolCreateInfo, NULL, &vkDescriptorPool);
@@ -5019,20 +5556,89 @@ VkResult createDescriptorSet(void)
     return(vkResult);
 }
 
-// Helper: find a memory type index with required properties
-uint32_t findMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties) {
-    VkPhysicalDeviceMemoryProperties memProperties;
-    vkGetPhysicalDeviceMemoryProperties(vkPhysicalDevice_Selected, &memProperties);
+VkResult createDescriptorSet_CamImage(void)
+{
+    // local variables
+    VkResult vkResult = VK_SUCCESS;
 
-    for (uint32_t i = 0; i < memProperties.memoryTypeCount; i++) {
-        if ((typeFilter & (1 << i)) &&
-            (memProperties.memoryTypes[i].propertyFlags & properties) == properties) {
-            return i;
-        }
+    // code
+    // Declare and initialize VkDescriptorSetAllocateInfo structure.
+    VkDescriptorSetAllocateInfo vkDescriptorSetAllocateInfo;
+    memset((void*)&vkDescriptorSetAllocateInfo, 0, sizeof(VkDescriptorSetAllocateInfo));
+
+    VkDescriptorSetLayout layouts[MAX_FRAMES]{};
+    for (uint32_t i = 0; i < MAX_FRAMES; i++)
+        layouts[i] = vkDescriptorSetLayout_CamImage;
+
+    //------------------------------------------------------------------------------------------------
+    vkDescriptorSetAllocateInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
+    vkDescriptorSetAllocateInfo.pNext = NULL;
+    vkDescriptorSetAllocateInfo.descriptorPool = vkDescriptorPool; // global descriptor pool
+    vkDescriptorSetAllocateInfo.descriptorSetCount = MAX_FRAMES;//
+    vkDescriptorSetAllocateInfo.pSetLayouts = layouts; // pointer to the descriptor set layout
+
+
+    // Call vkAllocateDescriptorSets() to allocate the descriptor set
+    vkResult = vkAllocateDescriptorSets(vkDevice, &vkDescriptorSetAllocateInfo, vkDescriptorSets_camImage);
+
+    if (vkResult != VK_SUCCESS)
+    {
+        fprintf(gpFILE, "createDiscriptorSet() : vkAllocateDescriptorSets() failed.\n");
+        return(vkResult);
     }
 
-	fprintf(gpFILE, "Failed to find suitable memory type.\n");
-        exit(EXIT_FAILURE);
+    //UniformBufferObject_camera
+    for (size_t i = 0; i < MAX_FRAMES; i++)
+    {
+        // Declare and initialize VkDescriptorBufferInfo structure which will have information about the uniform buffer.
+        VkDescriptorBufferInfo vkDescriptorBufferInfo_camera;
+        memset((void*)&vkDescriptorBufferInfo_camera, 0, sizeof(VkDescriptorBufferInfo));
+        vkDescriptorBufferInfo_camera.buffer = uniformBufferData_camera[i].vkBuffer; // uniform buffer
+        vkDescriptorBufferInfo_camera.offset = 0; // offset in the buffer
+        vkDescriptorBufferInfo_camera.range = sizeof(UniformBufferObject_camera); // size of the buffer
+
+		//Declare and initialize VkDescriptorImageInfo structure which will have information about the image.
+		VkDescriptorImageInfo vkDescriptorImageInfo;
+		memset((void*)&vkDescriptorImageInfo, 0, sizeof(VkDescriptorImageInfo));
+		vkDescriptorImageInfo.sampler = vkSampler_LinearClampAniso; // sampler for the image
+		vkDescriptorImageInfo.imageView = grassTextureData.vkImageView; // image view for the image
+		vkDescriptorImageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL; // image layout for the image
+
+        //write or copy the descriptor set with the uniform buffer information
+        // Declare and initialize VkWriteDescriptorSet structure which will have information about the descriptor set.
+        VkWriteDescriptorSet vkWriteDescriptorSet_array[2];
+        memset((void*)vkWriteDescriptorSet_array, 0, sizeof(VkWriteDescriptorSet) * _ARRAYSIZE(vkWriteDescriptorSet_array));
+
+        vkWriteDescriptorSet_array[0].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+        vkWriteDescriptorSet_array[0].pNext = NULL;
+        vkWriteDescriptorSet_array[0].dstSet = vkDescriptorSets_camImage[i]; // descriptor set
+        vkWriteDescriptorSet_array[0].dstBinding = 0; // 0 means the index number of the binding
+        vkWriteDescriptorSet_array[0].dstArrayElement = 0; // 0 means the index number of the array element
+        vkWriteDescriptorSet_array[0].descriptorCount = 1; // we are using only one descriptor
+        vkWriteDescriptorSet_array[0].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER; // type of the descriptor
+        vkWriteDescriptorSet_array[0].pImageInfo = NULL; // no image info
+        vkWriteDescriptorSet_array[0].pBufferInfo = &vkDescriptorBufferInfo_camera; // pointer to the buffer info
+        vkWriteDescriptorSet_array[0].pTexelBufferView = NULL; // no texel buffer view
+
+        vkWriteDescriptorSet_array[1].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+        vkWriteDescriptorSet_array[1].pNext = NULL;
+        vkWriteDescriptorSet_array[1].dstSet = vkDescriptorSets_camImage[i]; // descriptor set
+		vkWriteDescriptorSet_array[1].dstBinding = 1; // 1 means the index number of the binding
+		vkWriteDescriptorSet_array[1].dstArrayElement = 0; // 0 means the index number of the array element
+		vkWriteDescriptorSet_array[1].descriptorCount = 1; // we are using only one descriptor
+		vkWriteDescriptorSet_array[1].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER; // type of the descriptor
+		vkWriteDescriptorSet_array[1].pImageInfo = &vkDescriptorImageInfo; // pointer to the image info
+		vkWriteDescriptorSet_array[1].pBufferInfo = NULL; // no buffer info
+		vkWriteDescriptorSet_array[1].pTexelBufferView = NULL; // no texel buffer view
+
+
+        // Call vkUpdateDescriptorSets() to update the descriptor set with the uniform buffer information.
+        vkUpdateDescriptorSets(vkDevice, _ARRAYSIZE(vkWriteDescriptorSet_array), vkWriteDescriptorSet_array, 0, NULL);
+
+    }
+
+
+    return(vkResult);
 }
 
 VkResult createDepthResources(void) 
@@ -5111,7 +5717,7 @@ VkResult createDepthResources(void)
 	}
 
 
-
+	return vkResult;
 }
 
 VkResult createSwapchainResources(void)
@@ -5545,8 +6151,6 @@ VkResult createGraphicsPipeline_PerVertexColor(void)
     return(vkResult);
 }
 
-//vkPipeline_Imposter
-
 VkResult createGraphicsPipeline_Impostor(void)
 {
     // local variables
@@ -5790,7 +6394,6 @@ VkResult createGraphicsPipeline_Impostor(void)
 
     return(vkResult);
 }
-
 
 VkResult createGraphicsPipeline_PreviewImage(void)
 {
@@ -6446,8 +7049,15 @@ void RenderFullscreenQuad(uint32_t curIndex)
 
 void RenderColoredTriangle(uint32_t curIndex)
 {
+	static float fAngle = 0.0f;
+    fAngle += MyWin32::fDeltaTime * 300.0f; // Increment the angle for rotation
+    if (fAngle >= 360.0f)
+        fAngle = fAngle - 360.0f; // Reset the angle if it exceeds 360 degrees
+
     PushConstants pushConstants;
-    pushConstants.model = glm::translate(glm::mat4(1.0f), glm::vec3(-3.0f, 0.0f, -10.0f));
+	memset(&pushConstants, 0, sizeof(PushConstants));
+
+    pushConstants.model = glm::translate(glm::mat4(1.0f), glm::vec3(-3.0f, 0.0f, -10.0f))* glm::rotate(glm::mat4(1.0f), glm::radians(fAngle), glm::vec3(0.0f, 1.0f, 0.0f));
 
 #ifdef IMGUI_ENABLE
     pushConstants.v3Color = v3Color;
@@ -6495,7 +7105,7 @@ void RenderUVQuad(uint32_t curIndex)
 
     // Bind the pipeline and descriptor sets
     vkCmdBindPipeline(vkCommandBuffer_Array[curIndex], VK_PIPELINE_BIND_POINT_GRAPHICS, vkPipeline_Impostor);
-    vkCmdBindDescriptorSets(vkCommandBuffer_Array[curIndex], VK_PIPELINE_BIND_POINT_GRAPHICS, vkPipelineLayout_Impostor, 0, 1, &vkDescriptorSets[curIndex], 0, NULL);
+    vkCmdBindDescriptorSets(vkCommandBuffer_Array[curIndex], VK_PIPELINE_BIND_POINT_GRAPHICS, vkPipelineLayout_Impostor, 0, 1, &vkDescriptorSets_camImage[curIndex], 0, NULL);
 
     // Push the model matrix
     vkCmdPushConstants(
@@ -6563,8 +7173,6 @@ VkResult buildCommandBuffers(uint32_t curIndex)
 
     vkCmdBeginRenderPass(vkCommandBuffer_Array[curIndex], &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
 
-
-
 	RenderFullscreenQuad(curIndex); // Render the fullscreen quad
 
     RenderColoredTriangle(curIndex); // Render the colored triangle
@@ -6589,7 +7197,6 @@ VkResult buildCommandBuffers(uint32_t curIndex)
 
     return vkResult;
 }
-
 
 VkResult createGraphicsPipelines(void)
 {

@@ -10,7 +10,12 @@ layout(push_constant) uniform PushConstants {
 	float fFactor;
 } pc;
 
+
+// Descriptor set 0, binding 1 → your texture sampler
+layout(set = 0, binding = 1) uniform sampler2D tSampler;
+
 void main(void)
 {
 	fragColor = vec4(outTexCoord.xy, 0.0 ,1.0);
+	fragColor = texture(tSampler,outTexCoord.xy);
 }

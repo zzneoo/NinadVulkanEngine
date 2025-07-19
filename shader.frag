@@ -4,7 +4,8 @@ layout(location = 0) out vec4 fragColor;
 
 layout(location = 0) in vec3 outColor;
 
-layout(push_constant) uniform PushConstants {
+layout(push_constant) uniform PushConstants 
+{
     mat4 model;
 	vec3 v3Color;
 	float fFactor;
