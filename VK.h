@@ -4,19 +4,24 @@
 #define MYICON 101
 
 //Uniform Buffer Objects------------------------------------------------
-struct UniformBufferObject_camera
-{
-    ///glm::mat4 model;
-    glm::mat4 view;
-    glm::mat4 proj;
-};
+//struct UniformBufferObject_camera
+//{
+//    ///glm::mat4 model;
+//    glm::mat4 view;
+//    glm::mat4 proj;
+//};
 
 struct UniformBufferObject_FrameData
 {
-    float fDeltaTime;
+	glm::mat4 view;
+	glm::mat4 proj;
+    float fTime;
     uint32_t frameID;
+	float pad0[2];
+
+	glm::vec3 cameraPos; // Camera position for rendering
     // pad to 16 bytes (std140 rules)
-    float    _pad[2];
+	float pad1[1];
 };
 
 //----------------------------------------------------------------------

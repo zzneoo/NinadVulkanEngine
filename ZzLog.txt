@@ -38,6 +38,14 @@ createImagesAndImageViews() : gives swapchain image count = 2
 Success: Loaded image 'Resources/StockTextures/grass.png' ( 1024 x 1024 ), 4 channels
 
 loadTextureData() : Texture image loaded successfully.
+
+Success: Loaded image 'Resources/StockTextures/border.png' ( 1600 x 941 ), 4 channels
+
+loadTextureData() : Texture image loaded successfully.
+
+Success: Loaded image 'Resources/StockTextures/test_impo.png' ( 2048 x 2048 ), 4 channels
+
+loadTextureData() : Texture image loaded successfully.
 initialize() : initialize complete.
 -------------------------------------------------------------------------------------
 
@@ -49,6 +57,12 @@ WinMain() : initialize() succeeded.
 -------------------------------------------------------------------------------------
 createSwapchain() : minImageCount = 2, maxImageCount = 8
 createSwapchain() : (1) Swapchain Image width x height = 3840 x 2160
+createImagesAndImageViews() : gives swapchain image count = 2
+createSwapchain() : minImageCount = 2, maxImageCount = 8
+createSwapchain() : (1) Swapchain Image width x height = 1920 x 1080
+createImagesAndImageViews() : gives swapchain image count = 2
+createSwapchain() : minImageCount = 2, maxImageCount = 8
+createSwapchain() : (1) Swapchain Image width x height = 1884 x 977
 createImagesAndImageViews() : gives swapchain image count = 2
 uninitialize() : ImGui uninitialization is done.
 -------------------------------------------------------------------------------------

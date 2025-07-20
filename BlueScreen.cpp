@@ -203,7 +203,7 @@ const uint16_t quad_indices[] =
 };
 
 
-UniformData uniformBufferData_camera[MAX_FRAMES];
+//UniformData uniformBufferData_camera[MAX_FRAMES];
 UniformData uniformBufferData_frameData[MAX_FRAMES];
 
 //shader related variables
@@ -221,17 +221,19 @@ VkShaderModule vkShaderModule_impostor_fs = VK_NULL_HANDLE;
 
 //GrassImage
 ImageData grassTextureData;
+ImageData borderTextureData;
+ImageData imposterTextureData;
 
 //Samplers
 VkSampler vkSampler_LinearClampAniso = VK_NULL_HANDLE;
 
 //desccriptor set layout 
-VkDescriptorSetLayout vkDescriptorSetLayout = VK_NULL_HANDLE;
-VkDescriptorSetLayout vkDescriptorSetLayout_CamImage = VK_NULL_HANDLE;
+VkDescriptorSetLayout vkDescriptorSetLayout_frameData = VK_NULL_HANDLE;
+VkDescriptorSetLayout vkDescriptorSetLayout_SingleImage = VK_NULL_HANDLE;
 
 VkDescriptorPool vkDescriptorPool = VK_NULL_HANDLE;
 VkDescriptorSet  vkDescriptorSets[MAX_FRAMES];
-VkDescriptorSet  vkDescriptorSets_camImage[MAX_FRAMES];
+VkDescriptorSet  vkDescriptorSets_camImage;
 
 //pipeline
 VkViewport vkViewport;
@@ -705,13 +707,13 @@ VkResult initialize(void)
 	VkResult createVertexBuffer_uvQuad(void);
     VkResult createUniformBuffer(void);
     VkResult createShaders(void);
-    VkResult createDescriptorSetLayout(void);
+    VkResult createDescriptorSetLayout_FrameData(void);
 	VkResult createDescriptorSetLayout_CamImage(void);
     VkResult createPipelineLayout(void);
     VkResult createPipelineLayout_previewImage(void);
 	VkResult createPipelineLayout_Impostor(void);
     VkResult createDescriptorPool(void);
-    VkResult createDescriptorSet(void);
+    VkResult createDescriptorSet_FrameData(void);
 	VkResult createDescriptorSet_CamImage(void);
 
 	VkResult createSamplers(void);
@@ -806,12 +808,28 @@ VkResult initialize(void)
     }
 
 	//load all textures
-	vkResult = loadTextureData(&grassTextureData, "GrassImage.png");
+	vkResult = loadTextureData(&grassTextureData, "Resources/StockTextures/grass.png");
 	if (vkResult != VK_SUCCESS)
 	{
 		fprintf(gpFILE, "initialize() : loadTextureData() failed (%d).\n", vkResult);
 		return(vkResult);
 	}
+
+	vkResult = loadTextureData(&borderTextureData, "Resources/StockTextures/border.png");
+	if (vkResult != VK_SUCCESS)
+	{
+		fprintf(gpFILE, "initialize() : loadTextureData() failed (%d).\n", vkResult);
+		return(vkResult);
+	}
+
+	vkResult = loadTextureData(&imposterTextureData, "Resources/StockTextures/test_impo.png");
+	if (vkResult != VK_SUCCESS)
+	{
+		fprintf(gpFILE, "initialize() : loadTextureData() failed (%d).\n", vkResult);
+		return(vkResult);
+	}
+
+
 
 
     // STEP 15 : Create command buffers
@@ -855,10 +873,10 @@ VkResult initialize(void)
         return(vkResult);
     }
 
-    vkResult = createDescriptorSetLayout();
+    vkResult = createDescriptorSetLayout_FrameData();
     if (vkResult != VK_SUCCESS)
     {
-        fprintf(gpFILE, "initialize() : createDescriptorSetLayout() failed (%d).\n", vkResult);
+        fprintf(gpFILE, "initialize() : createDescriptorSetLayout_FrameData() failed (%d).\n", vkResult);
         return(vkResult);
     }
 
@@ -902,10 +920,10 @@ VkResult initialize(void)
     }
 
     //Create Descriptor Set
-    vkResult = createDescriptorSet();
+    vkResult = createDescriptorSet_FrameData();
     if (vkResult != VK_SUCCESS)
     {
-        fprintf(gpFILE, "initialize() : createDiscriptorSet() failed (%d).\n", vkResult);
+        fprintf(gpFILE, "initialize() : createDescriptorSet_FrameData() failed (%d).\n", vkResult);
         return(vkResult);
     }
 
@@ -1398,7 +1416,7 @@ VkResult display_(void)
 VkResult display(void)
 {
     VkResult buildCommandBuffers(uint32_t curIndex);
-    VkResult updateUniformBuffer_camera(uint32_t curIndex);
+    //VkResult updateUniformBuffer_camera(uint32_t curIndex);
     VkResult updateUniformBuffer_frameData(uint32_t curIndex);
 
     VkResult vkResult = VK_SUCCESS;
@@ -1500,12 +1518,12 @@ VkResult display(void)
         return vkResult;
     }
 
-    vkResult = updateUniformBuffer_camera(curIndex);
-    if (vkResult != VK_SUCCESS)
-    {
-        fprintf(gpFILE, "display() : updateUniformBuffer_camera() failed (%d).\n", vkResult);
-        return vkResult;
-    }
+    //vkResult = updateUniformBuffer_camera(curIndex);
+    //if (vkResult != VK_SUCCESS)
+    //{
+    //    fprintf(gpFILE, "display() : updateUniformBuffer_camera() failed (%d).\n", vkResult);
+    //    return vkResult;
+    //}
 
     vkResult = updateUniformBuffer_frameData(curIndex);
     if (vkResult != VK_SUCCESS)
@@ -1538,6 +1556,7 @@ void uninitialize(void)
 	void destroyGraphicsPipelines(void);
 	void destroySwapchainResources(void);
 	void destroySamplers(void);
+	void destroyTextureData(ImageData* imageData);
 
     // code
     // if application is exitting in fullscreen
@@ -1668,18 +1687,18 @@ void uninitialize(void)
 
 
     //descriptor set layout
-    if (vkDescriptorSetLayout)
+    if (vkDescriptorSetLayout_frameData)
     {
-        vkDestroyDescriptorSetLayout(vkDevice, vkDescriptorSetLayout, NULL);
-        vkDescriptorSetLayout = VK_NULL_HANDLE;
+        vkDestroyDescriptorSetLayout(vkDevice, vkDescriptorSetLayout_frameData, NULL);
+        vkDescriptorSetLayout_frameData = VK_NULL_HANDLE;
 
     }
 
 	//descriptor set layout for impostor
-	if (vkDescriptorSetLayout_CamImage)
+	if (vkDescriptorSetLayout_SingleImage)
 	{
-		vkDestroyDescriptorSetLayout(vkDevice, vkDescriptorSetLayout_CamImage, NULL);
-        vkDescriptorSetLayout_CamImage = VK_NULL_HANDLE;
+		vkDestroyDescriptorSetLayout(vkDevice, vkDescriptorSetLayout_SingleImage, NULL);
+        vkDescriptorSetLayout_SingleImage = VK_NULL_HANDLE;
 	}
 
     //shaderModule 
@@ -1777,24 +1796,24 @@ void uninitialize(void)
 
     //uniform buffer
 
-	//Camera uniform buffer
-    for (uint32_t i = 0; i < MAX_FRAMES; i++)
-    {
-        // Unmap the uniformData memory
-        vkUnmapMemory(vkDevice, uniformBufferData_camera[i].vkDeviceMemory);
+	////Camera uniform buffer
+ //   for (uint32_t i = 0; i < MAX_FRAMES; i++)
+ //   {
+ //       // Unmap the uniformData memory
+ //       vkUnmapMemory(vkDevice, uniformBufferData_camera[i].vkDeviceMemory);
 
-        //uniformData
-        if (uniformBufferData_camera[i].vkDeviceMemory)
-        {
-            vkFreeMemory(vkDevice, uniformBufferData_camera[i].vkDeviceMemory, NULL);
-            uniformBufferData_camera[i].vkDeviceMemory = VK_NULL_HANDLE;
-        }
-        if (uniformBufferData_camera[i].vkBuffer)
-        {
-            vkDestroyBuffer(vkDevice, uniformBufferData_camera[i].vkBuffer, NULL);
-            uniformBufferData_camera[i].vkBuffer = VK_NULL_HANDLE;
-        }
-    }
+ //       //uniformData
+ //       if (uniformBufferData_camera[i].vkDeviceMemory)
+ //       {
+ //           vkFreeMemory(vkDevice, uniformBufferData_camera[i].vkDeviceMemory, NULL);
+ //           uniformBufferData_camera[i].vkDeviceMemory = VK_NULL_HANDLE;
+ //       }
+ //       if (uniformBufferData_camera[i].vkBuffer)
+ //       {
+ //           vkDestroyBuffer(vkDevice, uniformBufferData_camera[i].vkBuffer, NULL);
+ //           uniformBufferData_camera[i].vkBuffer = VK_NULL_HANDLE;
+ //       }
+ //   }
 
 	//FrameData uniform buffer
 	for (uint32_t i = 0; i < MAX_FRAMES; i++)
@@ -1836,21 +1855,10 @@ void uninitialize(void)
 
     //-----------------------------------------------------------
 
-    if(grassTextureData.vkImage)
-    {
-        vkDestroyImage(vkDevice, grassTextureData.vkImage, NULL);
-        grassTextureData.vkImage = VK_NULL_HANDLE;
-	}
-    if (grassTextureData.vkDeviceMemory)
-    {
-        vkFreeMemory(vkDevice, grassTextureData.vkDeviceMemory, NULL);
-        grassTextureData.vkDeviceMemory = VK_NULL_HANDLE;
-    }
-    if (grassTextureData.vkImageView)
-    {
-        vkDestroyImageView(vkDevice, grassTextureData.vkImageView, NULL);
-        grassTextureData.vkImageView = VK_NULL_HANDLE;
-	}
+	//destroy image data
+    destroyTextureData(&grassTextureData);
+	destroyTextureData(&borderTextureData);
+	destroyTextureData(&imposterTextureData);
 
 
 	// Destroy swapchain resources
@@ -1945,15 +1953,15 @@ void uninitialize(void)
     }
 }
 
-VkResult loadTextureData(ImageData *imageData, const char* filePath)
+VkResult loadTextureData(ImageData *imageData, const char* filename)
 {
 	VkResult vkResult = VK_SUCCESS;
 
-    // 1) Path to your image file
-    const char* filename = "Resources/StockTextures/grass.png";
-
-    // 2) Variables to receive image metadata
+    //2)  Variables to receive image metadata
     int width, height, channels;
+
+	//flip the image vertically
+	stbi_set_flip_vertically_on_load(true); // flip the image vertically
 
     // 3) stbi_load returns a pointer to the pixel data
     unsigned char* data = stbi_load(filename, &width, &height, &channels, 0);
@@ -2306,6 +2314,26 @@ VkResult loadTextureData(ImageData *imageData, const char* filePath)
 
     // 14) Return success
     return vkResult;
+}
+
+void destroyTextureData(ImageData *imageData)
+{
+    if (imageData->vkImageView)
+    {
+        vkDestroyImageView(vkDevice, imageData->vkImageView, NULL);
+        imageData->vkImageView = VK_NULL_HANDLE;
+    }
+    if (imageData->vkDeviceMemory)
+    {
+        vkFreeMemory(vkDevice, imageData->vkDeviceMemory, NULL);
+        imageData->vkDeviceMemory = VK_NULL_HANDLE;
+    }
+
+    if (imageData->vkImage)
+    {
+        vkDestroyImage(vkDevice, imageData->vkImage, NULL);
+        imageData->vkImage = VK_NULL_HANDLE;
+    }
 }
 
 // ---------------------------------------------------------------------------------------------------------------------------------------------
@@ -4730,94 +4758,94 @@ VkResult createUniformBuffer(void)
 
     VkResult vkResult = VK_SUCCESS;
 
-	//UniformBufferObject_camera 
-    for (uint32_t k = 0; k < MAX_FRAMES; k++)
-    {
-        //code
-        VkBufferCreateInfo vkBufferCreateInfo;
-        memset((void*)&vkBufferCreateInfo, 0, sizeof(VkBufferCreateInfo));
+	////UniformBufferObject_camera 
+ //   for (uint32_t k = 0; k < MAX_FRAMES; k++)
+ //   {
+ //       //code
+ //       VkBufferCreateInfo vkBufferCreateInfo;
+ //       memset((void*)&vkBufferCreateInfo, 0, sizeof(VkBufferCreateInfo));
 
-        vkBufferCreateInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
-        vkBufferCreateInfo.pNext = NULL;
-        vkBufferCreateInfo.flags = 0;
-        vkBufferCreateInfo.size = sizeof(UniformBufferObject_camera);
-        vkBufferCreateInfo.usage = VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT;
+ //       vkBufferCreateInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
+ //       vkBufferCreateInfo.pNext = NULL;
+ //       vkBufferCreateInfo.flags = 0;
+ //       vkBufferCreateInfo.size = sizeof(UniformBufferObject_camera);
+ //       vkBufferCreateInfo.usage = VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT;
 
-        memset((void*)&uniformBufferData_camera[k], 0, sizeof(UniformData));
+ //       memset((void*)&uniformBufferData_camera[k], 0, sizeof(UniformData));
 
-        vkResult = vkCreateBuffer(vkDevice, &vkBufferCreateInfo, NULL, &uniformBufferData_camera[k].vkBuffer);
+ //       vkResult = vkCreateBuffer(vkDevice, &vkBufferCreateInfo, NULL, &uniformBufferData_camera[k].vkBuffer);
 
-        if (vkResult != VK_SUCCESS)
-        {
-            fprintf(gpFILE, "createUniformBuffer() -> vkCreateBuffer():  failed.\n");
-            return(vkResult);
-        }
+ //       if (vkResult != VK_SUCCESS)
+ //       {
+ //           fprintf(gpFILE, "createUniformBuffer() -> vkCreateBuffer():  failed.\n");
+ //           return(vkResult);
+ //       }
 
-        //------------
-        VkMemoryRequirements vkMemoryRequirements;
-        memset((void*)&vkMemoryRequirements, 0, sizeof(vkMemoryRequirements));
+ //       //------------
+ //       VkMemoryRequirements vkMemoryRequirements;
+ //       memset((void*)&vkMemoryRequirements, 0, sizeof(vkMemoryRequirements));
 
-        vkGetBufferMemoryRequirements(vkDevice, uniformBufferData_camera[k].vkBuffer, &vkMemoryRequirements);
+ //       vkGetBufferMemoryRequirements(vkDevice, uniformBufferData_camera[k].vkBuffer, &vkMemoryRequirements);
 
-        //------------
-        VkMemoryAllocateInfo vkMemoryAllocateInfo;
-        memset((void*)&vkMemoryAllocateInfo, 0, sizeof(vkMemoryAllocateInfo));
+ //       //------------
+ //       VkMemoryAllocateInfo vkMemoryAllocateInfo;
+ //       memset((void*)&vkMemoryAllocateInfo, 0, sizeof(vkMemoryAllocateInfo));
 
-        vkMemoryAllocateInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
-        vkMemoryAllocateInfo.pNext = NULL;
-        vkMemoryAllocateInfo.allocationSize = vkMemoryRequirements.size;
-        vkMemoryAllocateInfo.memoryTypeIndex = 0;
+ //       vkMemoryAllocateInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
+ //       vkMemoryAllocateInfo.pNext = NULL;
+ //       vkMemoryAllocateInfo.allocationSize = vkMemoryRequirements.size;
+ //       vkMemoryAllocateInfo.memoryTypeIndex = 0;
 
-        //-------------
-        for (uint32_t i = 0; i < vkPhysicalDeviceMemoryProperties.memoryTypeCount; i++)
-        {
-            if ((vkMemoryRequirements.memoryTypeBits & 1) == 1)
-            {
-				if (vkPhysicalDeviceMemoryProperties.memoryTypes[i].propertyFlags & (VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT | VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT)) // host visible and coherent memory (no need to manage vulkan cache for flushing or mapping)
-				{
-					// If the memory type is suitable, set the memoryTypeIndex and break the loop
-                    vkMemoryAllocateInfo.memoryTypeIndex = i;
-                    break;
-                }
-            }
+ //       //-------------
+ //       for (uint32_t i = 0; i < vkPhysicalDeviceMemoryProperties.memoryTypeCount; i++)
+ //       {
+ //           if ((vkMemoryRequirements.memoryTypeBits & 1) == 1)
+ //           {
+	//			if (vkPhysicalDeviceMemoryProperties.memoryTypes[i].propertyFlags & (VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT | VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT)) // host visible and coherent memory (no need to manage vulkan cache for flushing or mapping)
+	//			{
+	//				// If the memory type is suitable, set the memoryTypeIndex and break the loop
+ //                   vkMemoryAllocateInfo.memoryTypeIndex = i;
+ //                   break;
+ //               }
+ //           }
 
-            vkMemoryRequirements.memoryTypeBits >>= 1;
-        }
+ //           vkMemoryRequirements.memoryTypeBits >>= 1;
+ //       }
 
-        //--------------
-        vkResult = vkAllocateMemory(vkDevice, &vkMemoryAllocateInfo, NULL, &uniformBufferData_camera[k].vkDeviceMemory);
-        if (vkResult != VK_SUCCESS)
-        {
-            fprintf(gpFILE, "createUniformBuffer() -> vkAllocateMemory() :  failed.\n");
-            return(vkResult);
-        }
+ //       //--------------
+ //       vkResult = vkAllocateMemory(vkDevice, &vkMemoryAllocateInfo, NULL, &uniformBufferData_camera[k].vkDeviceMemory);
+ //       if (vkResult != VK_SUCCESS)
+ //       {
+ //           fprintf(gpFILE, "createUniformBuffer() -> vkAllocateMemory() :  failed.\n");
+ //           return(vkResult);
+ //       }
 
 
-        //---------------
-        vkResult = vkBindBufferMemory(vkDevice, uniformBufferData_camera[k].vkBuffer, uniformBufferData_camera[k].vkDeviceMemory, 0);
-        if (vkResult != VK_SUCCESS)
-        {
-            fprintf(gpFILE, "createUniformBuffer() -> vkBindBufferMemory() :  failed.\n");
-            return(vkResult);
-        }
+ //       //---------------
+ //       vkResult = vkBindBufferMemory(vkDevice, uniformBufferData_camera[k].vkBuffer, uniformBufferData_camera[k].vkDeviceMemory, 0);
+ //       if (vkResult != VK_SUCCESS)
+ //       {
+ //           fprintf(gpFILE, "createUniformBuffer() -> vkBindBufferMemory() :  failed.\n");
+ //           return(vkResult);
+ //       }
 
-        // Map the uniform buffer memory
+ //       // Map the uniform buffer memory
 
-        vkResult = vkMapMemory(vkDevice, uniformBufferData_camera[k].vkDeviceMemory, 0, sizeof(UniformBufferObject_camera), 0, &uniformBufferData_camera[k].pData);
-        if (vkResult != VK_SUCCESS)
-        {
-            fprintf(gpFILE, "createUniformBuffer() -> vkMapMemory() :  failed.\n");
-            return(vkResult);
-        }
+ //       vkResult = vkMapMemory(vkDevice, uniformBufferData_camera[k].vkDeviceMemory, 0, sizeof(UniformBufferObject_camera), 0, &uniformBufferData_camera[k].pData);
+ //       if (vkResult != VK_SUCCESS)
+ //       {
+ //           fprintf(gpFILE, "createUniformBuffer() -> vkMapMemory() :  failed.\n");
+ //           return(vkResult);
+ //       }
 
-        //call updateUniformBuffer() to update the uniform buffer with initial data
-        vkResult = updateUniformBuffer_camera(k);
-        if (vkResult != VK_SUCCESS)
-        {
-            fprintf(gpFILE, "createUniformBuffer() -> updateUniformBuffer() :  failed.\n");
-            return(vkResult);
-        }
-    }
+ //       //call updateUniformBuffer() to update the uniform buffer with initial data
+ //       vkResult = updateUniformBuffer_camera(k);
+ //       if (vkResult != VK_SUCCESS)
+ //       {
+ //           fprintf(gpFILE, "createUniformBuffer() -> updateUniformBuffer() :  failed.\n");
+ //           return(vkResult);
+ //       }
+ //   }
 
 	//UniformBufferObject_frameData
     for (uint32_t k = 0; k < MAX_FRAMES; k++)
@@ -4912,39 +4940,39 @@ VkResult createUniformBuffer(void)
     return vkResult;
 }
 
-VkResult updateUniformBuffer_camera(uint32_t curIndex)
-{
-    // local variables
-    VkResult vkResult = VK_SUCCESS;
-
-    // code
-    UniformBufferObject_camera uniformTransformBufferObject_camera;
-    memset((void*)&uniformTransformBufferObject_camera, 0, sizeof(UniformBufferObject_camera));
-    // Initialize the uniform buffer object with some data
-
-    //uniformTransformBufferObject.model = glm::mat4(1.0f); // identity matrix
-
-    uniformTransformBufferObject_camera.view = camera.GetViewMatrix(); // identity matrix
-
-
-    //glm::mat4 ortho = glm::mat4(1.0f);
-
-    //if (winWidth <=  winHeight )
-    //{
-    //	ortho = glm::ortho(-100.0f, 100.0f, 100.0f * (float)winHeight / (float)winWidth, -100.0f * (float)winHeight / (float)winWidth, -100.0f, 100.0f);
-    //}
-    //else
-    //{
-    //	ortho = glm::ortho(-100.0f * (float)winWidth / (float)winHeight, 100.0f * (float)winWidth / (float)winHeight, 100.0f, -100.0f, -100.0f, 100.0f);
-    //}
-
-    uniformTransformBufferObject_camera.proj = MyWin32::gProjectionMatrix; //  projection matrix
-
-    // Copy the data to the uniform buffer
-    memcpy(uniformBufferData_camera[curIndex].pData, &uniformTransformBufferObject_camera, sizeof(UniformBufferObject_camera));
-
-    return vkResult;
-}
+//VkResult updateUniformBuffer_camera(uint32_t curIndex)
+//{
+//    // local variables
+//    VkResult vkResult = VK_SUCCESS;
+//
+//    // code
+//    UniformBufferObject_camera uniformTransformBufferObject_camera;
+//    memset((void*)&uniformTransformBufferObject_camera, 0, sizeof(UniformBufferObject_camera));
+//    // Initialize the uniform buffer object with some data
+//
+//    //uniformTransformBufferObject.model = glm::mat4(1.0f); // identity matrix
+//
+//    uniformTransformBufferObject_camera.view = camera.GetViewMatrix(); // identity matrix
+//
+//
+//    //glm::mat4 ortho = glm::mat4(1.0f);
+//
+//    //if (winWidth <=  winHeight )
+//    //{
+//    //	ortho = glm::ortho(-100.0f, 100.0f, 100.0f * (float)winHeight / (float)winWidth, -100.0f * (float)winHeight / (float)winWidth, -100.0f, 100.0f);
+//    //}
+//    //else
+//    //{
+//    //	ortho = glm::ortho(-100.0f * (float)winWidth / (float)winHeight, 100.0f * (float)winWidth / (float)winHeight, 100.0f, -100.0f, -100.0f, 100.0f);
+//    //}
+//
+//    uniformTransformBufferObject_camera.proj = MyWin32::gProjectionMatrix; //  projection matrix
+//
+//    // Copy the data to the uniform buffer
+//    memcpy(uniformBufferData_camera[curIndex].pData, &uniformTransformBufferObject_camera, sizeof(UniformBufferObject_camera));
+//
+//    return vkResult;
+//}
 
 VkResult updateUniformBuffer_frameData(uint32_t curIndex)
 {
@@ -4957,8 +4985,11 @@ VkResult updateUniformBuffer_frameData(uint32_t curIndex)
     UniformBufferObject_FrameData uniformTransformBufferObject_frameData;
     memset((void*)&uniformTransformBufferObject_frameData, 0, sizeof(UniformBufferObject_FrameData));
     // Initialize the uniform buffer object with some data
-    uniformTransformBufferObject_frameData.fDeltaTime = 0.0f; // time in seconds
+    uniformTransformBufferObject_frameData.fTime = 0.0f; // time in seconds
     uniformTransformBufferObject_frameData.frameID = 1; // current frame index
+	uniformTransformBufferObject_frameData.view = camera.GetViewMatrix(); // view matrix
+	uniformTransformBufferObject_frameData.proj = MyWin32::gProjectionMatrix; // projection matrix
+	uniformTransformBufferObject_frameData.cameraPos = camera.GetCameraPos(); // camera position
 
     // Copy the data to the uniform buffer
     memcpy(uniformBufferData_frameData[curIndex].pData, &uniformTransformBufferObject_frameData, sizeof(UniformBufferObject_FrameData));
@@ -5256,13 +5287,13 @@ VkResult createShaders(void)
 }
 */
 
-VkResult createDescriptorSetLayout(void)
+VkResult createDescriptorSetLayout_FrameData(void)
 {
     // variable declarations
     VkResult vkResult = VK_SUCCESS;
 
     // Declare and initialize VkDescriptorSetLayoutBinding structure which will have information about the descriptor set layout binding.
-    VkDescriptorSetLayoutBinding vkDescriptorSetLayoutBinding_Array[2];
+    VkDescriptorSetLayoutBinding vkDescriptorSetLayoutBinding_Array[1];
 	memset((void*)&vkDescriptorSetLayoutBinding_Array, 0, sizeof(vkDescriptorSetLayoutBinding_Array));
 
 	vkDescriptorSetLayoutBinding_Array[0].binding = 0; // binding index
@@ -5271,12 +5302,6 @@ VkResult createDescriptorSetLayout(void)
 	vkDescriptorSetLayoutBinding_Array[0].stageFlags = VK_SHADER_STAGE_VERTEX_BIT; // stage flags for the descriptor set layout binding
 	vkDescriptorSetLayoutBinding_Array[0].pImmutableSamplers = NULL; // no immutable samplers
 
-	vkDescriptorSetLayoutBinding_Array[1].binding = 1; // binding index
-	vkDescriptorSetLayoutBinding_Array[1].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER; // descriptor type
-	vkDescriptorSetLayoutBinding_Array[1].descriptorCount = 1; // number of descriptors
-	vkDescriptorSetLayoutBinding_Array[1].stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT; // stage flags for the descriptor set layout binding
-	vkDescriptorSetLayoutBinding_Array[1].pImmutableSamplers = NULL; // no immutable samplers
-
     // code
     VkDescriptorSetLayoutCreateInfo vkDescriptorSetLayoutCreateInfo;
     memset((void*)&vkDescriptorSetLayoutCreateInfo, 0, sizeof(VkDescriptorSetLayoutCreateInfo));
@@ -5284,11 +5309,11 @@ VkResult createDescriptorSetLayout(void)
     vkDescriptorSetLayoutCreateInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
     vkDescriptorSetLayoutCreateInfo.pNext = NULL;
     vkDescriptorSetLayoutCreateInfo.flags = 0;
-    vkDescriptorSetLayoutCreateInfo.bindingCount = 2;
+    vkDescriptorSetLayoutCreateInfo.bindingCount = 1;
 	vkDescriptorSetLayoutCreateInfo.pBindings = vkDescriptorSetLayoutBinding_Array; // pointer to the descriptor set layout binding array
 
 
-    vkResult = vkCreateDescriptorSetLayout(vkDevice, &vkDescriptorSetLayoutCreateInfo, NULL, &vkDescriptorSetLayout);
+    vkResult = vkCreateDescriptorSetLayout(vkDevice, &vkDescriptorSetLayoutCreateInfo, NULL, &vkDescriptorSetLayout_frameData);
     if (vkResult != VK_SUCCESS)
     {
         fprintf(gpFILE, "createDiscriptorSetLayout() -> vkCreateDescriptorSetLayout() :  failed: %d.\n", vkResult);
@@ -5303,28 +5328,23 @@ VkResult createDescriptorSetLayout_CamImage(void)
     // variable declarations
     VkResult vkResult = VK_SUCCESS;
 
-    VkDescriptorSetLayoutBinding vkDescriptorSetLayoutBinding_Array[2];
+    VkDescriptorSetLayoutBinding vkDescriptorSetLayoutBinding_Array[1];
 	memset((void*)&vkDescriptorSetLayoutBinding_Array, 0, sizeof(vkDescriptorSetLayoutBinding_Array));
-    vkDescriptorSetLayoutBinding_Array[0].binding = 0; // binding index
-    vkDescriptorSetLayoutBinding_Array[0].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER; // descriptor type
-    vkDescriptorSetLayoutBinding_Array[0].descriptorCount = 1; // number of descriptors
-    vkDescriptorSetLayoutBinding_Array[0].stageFlags = VK_SHADER_STAGE_VERTEX_BIT; // stage flags for the descriptor set layout binding
-    vkDescriptorSetLayoutBinding_Array[0].pImmutableSamplers = NULL; // no immutable samplers
 
-    vkDescriptorSetLayoutBinding_Array[1].binding = 1; // binding index
-    vkDescriptorSetLayoutBinding_Array[1].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER; // descriptor type
-    vkDescriptorSetLayoutBinding_Array[1].descriptorCount = 1; // number of descriptors
-    vkDescriptorSetLayoutBinding_Array[1].stageFlags =  VK_SHADER_STAGE_FRAGMENT_BIT; // stage flags for the descriptor set layout binding
-    vkDescriptorSetLayoutBinding_Array[1].pImmutableSamplers = NULL; // no immutable samplers
+    vkDescriptorSetLayoutBinding_Array[0].binding = 0; // binding index
+    vkDescriptorSetLayoutBinding_Array[0].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER; // descriptor type
+    vkDescriptorSetLayoutBinding_Array[0].descriptorCount = 1; // number of descriptors
+    vkDescriptorSetLayoutBinding_Array[0].stageFlags =  VK_SHADER_STAGE_FRAGMENT_BIT; // stage flags for the descriptor set layout binding
+    vkDescriptorSetLayoutBinding_Array[0].pImmutableSamplers = NULL; // no immutable samplers
     // code
     VkDescriptorSetLayoutCreateInfo vkDescriptorSetLayoutCreateInfo;
     memset((void*)&vkDescriptorSetLayoutCreateInfo, 0, sizeof(VkDescriptorSetLayoutCreateInfo));
     vkDescriptorSetLayoutCreateInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
     vkDescriptorSetLayoutCreateInfo.pNext = NULL;
     vkDescriptorSetLayoutCreateInfo.flags = 0;
-	vkDescriptorSetLayoutCreateInfo.bindingCount = 2;
+	vkDescriptorSetLayoutCreateInfo.bindingCount = 1;
     vkDescriptorSetLayoutCreateInfo.pBindings = vkDescriptorSetLayoutBinding_Array; // pointer to the descriptor set layout binding array
-    vkResult = vkCreateDescriptorSetLayout(vkDevice, &vkDescriptorSetLayoutCreateInfo, NULL, &vkDescriptorSetLayout_CamImage);
+    vkResult = vkCreateDescriptorSetLayout(vkDevice, &vkDescriptorSetLayoutCreateInfo, NULL, &vkDescriptorSetLayout_SingleImage);
     if (vkResult != VK_SUCCESS)
     {
         fprintf(gpFILE, "createDiscriptorSetLayout_Impostor() -> vkCreateDescriptorSetLayout() :  failed: %d.\n", vkResult);
@@ -5358,7 +5378,7 @@ VkResult createPipelineLayout(void)
     vkPipelineLayoutCreateInfo.pNext = NULL;
     vkPipelineLayoutCreateInfo.flags = 0;
     vkPipelineLayoutCreateInfo.setLayoutCount = 1;
-    vkPipelineLayoutCreateInfo.pSetLayouts = &vkDescriptorSetLayout;
+    vkPipelineLayoutCreateInfo.pSetLayouts = &vkDescriptorSetLayout_frameData;
     vkPipelineLayoutCreateInfo.pushConstantRangeCount = 1;
     vkPipelineLayoutCreateInfo.pPushConstantRanges = &vkPushConstantRange;
 
@@ -5385,8 +5405,8 @@ VkResult createPipelineLayout_previewImage(void)
     vkPipelineLayoutCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
     vkPipelineLayoutCreateInfo.pNext = NULL;
     vkPipelineLayoutCreateInfo.flags = 0;
-	vkPipelineLayoutCreateInfo.setLayoutCount = 0; // no descriptor set layouts for preview image pipeline layout
-	vkPipelineLayoutCreateInfo.pSetLayouts = NULL; // no descriptor set layouts for preview image pipeline layout
+	vkPipelineLayoutCreateInfo.setLayoutCount = 1; 
+	vkPipelineLayoutCreateInfo.pSetLayouts = &vkDescriptorSetLayout_SingleImage; // pointer to the descriptor set layout for preview image
 	vkPipelineLayoutCreateInfo.pushConstantRangeCount = 0; // no push constant ranges for preview image pipeline layout
 	vkPipelineLayoutCreateInfo.pPushConstantRanges = NULL; // no push constant ranges for preview image pipeline layout
 
@@ -5417,11 +5437,13 @@ VkResult createPipelineLayout_Impostor(void)
     VkPipelineLayoutCreateInfo vkPipelineLayoutCreateInfo;
     memset((void*)&vkPipelineLayoutCreateInfo, 0, sizeof(VkPipelineLayoutCreateInfo));
 
+	VkDescriptorSetLayout vkDescriptorSetLayouts[] = { vkDescriptorSetLayout_frameData, vkDescriptorSetLayout_SingleImage };
+
     vkPipelineLayoutCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
     vkPipelineLayoutCreateInfo.pNext = NULL;
     vkPipelineLayoutCreateInfo.flags = 0;
-	vkPipelineLayoutCreateInfo.setLayoutCount = 1;// one descriptor set layout for imposter pipeline layout
-	vkPipelineLayoutCreateInfo.pSetLayouts = &vkDescriptorSetLayout_CamImage; // pointer to the descriptor set layout
+	vkPipelineLayoutCreateInfo.setLayoutCount = 2;// two descriptor set layout for imposter pipeline layout
+	vkPipelineLayoutCreateInfo.pSetLayouts = vkDescriptorSetLayouts; // pointer to the descriptor set layout
 	vkPipelineLayoutCreateInfo.pushConstantRangeCount = 1; // one push constant range for imposter pipeline layout
 	vkPipelineLayoutCreateInfo.pPushConstantRanges = &vkPushConstantRange; // pointer to the push constant range
 
@@ -5472,7 +5494,7 @@ VkResult createDescriptorPool(void)
 
 }
 
-VkResult createDescriptorSet(void)
+VkResult createDescriptorSet_FrameData(void)
 {
     // local variables
     VkResult vkResult = VK_SUCCESS;
@@ -5484,7 +5506,7 @@ VkResult createDescriptorSet(void)
 
     VkDescriptorSetLayout layouts[MAX_FRAMES]{};
     for (uint32_t i = 0; i < MAX_FRAMES; i++)
-        layouts[i] = vkDescriptorSetLayout;
+        layouts[i] = vkDescriptorSetLayout_frameData;
 
     //------------------------------------------------------------------------------------------------
     vkDescriptorSetAllocateInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
@@ -5507,11 +5529,11 @@ VkResult createDescriptorSet(void)
     for (size_t i = 0; i < MAX_FRAMES; i++)
     {
 		// Declare and initialize VkDescriptorBufferInfo structure which will have information about the uniform buffer.
-        VkDescriptorBufferInfo vkDescriptorBufferInfo_camera;
-        memset((void*)&vkDescriptorBufferInfo_camera, 0, sizeof(VkDescriptorBufferInfo));
-        vkDescriptorBufferInfo_camera.buffer = uniformBufferData_camera[i].vkBuffer; // uniform buffer
-        vkDescriptorBufferInfo_camera.offset = 0; // offset in the buffer
-        vkDescriptorBufferInfo_camera.range = sizeof(UniformBufferObject_camera); // size of the buffer
+        //VkDescriptorBufferInfo vkDescriptorBufferInfo_camera;
+        //memset((void*)&vkDescriptorBufferInfo_camera, 0, sizeof(VkDescriptorBufferInfo));
+        //vkDescriptorBufferInfo_camera.buffer = uniformBufferData_camera[i].vkBuffer; // uniform buffer
+        //vkDescriptorBufferInfo_camera.offset = 0; // offset in the buffer
+        //vkDescriptorBufferInfo_camera.range = sizeof(UniformBufferObject_camera); // size of the buffer
 
         VkDescriptorBufferInfo vkDescriptorBufferInfo_frameData;
         memset((void*)&vkDescriptorBufferInfo_frameData, 0, sizeof(VkDescriptorBufferInfo));
@@ -5521,7 +5543,7 @@ VkResult createDescriptorSet(void)
 
         //write or copy the descriptor set with the uniform buffer information
         // Declare and initialize VkWriteDescriptorSet structure which will have information about the descriptor set.
-        VkWriteDescriptorSet vkWriteDescriptorSet_array[2];
+        VkWriteDescriptorSet vkWriteDescriptorSet_array[1];
 		memset((void*)vkWriteDescriptorSet_array, 0, sizeof(VkWriteDescriptorSet) * _ARRAYSIZE(vkWriteDescriptorSet_array));
 
         vkWriteDescriptorSet_array[0].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
@@ -5532,19 +5554,19 @@ VkResult createDescriptorSet(void)
         vkWriteDescriptorSet_array[0].descriptorCount = 1; // we are using only one descriptor
         vkWriteDescriptorSet_array[0].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER; // type of the descriptor
         vkWriteDescriptorSet_array[0].pImageInfo = NULL; // no image info
-        vkWriteDescriptorSet_array[0].pBufferInfo = &vkDescriptorBufferInfo_camera; // pointer to the buffer info
+        vkWriteDescriptorSet_array[0].pBufferInfo = &vkDescriptorBufferInfo_frameData; // pointer to the buffer info
         vkWriteDescriptorSet_array[0].pTexelBufferView = NULL; // no texel buffer view
 
-		vkWriteDescriptorSet_array[1].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-		vkWriteDescriptorSet_array[1].pNext = NULL;
-		vkWriteDescriptorSet_array[1].dstSet = vkDescriptorSets[i]; // descriptor set
-		vkWriteDescriptorSet_array[1].dstBinding = 1; // 1 means the index number of the binding
-		vkWriteDescriptorSet_array[1].dstArrayElement = 0; // 0 means the index number of the array element
-		vkWriteDescriptorSet_array[1].descriptorCount = 1; // we are using only one descriptor
-		vkWriteDescriptorSet_array[1].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER; // type of the descriptor
-		vkWriteDescriptorSet_array[1].pImageInfo = NULL; // no image info
-		vkWriteDescriptorSet_array[1].pBufferInfo = &vkDescriptorBufferInfo_frameData; // pointer to the buffer info
-		vkWriteDescriptorSet_array[1].pTexelBufferView = NULL; // no texel buffer view
+		//vkWriteDescriptorSet_array[1].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+		//vkWriteDescriptorSet_array[1].pNext = NULL;
+		//vkWriteDescriptorSet_array[1].dstSet = vkDescriptorSets[i]; // descriptor set
+		//vkWriteDescriptorSet_array[1].dstBinding = 1; // 1 means the index number of the binding
+		//vkWriteDescriptorSet_array[1].dstArrayElement = 0; // 0 means the index number of the array element
+		//vkWriteDescriptorSet_array[1].descriptorCount = 1; // we are using only one descriptor
+		//vkWriteDescriptorSet_array[1].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER; // type of the descriptor
+		//vkWriteDescriptorSet_array[1].pImageInfo = NULL; // no image info
+		//vkWriteDescriptorSet_array[1].pBufferInfo = &vkDescriptorBufferInfo_frameData; // pointer to the buffer info
+		//vkWriteDescriptorSet_array[1].pTexelBufferView = NULL; // no texel buffer view
 
 
         // Call vkUpdateDescriptorSets() to update the descriptor set with the uniform buffer information.
@@ -5566,20 +5588,20 @@ VkResult createDescriptorSet_CamImage(void)
     VkDescriptorSetAllocateInfo vkDescriptorSetAllocateInfo;
     memset((void*)&vkDescriptorSetAllocateInfo, 0, sizeof(VkDescriptorSetAllocateInfo));
 
-    VkDescriptorSetLayout layouts[MAX_FRAMES]{};
-    for (uint32_t i = 0; i < MAX_FRAMES; i++)
-        layouts[i] = vkDescriptorSetLayout_CamImage;
+    //VkDescriptorSetLayout layouts[MAX_FRAMES]{};
+    //for (uint32_t i = 0; i < MAX_FRAMES; i++)
+    //    layouts[i] = vkDescriptorSetLayout_CamImage;
 
     //------------------------------------------------------------------------------------------------
     vkDescriptorSetAllocateInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
     vkDescriptorSetAllocateInfo.pNext = NULL;
     vkDescriptorSetAllocateInfo.descriptorPool = vkDescriptorPool; // global descriptor pool
-    vkDescriptorSetAllocateInfo.descriptorSetCount = MAX_FRAMES;//
-    vkDescriptorSetAllocateInfo.pSetLayouts = layouts; // pointer to the descriptor set layout
+    vkDescriptorSetAllocateInfo.descriptorSetCount = 1;//
+    vkDescriptorSetAllocateInfo.pSetLayouts = &vkDescriptorSetLayout_SingleImage; // pointer to the descriptor set layout
 
 
     // Call vkAllocateDescriptorSets() to allocate the descriptor set
-    vkResult = vkAllocateDescriptorSets(vkDevice, &vkDescriptorSetAllocateInfo, vkDescriptorSets_camImage);
+    vkResult = vkAllocateDescriptorSets(vkDevice, &vkDescriptorSetAllocateInfo, &vkDescriptorSets_camImage);
 
     if (vkResult != VK_SUCCESS)
     {
@@ -5587,49 +5609,49 @@ VkResult createDescriptorSet_CamImage(void)
         return(vkResult);
     }
 
-    //UniformBufferObject_camera
-    for (size_t i = 0; i < MAX_FRAMES; i++)
+    //UniformBufferObject_frameData
+    //for (size_t i = 0; i < 1; i++)//MAX_FRAMES
     {
         // Declare and initialize VkDescriptorBufferInfo structure which will have information about the uniform buffer.
-        VkDescriptorBufferInfo vkDescriptorBufferInfo_camera;
-        memset((void*)&vkDescriptorBufferInfo_camera, 0, sizeof(VkDescriptorBufferInfo));
-        vkDescriptorBufferInfo_camera.buffer = uniformBufferData_camera[i].vkBuffer; // uniform buffer
-        vkDescriptorBufferInfo_camera.offset = 0; // offset in the buffer
-        vkDescriptorBufferInfo_camera.range = sizeof(UniformBufferObject_camera); // size of the buffer
+        //VkDescriptorBufferInfo vkDescriptorBufferInfo_FrameData;
+        //memset((void*)&vkDescriptorBufferInfo_FrameData, 0, sizeof(VkDescriptorBufferInfo));
+        //vkDescriptorBufferInfo_FrameData.buffer = uniformBufferData_frameData[i].vkBuffer; // uniform buffer
+        //vkDescriptorBufferInfo_FrameData.offset = 0; // offset in the buffer
+        //vkDescriptorBufferInfo_FrameData.range = sizeof(UniformBufferObject_FrameData); // size of the buffer
 
 		//Declare and initialize VkDescriptorImageInfo structure which will have information about the image.
 		VkDescriptorImageInfo vkDescriptorImageInfo;
 		memset((void*)&vkDescriptorImageInfo, 0, sizeof(VkDescriptorImageInfo));
 		vkDescriptorImageInfo.sampler = vkSampler_LinearClampAniso; // sampler for the image
-		vkDescriptorImageInfo.imageView = grassTextureData.vkImageView; // image view for the image
+		vkDescriptorImageInfo.imageView = imposterTextureData.vkImageView; // image view for the image
 		vkDescriptorImageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL; // image layout for the image
 
         //write or copy the descriptor set with the uniform buffer information
         // Declare and initialize VkWriteDescriptorSet structure which will have information about the descriptor set.
-        VkWriteDescriptorSet vkWriteDescriptorSet_array[2];
+        VkWriteDescriptorSet vkWriteDescriptorSet_array[1];
         memset((void*)vkWriteDescriptorSet_array, 0, sizeof(VkWriteDescriptorSet) * _ARRAYSIZE(vkWriteDescriptorSet_array));
 
         vkWriteDescriptorSet_array[0].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
         vkWriteDescriptorSet_array[0].pNext = NULL;
-        vkWriteDescriptorSet_array[0].dstSet = vkDescriptorSets_camImage[i]; // descriptor set
+        vkWriteDescriptorSet_array[0].dstSet = vkDescriptorSets_camImage; // descriptor set
         vkWriteDescriptorSet_array[0].dstBinding = 0; // 0 means the index number of the binding
         vkWriteDescriptorSet_array[0].dstArrayElement = 0; // 0 means the index number of the array element
         vkWriteDescriptorSet_array[0].descriptorCount = 1; // we are using only one descriptor
-        vkWriteDescriptorSet_array[0].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER; // type of the descriptor
-        vkWriteDescriptorSet_array[0].pImageInfo = NULL; // no image info
-        vkWriteDescriptorSet_array[0].pBufferInfo = &vkDescriptorBufferInfo_camera; // pointer to the buffer info
+        vkWriteDescriptorSet_array[0].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER; // type of the descriptor
+        vkWriteDescriptorSet_array[0].pImageInfo = &vkDescriptorImageInfo;
+        vkWriteDescriptorSet_array[0].pBufferInfo = NULL; // pointer to the buffer info
         vkWriteDescriptorSet_array[0].pTexelBufferView = NULL; // no texel buffer view
 
-        vkWriteDescriptorSet_array[1].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-        vkWriteDescriptorSet_array[1].pNext = NULL;
-        vkWriteDescriptorSet_array[1].dstSet = vkDescriptorSets_camImage[i]; // descriptor set
-		vkWriteDescriptorSet_array[1].dstBinding = 1; // 1 means the index number of the binding
-		vkWriteDescriptorSet_array[1].dstArrayElement = 0; // 0 means the index number of the array element
-		vkWriteDescriptorSet_array[1].descriptorCount = 1; // we are using only one descriptor
-		vkWriteDescriptorSet_array[1].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER; // type of the descriptor
-		vkWriteDescriptorSet_array[1].pImageInfo = &vkDescriptorImageInfo; // pointer to the image info
-		vkWriteDescriptorSet_array[1].pBufferInfo = NULL; // no buffer info
-		vkWriteDescriptorSet_array[1].pTexelBufferView = NULL; // no texel buffer view
+        //vkWriteDescriptorSet_array[1].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+        //vkWriteDescriptorSet_array[1].pNext = NULL;
+        //vkWriteDescriptorSet_array[1].dstSet = vkDescriptorSets_camImage[i]; // descriptor set
+		//vkWriteDescriptorSet_array[1].dstBinding = 1; // 1 means the index number of the binding
+		//vkWriteDescriptorSet_array[1].dstArrayElement = 0; // 0 means the index number of the array element
+		//vkWriteDescriptorSet_array[1].descriptorCount = 1; // we are using only one descriptor
+		//vkWriteDescriptorSet_array[1].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER; // type of the descriptor
+		//vkWriteDescriptorSet_array[1].pImageInfo = &vkDescriptorImageInfo; // pointer to the image info
+		//vkWriteDescriptorSet_array[1].pBufferInfo = NULL; // no buffer info
+		//vkWriteDescriptorSet_array[1].pTexelBufferView = NULL; // no texel buffer view
 
 
         // Call vkUpdateDescriptorSets() to update the descriptor set with the uniform buffer information.
@@ -6223,14 +6245,15 @@ VkResult createGraphicsPipeline_Impostor(void)
     // Color blend state
     VkPipelineColorBlendAttachmentState vkPipelineColorBlendAttachmentState_array[1];
     memset((void*)vkPipelineColorBlendAttachmentState_array, 0, sizeof(VkPipelineColorBlendAttachmentState) * _ARRAYSIZE(vkPipelineColorBlendAttachmentState_array));
-    vkPipelineColorBlendAttachmentState_array[0].blendEnable = VK_FALSE; // no blending
-    vkPipelineColorBlendAttachmentState_array[0].colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT; // all color components
-    //vkPipelineColorBlendAttachmentState_array[0].srcColorBlendFactor = VK_BLEND_FACTOR_ONE; // source color blend factor
-    //vkPipelineColorBlendAttachmentState_array[0].dstColorBlendFactor = VK_BLEND_FACTOR_ZERO; // destination color blend factor
-    //vkPipelineColorBlendAttachmentState_array[0].colorBlendOp = VK_BLEND_OP_ADD; // color blend operation
-    //vkPipelineColorBlendAttachmentState_array[0].srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE; // source alpha blend factor
-    //vkPipelineColorBlendAttachmentState_array[0].dstAlphaBlendFactor = VK_BLEND_FACTOR_ZERO; // destination alpha blend factor
-    //vkPipelineColorBlendAttachmentState_array[0].alphaBlendOp = VK_BLEND_OP_ADD; // alpha blend operation
+	vkPipelineColorBlendAttachmentState_array[0].blendEnable = VK_FALSE; // enable blending
+	vkPipelineColorBlendAttachmentState_array[0].colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT; // all color components
+	vkPipelineColorBlendAttachmentState_array[0].srcColorBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA; // source color blend factor
+	vkPipelineColorBlendAttachmentState_array[0].dstColorBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA; // destination color blend factor
+	vkPipelineColorBlendAttachmentState_array[0].colorBlendOp = VK_BLEND_OP_ADD; // color blend operation
+	vkPipelineColorBlendAttachmentState_array[0].srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE; // source alpha blend factor
+	vkPipelineColorBlendAttachmentState_array[0].dstAlphaBlendFactor = VK_BLEND_FACTOR_ZERO; // destination alpha blend factor
+	vkPipelineColorBlendAttachmentState_array[0].alphaBlendOp = VK_BLEND_OP_ADD; // alpha blend operation
+
 
 
 
@@ -7044,6 +7067,7 @@ void RenderFullscreenQuad(uint32_t curIndex)
 {
 	// Bind the pipeline and descriptor sets
 	vkCmdBindPipeline(vkCommandBuffer_Array[curIndex], VK_PIPELINE_BIND_POINT_GRAPHICS, vkPipeline_PreviewImage); 
+	vkCmdBindDescriptorSets(vkCommandBuffer_Array[curIndex], VK_PIPELINE_BIND_POINT_GRAPHICS, vkPipelineLayout_previewImage, 0, 1, &vkDescriptorSets_camImage, 0, NULL);
     vkCmdDraw(vkCommandBuffer_Array[curIndex], 3, 1, 0, 0);
 }
 
@@ -7093,6 +7117,8 @@ void RenderUVQuad(uint32_t curIndex)
 {
     PushConstants pushConstants;
     pushConstants.model = glm::translate(glm::mat4(1.0f), glm::vec3(3.0f, 0.0f, -10.0f));
+    //pushConstants.model = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.0f, 0.0f));
+	//ushConstants.model = glm::mat4(1.0f); // Identity matrix for no transformation
 
 #ifdef IMGUI_ENABLE
     pushConstants.v3Color = v3Color;
@@ -7105,7 +7131,9 @@ void RenderUVQuad(uint32_t curIndex)
 
     // Bind the pipeline and descriptor sets
     vkCmdBindPipeline(vkCommandBuffer_Array[curIndex], VK_PIPELINE_BIND_POINT_GRAPHICS, vkPipeline_Impostor);
-    vkCmdBindDescriptorSets(vkCommandBuffer_Array[curIndex], VK_PIPELINE_BIND_POINT_GRAPHICS, vkPipelineLayout_Impostor, 0, 1, &vkDescriptorSets_camImage[curIndex], 0, NULL);
+
+	VkDescriptorSet vkLocalDescriptorSets[] = { vkDescriptorSets[curIndex], vkDescriptorSets_camImage};
+    vkCmdBindDescriptorSets(vkCommandBuffer_Array[curIndex], VK_PIPELINE_BIND_POINT_GRAPHICS, vkPipelineLayout_Impostor, 0, 2, vkLocalDescriptorSets, 0, NULL);
 
     // Push the model matrix
     vkCmdPushConstants(
@@ -7156,9 +7184,9 @@ VkResult buildCommandBuffers(uint32_t curIndex)
 	//clearValue.depthStencil = vkClearDepthStencilValue;
 
     VkClearValue clearValues[2];
-    clearValues[0].color.float32[0] = 0.0f;
-    clearValues[0].color.float32[1] = 0.0f;
-    clearValues[0].color.float32[2] = 0.0f;
+    clearValues[0].color.float32[0] = 0.2f;
+    clearValues[0].color.float32[1] = 0.2f;
+    clearValues[0].color.float32[2] = 0.2f;
     clearValues[0].color.float32[3] = 1.0f;
     clearValues[1].depthStencil.depth = 1.0f;
     clearValues[1].depthStencil.stencil = 0;
@@ -7173,7 +7201,7 @@ VkResult buildCommandBuffers(uint32_t curIndex)
 
     vkCmdBeginRenderPass(vkCommandBuffer_Array[curIndex], &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
 
-	RenderFullscreenQuad(curIndex); // Render the fullscreen quad
+	//RenderFullscreenQuad(curIndex); // Render the fullscreen quad
 
     RenderColoredTriangle(curIndex); // Render the colored triangle
     // Draw the indexed triangle
