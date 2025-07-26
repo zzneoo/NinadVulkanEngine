@@ -119,18 +119,20 @@ void main(void)
     // Interpolation weights
     vec2 frac = fract(tileCoordF);
 
-    // Clamp base tile to avoid out-of-bounds
-    //baseTile = clamp(baseTile, ivec2(0), ivec2(viewsU - 2, viewsV - 2));
-	//baseTile.x = clamp(
+	//float eq_a = (1.0-max(frac.x,frac.y));
+	//float eq_c = (1.0-max(1.0-frac.x,1.0-frac.y));
+	//float eq_b = (abs(frac.y -frac.x));
+	//float eq_d = (1.0-step(frac.x,frac.y));
 	
-	//baseTile.x = (baseTile.x % 12 + 12) % 12;
-	//baseTile.x = clamp(baseTile.x, 0, 10);
-	//baseTile.y = clamp(baseTile.y, 0, 10);
-	
-	float eq_a = (1.0-max(frac.x,frac.y));
-	float eq_c = (1.0-max(1.0-frac.x,1.0-frac.y));
-	float eq_b = (abs(frac.y -frac.x));
-	float eq_d = (1.0-step(frac.x,frac.y));
+	vec2 inv = 1.0 - frac;
+	// eq_a = 1.0 - max(frac.x, frac.y)
+	float eq_a = min(inv.x, inv.y);
+	// eq_c = 1.0 - max(inv.x, inv.y)  →  min(frac.x, frac.y)
+	float eq_c = min(frac.x, frac.y);
+	// eq_b = abs(frac.y - frac.x)
+	float eq_b = abs(frac.y - frac.x);
+	// eq_d = 1.0 - step(frac.x, frac.y)  →  strictly (frac.y < frac.x)
+	float eq_d = float(frac.y < frac.x);
 	
 	// standard bilinear weights
     float w00 = (1.0 - frac.x) * (1.0 - frac.y);
