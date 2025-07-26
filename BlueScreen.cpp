@@ -225,15 +225,15 @@ ImageData borderTextureData;
 ImageData imposterTextureData;
 
 //Samplers
-VkSampler vkSampler_LinearClampAniso = VK_NULL_HANDLE;
+VkSampler vkSampler_LinearClampAniso = VK_NULL_HANDLE;//need mipmaps to be generated for aniso 
 
 //desccriptor set layout 
 VkDescriptorSetLayout vkDescriptorSetLayout_frameData = VK_NULL_HANDLE;
 VkDescriptorSetLayout vkDescriptorSetLayout_SingleImage = VK_NULL_HANDLE;
 
 VkDescriptorPool vkDescriptorPool = VK_NULL_HANDLE;
-VkDescriptorSet  vkDescriptorSets[MAX_FRAMES];
-VkDescriptorSet  vkDescriptorSets_camImage;
+VkDescriptorSet  vkDescriptorSets_frameData[MAX_FRAMES];
+VkDescriptorSet  vkDescriptorSet_SingleImage;
 
 //pipeline
 VkViewport vkViewport;
@@ -714,7 +714,7 @@ VkResult initialize(void)
 	VkResult createPipelineLayout_Impostor(void);
     VkResult createDescriptorPool(void);
     VkResult createDescriptorSet_FrameData(void);
-	VkResult createDescriptorSet_CamImage(void);
+	VkResult createDescriptorSet_SingleImage(void);
 
 	VkResult createSamplers(void);
 
@@ -928,10 +928,10 @@ VkResult initialize(void)
     }
 
 	//Create Descriptor Set for Camera Image
-	vkResult = createDescriptorSet_CamImage();
+	vkResult = createDescriptorSet_SingleImage();
     if (vkResult != VK_SUCCESS)
     {
-        fprintf(gpFILE, "initialize() : createDiscriptorSet_CamImage() failed (%d).\n", vkResult);
+        fprintf(gpFILE, "initialize() : createDescriptorSet_SingleImage() failed (%d).\n", vkResult);
         return(vkResult);
 	}
 
@@ -1658,8 +1658,8 @@ void uninitialize(void)
     {
         vkDestroyDescriptorPool(vkDevice, vkDescriptorPool, NULL);
         vkDescriptorPool = VK_NULL_HANDLE;
-        vkDescriptorSets[0] = VK_NULL_HANDLE; // set to NULL to avoid dangling pointer
-        vkDescriptorSets[1] = VK_NULL_HANDLE; // set to NULL to avoid dangling pointer
+        vkDescriptorSets_frameData[0] = VK_NULL_HANDLE; // set to NULL to avoid dangling pointer
+        vkDescriptorSets_frameData[1] = VK_NULL_HANDLE; // set to NULL to avoid dangling pointer
 
     }
 
@@ -5517,7 +5517,7 @@ VkResult createDescriptorSet_FrameData(void)
 
 
     // Call vkAllocateDescriptorSets() to allocate the descriptor set
-    vkResult = vkAllocateDescriptorSets(vkDevice, &vkDescriptorSetAllocateInfo, vkDescriptorSets);
+    vkResult = vkAllocateDescriptorSets(vkDevice, &vkDescriptorSetAllocateInfo, vkDescriptorSets_frameData);
 
     if (vkResult != VK_SUCCESS)
     {
@@ -5548,10 +5548,10 @@ VkResult createDescriptorSet_FrameData(void)
 
         vkWriteDescriptorSet_array[0].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
         vkWriteDescriptorSet_array[0].pNext = NULL;
-        vkWriteDescriptorSet_array[0].dstSet = vkDescriptorSets[i]; // descriptor set
+        vkWriteDescriptorSet_array[0].dstSet = vkDescriptorSets_frameData[i]; // descriptor set
         vkWriteDescriptorSet_array[0].dstBinding = 0; // 0 means the index number of the binding
         vkWriteDescriptorSet_array[0].dstArrayElement = 0; // 0 means the index number of the array element
-        vkWriteDescriptorSet_array[0].descriptorCount = 1; // we are using only one descriptor
+		vkWriteDescriptorSet_array[0].descriptorCount = 1; // we are using only one descriptor, more incase of array
         vkWriteDescriptorSet_array[0].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER; // type of the descriptor
         vkWriteDescriptorSet_array[0].pImageInfo = NULL; // no image info
         vkWriteDescriptorSet_array[0].pBufferInfo = &vkDescriptorBufferInfo_frameData; // pointer to the buffer info
@@ -5578,7 +5578,7 @@ VkResult createDescriptorSet_FrameData(void)
     return(vkResult);
 }
 
-VkResult createDescriptorSet_CamImage(void)
+VkResult createDescriptorSet_SingleImage(void)
 {
     // local variables
     VkResult vkResult = VK_SUCCESS;
@@ -5601,7 +5601,7 @@ VkResult createDescriptorSet_CamImage(void)
 
 
     // Call vkAllocateDescriptorSets() to allocate the descriptor set
-    vkResult = vkAllocateDescriptorSets(vkDevice, &vkDescriptorSetAllocateInfo, &vkDescriptorSets_camImage);
+    vkResult = vkAllocateDescriptorSets(vkDevice, &vkDescriptorSetAllocateInfo, &vkDescriptorSet_SingleImage);
 
     if (vkResult != VK_SUCCESS)
     {
@@ -5633,7 +5633,7 @@ VkResult createDescriptorSet_CamImage(void)
 
         vkWriteDescriptorSet_array[0].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
         vkWriteDescriptorSet_array[0].pNext = NULL;
-        vkWriteDescriptorSet_array[0].dstSet = vkDescriptorSets_camImage; // descriptor set
+        vkWriteDescriptorSet_array[0].dstSet = vkDescriptorSet_SingleImage; // descriptor set
         vkWriteDescriptorSet_array[0].dstBinding = 0; // 0 means the index number of the binding
         vkWriteDescriptorSet_array[0].dstArrayElement = 0; // 0 means the index number of the array element
         vkWriteDescriptorSet_array[0].descriptorCount = 1; // we are using only one descriptor
@@ -7067,7 +7067,7 @@ void RenderFullscreenQuad(uint32_t curIndex)
 {
 	// Bind the pipeline and descriptor sets
 	vkCmdBindPipeline(vkCommandBuffer_Array[curIndex], VK_PIPELINE_BIND_POINT_GRAPHICS, vkPipeline_PreviewImage); 
-	vkCmdBindDescriptorSets(vkCommandBuffer_Array[curIndex], VK_PIPELINE_BIND_POINT_GRAPHICS, vkPipelineLayout_previewImage, 0, 1, &vkDescriptorSets_camImage, 0, NULL);
+	vkCmdBindDescriptorSets(vkCommandBuffer_Array[curIndex], VK_PIPELINE_BIND_POINT_GRAPHICS, vkPipelineLayout_previewImage, 0, 1, &vkDescriptorSet_SingleImage, 0, NULL);
     vkCmdDraw(vkCommandBuffer_Array[curIndex], 3, 1, 0, 0);
 }
 
@@ -7094,7 +7094,7 @@ void RenderColoredTriangle(uint32_t curIndex)
 
 	// Bind the pipeline and descriptor sets
 	vkCmdBindPipeline(vkCommandBuffer_Array[curIndex], VK_PIPELINE_BIND_POINT_GRAPHICS, vkPipeline_PerVertexColor);
-    vkCmdBindDescriptorSets(vkCommandBuffer_Array[curIndex], VK_PIPELINE_BIND_POINT_GRAPHICS, vkPipelineLayout, 0, 1, &vkDescriptorSets[curIndex], 0, NULL);
+    vkCmdBindDescriptorSets(vkCommandBuffer_Array[curIndex], VK_PIPELINE_BIND_POINT_GRAPHICS, vkPipelineLayout, 0, 1, &vkDescriptorSets_frameData[curIndex], 0, NULL);
 
           // Push the model matrix
   vkCmdPushConstants(
@@ -7132,7 +7132,7 @@ void RenderUVQuad(uint32_t curIndex)
     // Bind the pipeline and descriptor sets
     vkCmdBindPipeline(vkCommandBuffer_Array[curIndex], VK_PIPELINE_BIND_POINT_GRAPHICS, vkPipeline_Impostor);
 
-	VkDescriptorSet vkLocalDescriptorSets[] = { vkDescriptorSets[curIndex], vkDescriptorSets_camImage};
+	VkDescriptorSet vkLocalDescriptorSets[] = { vkDescriptorSets_frameData[curIndex], vkDescriptorSet_SingleImage };
     vkCmdBindDescriptorSets(vkCommandBuffer_Array[curIndex], VK_PIPELINE_BIND_POINT_GRAPHICS, vkPipelineLayout_Impostor, 0, 2, vkLocalDescriptorSets, 0, NULL);
 
     // Push the model matrix
