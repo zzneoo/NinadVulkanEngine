@@ -33,6 +33,7 @@
 //#include "VkPipelineVertexInputState.h"
 #include <cstdint>
 #include <windowsx.h>
+#include <iostream>
 
 // Vulkan related libraries
 #pragma comment(lib, "vulkan-1.lib")
@@ -178,7 +179,7 @@ typedef struct
 {
     VkImage* swapchainImage_Array;
     VkImageView* swapchainImageView_Array;
-    ImageData imageData_depthBuffer;
+    ImageData* imageData_depthBuffer;
 }SwapChainResourceData;
 
 // Swapchain resources
@@ -690,6 +691,75 @@ static void check_vk_result(VkResult err)
 }
 #endif // IMGUI_ENABLE
 
+int file_exists(const char* path) {
+    DWORD attrs = GetFileAttributesA(path);
+    return (attrs != INVALID_FILE_ATTRIBUTES && !(attrs & FILE_ATTRIBUTE_DIRECTORY));
+}
+
+// compile shader using build.bat
+void compileShaderVS_FS(const char* shaderName)
+{
+    STARTUPINFOA si = { sizeof(si) };
+    PROCESS_INFORMATION pi;
+
+    char command[256];
+
+    // Build the command line: cmd.exe /c "build.bat Impostor"
+    snprintf(command, sizeof(command), "cmd.exe /c \"build.bat %s\"", shaderName);
+
+    BOOL success = CreateProcessA(
+        NULL,           // App name (null if included in command line)
+        (LPSTR)command, // Command line (must be mutable)
+        NULL, NULL,     // Process/thread security
+        FALSE,          // Inherit handles
+        0,              // Creation flags
+        NULL,           // Environment
+        NULL,           // Current directory
+        &si, &pi
+    );
+
+    if (!success) 
+    {
+        std::cerr << "Failed to run process: " << GetLastError() << std::endl;
+		exit(EXIT_FAILURE);
+    }
+
+    // Wait until the process exits
+    WaitForSingleObject(pi.hProcess, INFINITE);
+    CloseHandle(pi.hProcess);
+    CloseHandle(pi.hThread);
+
+
+	//------------verify if shader files exist----------------
+    char filename[256];
+    snprintf(filename, sizeof(filename), "%s.vert.spv", shaderName);
+    if (!file_exists(filename))
+    {
+        STARTUPINFOA sInfo = { sizeof(sInfo) };
+        PROCESS_INFORMATION pInfo;
+        snprintf(command, sizeof(command), "notepad.exe \"%s\"", "vsCompileLog.txt");
+        CreateProcessA(NULL, command, NULL, NULL, FALSE, 0, NULL, NULL, &sInfo, &pInfo);
+        // Wait until the process exits
+        WaitForSingleObject(pInfo.hProcess, INFINITE);
+        CloseHandle(pInfo.hProcess);
+        CloseHandle(pInfo.hThread);
+        exit(EXIT_FAILURE);
+    }
+    snprintf(filename, sizeof(filename), "%s.frag.spv", shaderName);
+    if (!file_exists(filename))
+    {
+        STARTUPINFOA sInfo = { sizeof(sInfo) };
+        PROCESS_INFORMATION pInfo;
+        snprintf(command, sizeof(command), "notepad.exe \"%s\"", "fsCompileLog.txt");
+        CreateProcessA(NULL, command, NULL, NULL, FALSE, 0, NULL, NULL, &sInfo, &pInfo);
+        // Wait until the process exits
+        WaitForSingleObject(pInfo.hProcess, INFINITE);
+        CloseHandle(pInfo.hProcess);
+        CloseHandle(pInfo.hThread);
+        exit(EXIT_FAILURE);
+    }
+}
+
 VkResult initialize(void)
 {
     // function declarations
@@ -727,8 +797,15 @@ VkResult initialize(void)
 
     VkResult loadTextureData(ImageData * imageData, const char* filePath);
 
+    //allocate memory for MAX_FRAME arrays
+    {
+        //gSwapChainResourceData.imageData_depthBuffer = (ImageData*)malloc(sizeof(ImageData) * MAX_FRAMES);
+    }
+
     // variable declarations
     VkResult vkResult = VK_SUCCESS;
+
+	compileShaderVS_FS("Impostor");
 
     // code
     // STEP 3 : Create Vulkan instance
@@ -5663,16 +5740,52 @@ VkResult createDescriptorSet_SingleImage(void)
     return(vkResult);
 }
 
+VkResult getSupportedDepthFormat(VkFormat* pVkFormat)
+{
+    // local variables
+	VkResult vkResult = VK_SUCCESS;
+
+    VkFormat formats[] = { 
+            VK_FORMAT_D32_SFLOAT,
+            VK_FORMAT_D32_SFLOAT_S8_UINT, 
+            VK_FORMAT_D24_UNORM_S8_UINT, 
+            VK_FORMAT_D16_UNORM_S8_UINT, 
+        };
+
+    for(uint32_t i = 0; i < sizeof(formats) / sizeof(formats[0]); i++)
+    {
+        VkFormatProperties formatProperties;
+        vkGetPhysicalDeviceFormatProperties(vkPhysicalDevice_Selected, formats[i], &formatProperties);
+        if (formatProperties.optimalTilingFeatures & VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT)
+        {
+            *pVkFormat = formats[i];
+            return VK_SUCCESS;
+        }
+	}
+
+
+	return vkResult;
+}
+
 VkResult createDepthResources(void) 
 {
 	VkResult vkResult = VK_SUCCESS;
 
-    VkFormat depthFormat = VK_FORMAT_D32_SFLOAT;
+    // Find the depth format supported by the device
+    VkFormat depthFormat = VK_FORMAT_UNDEFINED;
+    vkResult = getSupportedDepthFormat(&depthFormat);
+    if (vkResult != VK_SUCCESS || (depthFormat == VK_FORMAT_UNDEFINED))
+    {
+        fprintf(gpFILE, "Failed to get supported depth format.\n");
+        return vkResult;
+	}
 
     VkImageCreateInfo imageInfo ;
 	memset(&imageInfo, 0, sizeof(VkImageCreateInfo));
 
     imageInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
+	imageInfo.pNext = NULL;
+	imageInfo.flags = 0;
     imageInfo.imageType = VK_IMAGE_TYPE_2D;
     imageInfo.extent.width = vkExtent2D_Swapchain.width;
     imageInfo.extent.height = vkExtent2D_Swapchain.height;
@@ -5686,9 +5799,11 @@ VkResult createDepthResources(void)
     imageInfo.samples = VK_SAMPLE_COUNT_1_BIT;
     imageInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
 
-    //for(uint32_t i = 0; i < MAX_FRAMES; i++)
+    gSwapChainResourceData.imageData_depthBuffer = (ImageData*)malloc(sizeof(ImageData) * MAX_FRAMES);
+
+    for(uint32_t i = 0; i < MAX_FRAMES; i++)
     {
-        vkResult = vkCreateImage(vkDevice, &imageInfo, NULL, &gSwapChainResourceData.imageData_depthBuffer.vkImage);
+        vkResult = vkCreateImage(vkDevice, &imageInfo, NULL, &gSwapChainResourceData.imageData_depthBuffer[i].vkImage);
         if (vkResult != VK_SUCCESS)
         {
             fprintf(gpFILE, "Failed to create depth image.\n");
@@ -5696,7 +5811,7 @@ VkResult createDepthResources(void)
         }
 
         VkMemoryRequirements memRequirements;
-        vkGetImageMemoryRequirements(vkDevice, gSwapChainResourceData.imageData_depthBuffer.vkImage, &memRequirements);
+        vkGetImageMemoryRequirements(vkDevice, gSwapChainResourceData.imageData_depthBuffer[i].vkImage, &memRequirements);
 
         VkMemoryAllocateInfo allocInfo;
         memset(&allocInfo, 0, sizeof(VkMemoryAllocateInfo));
@@ -5708,7 +5823,7 @@ VkResult createDepthResources(void)
             VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT
         );
 
-        vkResult = vkAllocateMemory(vkDevice, &allocInfo, NULL, &gSwapChainResourceData.imageData_depthBuffer.vkDeviceMemory);
+        vkResult = vkAllocateMemory(vkDevice, &allocInfo, NULL, &gSwapChainResourceData.imageData_depthBuffer[i].vkDeviceMemory);
         if (vkResult != VK_SUCCESS)
         {
             fprintf(gpFILE, "Failed to allocate depth image memory.\n");
@@ -5716,13 +5831,13 @@ VkResult createDepthResources(void)
         }
 
 
-        vkBindImageMemory(vkDevice, gSwapChainResourceData.imageData_depthBuffer.vkImage, gSwapChainResourceData.imageData_depthBuffer.vkDeviceMemory, 0);
+        vkBindImageMemory(vkDevice, gSwapChainResourceData.imageData_depthBuffer[i].vkImage, gSwapChainResourceData.imageData_depthBuffer[i].vkDeviceMemory, 0);
 
 
 		//Image View 
         VkImageViewCreateInfo viewInfo = {};
         viewInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
-        viewInfo.image = gSwapChainResourceData.imageData_depthBuffer.vkImage;
+        viewInfo.image = gSwapChainResourceData.imageData_depthBuffer[i].vkImage;
         viewInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
         viewInfo.format = VK_FORMAT_D32_SFLOAT;
         viewInfo.subresourceRange.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT;
@@ -5731,7 +5846,7 @@ VkResult createDepthResources(void)
         viewInfo.subresourceRange.baseArrayLayer = 0;
         viewInfo.subresourceRange.layerCount = 1;
 
-        vkResult = vkCreateImageView(vkDevice, &viewInfo, nullptr, &gSwapChainResourceData.imageData_depthBuffer.vkImageView);
+        vkResult = vkCreateImageView(vkDevice, &viewInfo, nullptr, &gSwapChainResourceData.imageData_depthBuffer[i].vkImageView);
         if (vkResult != VK_SUCCESS) {
             fprintf(gpFILE, "Failed to create depth image view.\n");
             return vkResult;
@@ -5794,24 +5909,33 @@ void destroySwapchainResources(void)
     }
 
     //destroy depth resources
-    //image view
-    if (gSwapChainResourceData.imageData_depthBuffer.vkImageView)
+    for (uint32_t i = 0; i < MAX_FRAMES; i++)
     {
-        vkDestroyImageView(vkDevice, gSwapChainResourceData.imageData_depthBuffer.vkImageView, NULL);
-        gSwapChainResourceData.imageData_depthBuffer.vkImageView = VK_NULL_HANDLE;
-    }
-    //image
-    if (gSwapChainResourceData.imageData_depthBuffer.vkImage)
+        //image view
+        if (gSwapChainResourceData.imageData_depthBuffer[i].vkImageView)
+        {
+            vkDestroyImageView(vkDevice, gSwapChainResourceData.imageData_depthBuffer[i].vkImageView, NULL);
+            gSwapChainResourceData.imageData_depthBuffer[i].vkImageView = VK_NULL_HANDLE;
+        }
+        //image
+        if (gSwapChainResourceData.imageData_depthBuffer[i].vkImage)
+        {
+            vkDestroyImage(vkDevice, gSwapChainResourceData.imageData_depthBuffer[i].vkImage, NULL);
+            gSwapChainResourceData.imageData_depthBuffer[i].vkImage = VK_NULL_HANDLE;
+        }
+        // free depth buffer memory
+        if (gSwapChainResourceData.imageData_depthBuffer[i].vkDeviceMemory)
+        {
+            vkFreeMemory(vkDevice, gSwapChainResourceData.imageData_depthBuffer[i].vkDeviceMemory, NULL);
+            gSwapChainResourceData.imageData_depthBuffer[i].vkDeviceMemory = VK_NULL_HANDLE;
+        }
+	}
+
+    if(gSwapChainResourceData.imageData_depthBuffer)
     {
-        vkDestroyImage(vkDevice, gSwapChainResourceData.imageData_depthBuffer.vkImage, NULL);
-        gSwapChainResourceData.imageData_depthBuffer.vkImage = VK_NULL_HANDLE;
-    }
-    // free depth buffer memory
-    if (gSwapChainResourceData.imageData_depthBuffer.vkDeviceMemory)
-    {
-        vkFreeMemory(vkDevice, gSwapChainResourceData.imageData_depthBuffer.vkDeviceMemory, NULL);
-        gSwapChainResourceData.imageData_depthBuffer.vkDeviceMemory = VK_NULL_HANDLE;
-    }
+        free(gSwapChainResourceData.imageData_depthBuffer);
+        gSwapChainResourceData.imageData_depthBuffer = NULL;
+	}
 
     //---------------------------------------------------------------------
 }
@@ -5843,8 +5967,6 @@ VkResult createRenderPass(void)
     depthAttachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
     depthAttachment.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
     depthAttachment.finalLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
-
-	VkAttachmentDescription vkAttachmentDescription_Array[2] = { colorAttachment[0], depthAttachment };
 
 
     VkAttachmentReference colorRef;
@@ -5887,6 +6009,9 @@ VkResult createRenderPass(void)
 
 
     // sub-step (4) : Declare and initialize VkRenderPassCreateInfo structure and refer above VkAttachmentDescription and VkSubPassDescription into it. Remember: here also we need attachment information in the form of image views which will be used by framebuffer later. We also need to specify inter-dependency between subpasses if needed.
+
+    VkAttachmentDescription vkAttachmentDescription_Array[2] = { colorAttachment[0], depthAttachment };
+
     VkRenderPassCreateInfo vkRenderPassCreateInfo;
     memset((void*)&vkRenderPassCreateInfo, 0, sizeof(VkRenderPassCreateInfo));
 
@@ -6053,21 +6178,27 @@ VkResult createGraphicsPipeline_PerVertexColor(void)
     //vkPipelineDepthStencilStateCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
     //vkPipelineDepthStencilStateCreateInfo.pNext = NULL;
 
-	//depth stencil state
-	VkPipelineDepthStencilStateCreateInfo vkPipelineDepthStencilStateCreateInfo;
-	memset((void*)&vkPipelineDepthStencilStateCreateInfo, 0, sizeof(VkPipelineDepthStencilStateCreateInfo));
-	vkPipelineDepthStencilStateCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
-	vkPipelineDepthStencilStateCreateInfo.pNext = NULL;
-	vkPipelineDepthStencilStateCreateInfo.flags = 0;
-	vkPipelineDepthStencilStateCreateInfo.depthTestEnable = VK_TRUE; // enable depth test
-	vkPipelineDepthStencilStateCreateInfo.depthWriteEnable = VK_TRUE; // enable depth write
-	vkPipelineDepthStencilStateCreateInfo.depthCompareOp = VK_COMPARE_OP_LESS; // depth compare operation
-	vkPipelineDepthStencilStateCreateInfo.depthBoundsTestEnable = VK_FALSE; // no depth bounds test
-	vkPipelineDepthStencilStateCreateInfo.stencilTestEnable = VK_FALSE; // no stencil test
-	vkPipelineDepthStencilStateCreateInfo.front = {}; // no front stencil state
-	vkPipelineDepthStencilStateCreateInfo.back = {}; // no back stencil state
-	vkPipelineDepthStencilStateCreateInfo.minDepthBounds = 0.0f; // min depth bounds
-	vkPipelineDepthStencilStateCreateInfo.maxDepthBounds = 1.0f; // max depth bounds
+    //depth stencil state
+    VkPipelineDepthStencilStateCreateInfo vkPipelineDepthStencilStateCreateInfo;
+    memset((void*)&vkPipelineDepthStencilStateCreateInfo, 0, sizeof(VkPipelineDepthStencilStateCreateInfo));
+    vkPipelineDepthStencilStateCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
+    vkPipelineDepthStencilStateCreateInfo.pNext = NULL;
+    vkPipelineDepthStencilStateCreateInfo.flags = 0;
+    vkPipelineDepthStencilStateCreateInfo.depthTestEnable = VK_TRUE; // enable depth test
+    vkPipelineDepthStencilStateCreateInfo.depthWriteEnable = VK_TRUE; // enable depth write
+    vkPipelineDepthStencilStateCreateInfo.depthCompareOp = VK_COMPARE_OP_LESS; // depth compare operation
+    vkPipelineDepthStencilStateCreateInfo.depthBoundsTestEnable = VK_FALSE; // no depth bounds test
+    vkPipelineDepthStencilStateCreateInfo.stencilTestEnable = VK_FALSE; // no stencil test
+    //vkPipelineDepthStencilStateCreateInfo.front = {}; // no front stencil state
+    //vkPipelineDepthStencilStateCreateInfo.back = {}; // no back stencil state
+    vkPipelineDepthStencilStateCreateInfo.back.failOp = VK_STENCIL_OP_KEEP; // no back stencil state
+    vkPipelineDepthStencilStateCreateInfo.back.passOp = VK_STENCIL_OP_KEEP; // no back stencil state
+    vkPipelineDepthStencilStateCreateInfo.back.compareOp = VK_COMPARE_OP_ALWAYS; // no back stencil state
+
+    vkPipelineDepthStencilStateCreateInfo.front = vkPipelineDepthStencilStateCreateInfo.back; // use the same state for front and back
+
+    vkPipelineDepthStencilStateCreateInfo.minDepthBounds = 0.0f; // min depth bounds
+    vkPipelineDepthStencilStateCreateInfo.maxDepthBounds = 1.0f; // max depth bounds
 
 
     //dynamic state (viewport, scissor ,depth bias ,blend constants, stensil mask,line width, etc)
@@ -6306,13 +6437,20 @@ VkResult createGraphicsPipeline_Impostor(void)
     vkPipelineDepthStencilStateCreateInfo.flags = 0;
     vkPipelineDepthStencilStateCreateInfo.depthTestEnable = VK_TRUE; // enable depth test
     vkPipelineDepthStencilStateCreateInfo.depthWriteEnable = VK_TRUE; // enable depth write
-    vkPipelineDepthStencilStateCreateInfo.depthCompareOp = VK_COMPARE_OP_LESS; // depth compare operation
+	vkPipelineDepthStencilStateCreateInfo.depthCompareOp = VK_COMPARE_OP_LESS; // depth compare operation
     vkPipelineDepthStencilStateCreateInfo.depthBoundsTestEnable = VK_FALSE; // no depth bounds test
     vkPipelineDepthStencilStateCreateInfo.stencilTestEnable = VK_FALSE; // no stencil test
-    vkPipelineDepthStencilStateCreateInfo.front = {}; // no front stencil state
-    vkPipelineDepthStencilStateCreateInfo.back = {}; // no back stencil state
+    //vkPipelineDepthStencilStateCreateInfo.front = {}; // no front stencil state
+    //vkPipelineDepthStencilStateCreateInfo.back = {}; // no back stencil state
+	vkPipelineDepthStencilStateCreateInfo.back.failOp = VK_STENCIL_OP_KEEP; // no back stencil state
+	vkPipelineDepthStencilStateCreateInfo.back.passOp = VK_STENCIL_OP_KEEP; // no back stencil state
+	vkPipelineDepthStencilStateCreateInfo.back.compareOp = VK_COMPARE_OP_ALWAYS; // no back stencil state
+
+	vkPipelineDepthStencilStateCreateInfo.front = vkPipelineDepthStencilStateCreateInfo.back; // use the same state for front and back
+
     vkPipelineDepthStencilStateCreateInfo.minDepthBounds = 0.0f; // min depth bounds
     vkPipelineDepthStencilStateCreateInfo.maxDepthBounds = 1.0f; // max depth bounds
+
 
 
     //dynamic state (viewport, scissor ,depth bias ,blend constants, stensil mask,line width, etc)
@@ -6766,19 +6904,25 @@ VkResult createGraphicsPipeline_WhiteVertex(void)
     //vkPipelineDepthStencilStateCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
     //vkPipelineDepthStencilStateCreateInfo.pNext = NULL;
 
-        //depth stencil state
+    //depth stencil state
     VkPipelineDepthStencilStateCreateInfo vkPipelineDepthStencilStateCreateInfo;
     memset((void*)&vkPipelineDepthStencilStateCreateInfo, 0, sizeof(VkPipelineDepthStencilStateCreateInfo));
     vkPipelineDepthStencilStateCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
     vkPipelineDepthStencilStateCreateInfo.pNext = NULL;
     vkPipelineDepthStencilStateCreateInfo.flags = 0;
-    vkPipelineDepthStencilStateCreateInfo.depthTestEnable = VK_FALSE; // 
-    vkPipelineDepthStencilStateCreateInfo.depthWriteEnable = VK_FALSE; // 
+    vkPipelineDepthStencilStateCreateInfo.depthTestEnable = VK_TRUE; // enable depth test
+    vkPipelineDepthStencilStateCreateInfo.depthWriteEnable = VK_TRUE; // enable depth write
     vkPipelineDepthStencilStateCreateInfo.depthCompareOp = VK_COMPARE_OP_LESS; // depth compare operation
     vkPipelineDepthStencilStateCreateInfo.depthBoundsTestEnable = VK_FALSE; // no depth bounds test
     vkPipelineDepthStencilStateCreateInfo.stencilTestEnable = VK_FALSE; // no stencil test
-    vkPipelineDepthStencilStateCreateInfo.front = {}; // no front stencil state
-    vkPipelineDepthStencilStateCreateInfo.back = {}; // no back stencil state
+    //vkPipelineDepthStencilStateCreateInfo.front = {}; // no front stencil state
+    //vkPipelineDepthStencilStateCreateInfo.back = {}; // no back stencil state
+    vkPipelineDepthStencilStateCreateInfo.back.failOp = VK_STENCIL_OP_KEEP; // no back stencil state
+    vkPipelineDepthStencilStateCreateInfo.back.passOp = VK_STENCIL_OP_KEEP; // no back stencil state
+    vkPipelineDepthStencilStateCreateInfo.back.compareOp = VK_COMPARE_OP_ALWAYS; // no back stencil state
+
+    vkPipelineDepthStencilStateCreateInfo.front = vkPipelineDepthStencilStateCreateInfo.back; // use the same state for front and back
+
     vkPipelineDepthStencilStateCreateInfo.minDepthBounds = 0.0f; // min depth bounds
     vkPipelineDepthStencilStateCreateInfo.maxDepthBounds = 1.0f; // max depth bounds
 
@@ -6892,7 +7036,6 @@ VkResult createFramebuffers(void)
 
     VkImageView attachments[2];
 	memset((void*)attachments, 0, sizeof(VkImageView) * _ARRAYSIZE(attachments));
-	attachments[1] = gSwapChainResourceData.imageData_depthBuffer.vkImageView; // depth attachment
 
 	//attachments[1] = vkImageView_Depth; // depth attachment
 
@@ -6908,6 +7051,7 @@ VkResult createFramebuffers(void)
     {
 
 		attachments[0] = gSwapChainResourceData.swapchainImageView_Array[i]; // color attachment
+        attachments[1] = gSwapChainResourceData.imageData_depthBuffer[i].vkImageView; // depth attachment
         
         vkFramebufferCreateInfo.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
         vkFramebufferCreateInfo.pNext = NULL;

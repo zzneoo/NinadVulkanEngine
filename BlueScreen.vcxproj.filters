@@ -19,6 +19,9 @@
     <Filter Include="Source Files\ImGui">
       <UniqueIdentifier>{8f9a7e99-9763-482f-ba8e-893445f5426e}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Shaders">
+      <UniqueIdentifier>{cb247caf-1131-4750-8ffe-b0b062db167f}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="framework.h">
@@ -114,5 +117,34 @@
     <Image Include="BlueScreen.ico">
       <Filter>Resource Files</Filter>
     </Image>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="build.bat">
+      <Filter>Source Files</Filter>
+    </None>
+    <None Include="Impostor.frag">
+      <Filter>Shaders</Filter>
+    </None>
+    <None Include="Impostor.vert">
+      <Filter>Shaders</Filter>
+    </None>
+    <None Include="PreviewImage.frag">
+      <Filter>Shaders</Filter>
+    </None>
+    <None Include="PreviewImage.vert">
+      <Filter>Shaders</Filter>
+    </None>
+    <None Include="shader.frag">
+      <Filter>Shaders</Filter>
+    </None>
+    <None Include="shader.vert">
+      <Filter>Shaders</Filter>
+    </None>
+    <None Include="WhiteVertex.frag">
+      <Filter>Shaders</Filter>
+    </None>
+    <None Include="WhiteVertex.vert">
+      <Filter>Shaders</Filter>
+    </None>
   </ItemGroup>
 </Project>
