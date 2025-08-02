@@ -203,6 +203,18 @@ const uint16_t quad_indices[] =
 	0, 1, 2, // second triangle
 };
 
+const uint16_t impostor_indices[] = {
+    0, 1, 2,
+    3, 0, 2,
+    4, 2, 1,
+    5, 3, 2,
+    4, 6, 2,
+    7, 5, 2,
+    6, 8, 2,
+    8, 7, 2
+};
+
+
 
 //UniformData uniformBufferData_camera[MAX_FRAMES];
 UniformData uniformBufferData_frameData[MAX_FRAMES];
@@ -4429,12 +4441,36 @@ VkResult createVertexBuffer_uvQuad(void)
     // local variables
     VkResult vkResult = VK_SUCCESS;
 
-    // 3 vertices, each with 3D position and RGB color
-    const VertexData_PositionTexCoord vertices[] = {
-        {{ 1.0f, 1.0f, 0.0f}, {1.0f, 1.0f}},  // TR
-		{{ -1.0f,  1.0f, 0.0f}, {0.0f,1.0f}},  // TL
-        {{ -1.0f,  -1.0f, 0.0f}, {0.0f,0.0f}}, // BL
-		{{ 1.0f,  -1.0f, 0.0f}, {1.0f,0.0f}},  // BR
+  //  // 3 vertices, each with 3D position and RGB color
+  //  const VertexData_PositionTexCoord verticesUv[] = {
+  //      {{ 1.0f, 1.0f, 0.0f}, {1.0f, 1.0f}},  // TR
+		//{{ -1.0f,  1.0f, 0.0f}, {0.0f,1.0f}},  // TL
+  //      {{ -1.0f,  -1.0f, 0.0f}, {0.0f,0.0f}}, // BL
+		//{{ 1.0f,  -1.0f, 0.0f}, {1.0f,0.0f}},  // BR
+  //  };
+
+    //const VertexData_PositionTexCoord Vertices_Uv[] = {
+    //{{  0.244862f,  8.643809f, -0.592991f }, { 0.002604f, 0.999479f }},
+    //{{ -0.264767f,  8.643809f, -0.083362f }, { 0.000521f, 0.997396f }},
+    //{{  0.627084f,  8.643809f,  0.298860f }, { 0.004166f, 0.995834f }},
+    //{{  1.009306f,  8.643809f, -0.592991f }, { 0.005726f, 0.999479f }},
+    //{{ -0.264767f,  8.643809f,  0.935896f }, { 0.000521f, 0.993233f }},
+    //{{  1.518936f,  8.643809f, -0.083362f }, { 0.007812f, 0.997396f }},
+    //{{  0.117455f,  8.643809f,  1.318118f }, { 0.002083f, 0.991669f }},
+    //{{  1.518936f,  8.643809f,  0.935896f }, { 0.007812f, 0.993233f }},
+    //{{  1.136714f,  8.643809f,  1.318118f }, { 0.006248f, 0.991669f }},
+    //};
+
+        const VertexData_PositionTexCoord verticesUv[] = {
+    {{  0.244862f,  8.643809f, -0.592991f }, { 0.002604f, 0.000521f }},
+    {{ -0.264767f,  8.643809f, -0.083362f }, { 0.000521f, 0.002604f }},
+    {{  0.627084f,  8.643809f,  0.298860f }, { 0.004166f, 0.004166f }},
+    {{  1.009306f,  8.643809f, -0.592991f }, { 0.005726f, 0.000521f }},
+    {{ -0.264767f,  8.643809f,  0.935896f }, { 0.000521f, 0.006767f }},
+    {{  1.518936f,  8.643809f, -0.083362f }, { 0.007812f, 0.002604f }},
+    {{  0.117455f,  8.643809f,  1.318118f }, { 0.002083f, 0.008331f }},
+    {{  1.518936f,  8.643809f,  0.935896f }, { 0.007812f, 0.006767f }},
+    {{  1.136714f,  8.643809f,  1.318118f }, { 0.006248f, 0.008331f }},
     };
 
 
@@ -4448,7 +4484,7 @@ VkResult createVertexBuffer_uvQuad(void)
     vkBufferCreateInfo_stagingBuffer.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
     vkBufferCreateInfo_stagingBuffer.pNext = NULL;
     vkBufferCreateInfo_stagingBuffer.flags = 0;
-    vkBufferCreateInfo_stagingBuffer.size = sizeof(vertices);
+    vkBufferCreateInfo_stagingBuffer.size = sizeof(verticesUv);
     vkBufferCreateInfo_stagingBuffer.usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT; // staging buffer is used for transfering data to device local buffer
     vkBufferCreateInfo_stagingBuffer.sharingMode = VK_SHARING_MODE_EXCLUSIVE; // not sharing with other queues
 
@@ -4519,7 +4555,7 @@ VkResult createVertexBuffer_uvQuad(void)
 
 
     //-------actual memory mapped io
-    memcpy(data, vertices, sizeof(vertices));
+    memcpy(data, verticesUv, sizeof(verticesUv));
     //-------unmap memory
     vkUnmapMemory(vkDevice, vertexData_stagingBffer.vkDeviceMemory);
 
@@ -4532,7 +4568,7 @@ VkResult createVertexBuffer_uvQuad(void)
     vkBufferCreateInfo_deviceBuffer.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
     vkBufferCreateInfo_deviceBuffer.pNext = NULL;
     vkBufferCreateInfo_deviceBuffer.flags = 0;
-    vkBufferCreateInfo_deviceBuffer.size = sizeof(vertices);
+    vkBufferCreateInfo_deviceBuffer.size = sizeof(verticesUv);
     vkBufferCreateInfo_deviceBuffer.usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT; // device buffer is used for vertex buffer and transfer destination
     vkBufferCreateInfo_deviceBuffer.sharingMode = VK_SHARING_MODE_EXCLUSIVE; // not sharing with other queues
 
@@ -4636,7 +4672,7 @@ VkResult createVertexBuffer_uvQuad(void)
     memset((void*)&vkBufferCopy, 0, sizeof(VkBufferCopy));
     vkBufferCopy.srcOffset = 0; // offset in the source buffer
     vkBufferCopy.dstOffset = 0; // offset in the destination buffer
-    vkBufferCopy.size = sizeof(vertices); // size of the data to copy
+    vkBufferCopy.size = sizeof(verticesUv); // size of the data to copy
     vkCmdCopyBuffer(vkCommandBuffer_Copy, vertexData_stagingBffer.vkBuffer, vertexData_uvQuad.vkBuffer, 1, &vkBufferCopy);
 
     // End command buffer recording
@@ -4718,7 +4754,7 @@ VkResult createVertexBuffer_uvQuad(void)
     vkBufferCreateInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
     vkBufferCreateInfo.pNext = NULL;
     vkBufferCreateInfo.flags = 0;
-    vkBufferCreateInfo.size = sizeof(quad_indices);
+    vkBufferCreateInfo.size = sizeof(impostor_indices);
     vkBufferCreateInfo.usage = VK_BUFFER_USAGE_INDEX_BUFFER_BIT;
 
     vkResult = vkCreateBuffer(vkDevice, &vkBufferCreateInfo, NULL, &vertexData_uvQuad_index.vkBuffer);
@@ -4788,7 +4824,7 @@ VkResult createVertexBuffer_uvQuad(void)
 
 
     //-------actual memory mapped io
-    memcpy(dataIndex, quad_indices, sizeof(quad_indices));
+    memcpy(dataIndex, impostor_indices, sizeof(impostor_indices));
 
     //-------unmap memory
     vkUnmapMemory(vkDevice, vertexData_uvQuad_index.vkDeviceMemory);
@@ -7292,8 +7328,7 @@ void RenderUVQuad(uint32_t curIndex)
     VkDeviceSize offset = 0;
     vkCmdBindVertexBuffers(vkCommandBuffer_Array[curIndex], 0, 1, &vertexData_uvQuad.vkBuffer, &offset);
     vkCmdBindIndexBuffer(vkCommandBuffer_Array[curIndex], vertexData_uvQuad_index.vkBuffer, 0, VK_INDEX_TYPE_UINT16);
-    vkCmdDrawIndexed(vkCommandBuffer_Array[curIndex], (uint32_t)(sizeof(quad_indices) / sizeof(quad_indices[0])), 1, 0, 0, 0);
-
+    vkCmdDrawIndexed(vkCommandBuffer_Array[curIndex], (uint32_t)(sizeof(impostor_indices) / sizeof(impostor_indices[0])), 1, 0, 0, 0);
 
 }
 

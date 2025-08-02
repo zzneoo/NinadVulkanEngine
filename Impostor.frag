@@ -48,7 +48,8 @@ void main(void)
 	FragColor = color00 * v3Weights.x + color1001 * v3Weights.y + color11 * v3Weights.z;
 
     FragColor.rgb *= 6.0;
+    //FragColor.rgb = vec3(1.0);
 
-    if (FragColor.a < 0.45)
-        discard;
+    //if (FragColor.a < 0.5)
+      //  discard;
 }

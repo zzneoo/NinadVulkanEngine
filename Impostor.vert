@@ -95,8 +95,11 @@ vec3 octDecodeYUp(vec2 uv)
 
 void main(void)
 {
-	vec4 worldPosition = pc.model * vec4(0.0,0.0,0.0,1.0);
-	vec3 viewVector = normalize(global.cameraPos - worldPosition.xyz);
+	vec4 worldSpaceCenterPosition = pc.model * vec4(0.0,0.0,0.0,1.0);
+	vec4 worldSpacePosition = pc.model * vec4(vPosition,1.0);
+	vec3 worldSpaceCenterVector = mat3(pc.model) * vec3(0.0, 0.0, 0.0);
+
+	vec3 viewVector = normalize(global.cameraPos - worldSpaceCenterPosition.xyz);
 	
 	//---------------------------Weights-------------------------------
 	 const int viewsU = 12;
@@ -151,40 +154,49 @@ void main(void)
 	//float padding = 1.0 / textureSize(tSampler, 0).x;
 	float padding = 1.0 / 2048.0;
 
-	v2UV00 =  getAtlasUV(ClampV2(tileId00,iAtlasDims), vTexCoord, tileSize,padding);
-	v2UV1001 = getAtlasUV(ClampV2(choiceTile,iAtlasDims), vTexCoord, tileSize,padding);
-	v2UV11 = getAtlasUV(ClampV2(tileId11,iAtlasDims), vTexCoord, tileSize,padding);
+	vec2 scaledTexCoord = vTexCoord.xy * atlasDims * 10.0; // scale to atlas size, adjust as needed
+
+	v2UV00 =  getAtlasUV(ClampV2(tileId00,iAtlasDims), scaledTexCoord, tileSize,padding);
+	v2UV1001 = getAtlasUV(ClampV2(choiceTile,iAtlasDims), scaledTexCoord, tileSize,padding);
+	v2UV11 = getAtlasUV(ClampV2(tileId11,iAtlasDims), scaledTexCoord, tileSize,padding);
 	
 	//--------------------------------position-----------------------------
-    // 4) Shift to *cell center* (0.5 texel), remap to signed domain and decode:
-    vec2 centerUV = (vec2(baseTile) + 0.5) / (atlasDims);  // → [0…1] center of tile
-    vec2 signedUV = centerUV * 2.0 - 1.0;                // → [−1…1]
-    vec3 lockedView = octDecodeYUp(signedUV);           // your “baked” view dir
-	
-	// now rebuild right/up from lockedView:
-	vec3 worldUp = vec3(0.0,1.0,0.0);
-	vec3 right = normalize(cross(worldUp, lockedView));
-	vec3 up    = normalize(cross(lockedView, right));
-	 right = vec3(global.view[0][0],global.view[1][0],global.view[2][0]); // use camera right vector
-	 up = vec3(global.view[0][1],global.view[1][1],global.view[2][1]); // use camera up vector
-	
-	float halfWidth  = 1.0;  // adjust to your sprite’s half‑size
-    float halfHeight = 1.0;
-	
-	vec3 worldCenter = worldPosition.xyz;
-	
-    vec3 worldPos = worldCenter
-                  + right * (vPosition.x * halfWidth)
-                  + up    * (vPosition.y * halfHeight);
-	
-	//mat4 m4ModelView= global.view * pc.model;
-	
-	// zero out camera rotation
-   // m4ModelView[0].xyz = vec3(1,0,0);
-    //m4ModelView[1].xyz = vec3(0,1,0);
-    //m4ModelView[2].xyz = vec3(0,0,1);
 
-	gl_Position = global.projection * global.view * vec4(worldPos,1.0);
-	//gl_Position = global.projection * m4ModelView * vec4(vPosition,1.0);
+		// now rebuild right/up from lockedView:
+	 vec3 worldUp = vec3(0.0,1.0,0.0);
+	 //vec3 right = normalize(cross(worldUp, viewVector));
+	 //vec3 up    = normalize(cross(viewVector, right));
+	 vec3 right = vec3(global.view[0][0],global.view[1][0],global.view[2][0]); // use camera right vector
+	 vec3 up = vec3(global.view[0][1],global.view[1][1],global.view[2][1]); // use camera up vector
+	 //vec3 forward = vec3(global.view[0][2],global.view[1][2],global.view[2][2]); // use camera forward vector
+
+	 mat3 TBN = mat3(right, up, viewVector);
+	 float objectScale = 0.2; //1.0 scale factor for the object, from modelMatrix
+	 float centimeterToMeter = 0.01; // conversion factor from centimeters to meters
+
+	 	//ImpostorInfo
+	vec3 ImpostorInfo_worldSpaceCenterPosition = worldSpaceCenterPosition.xyz; // world space center position
+	vec3 ImpostorInfo_PivotOffsetVector = TBN * (vec3(62.708435, 29.885986,864.380981) * centimeterToMeter *objectScale); // pivot offset in meters
+	vec3 ImpostorInfo_position = ImpostorInfo_worldSpaceCenterPosition + ImpostorInfo_PivotOffsetVector; // add pivot offset to the center position
+	float ImpostorInfo_scaledSize = 2038.516968 * objectScale * centimeterToMeter; // default size of the mesh in centimeters
+
+	//Sprite_PositionBased
+	vec3 Sprite_PositionBased_viewVector = normalize(global.cameraPos - ImpostorInfo_position);
+	vec3 Sprite_PositionBased_right = normalize(cross(worldUp, Sprite_PositionBased_viewVector));
+	vec3 Sprite_PositionBased_up = -normalize(cross(Sprite_PositionBased_viewVector, Sprite_PositionBased_right));
+	vec3 Sprite_PositionBased_WorldPositionOffset = ImpostorInfo_position 
+				  + Sprite_PositionBased_right * ((scaledTexCoord.x - 0.5) * ImpostorInfo_scaledSize)
+				  + Sprite_PositionBased_up    * ((scaledTexCoord.y - 0.5) * ImpostorInfo_scaledSize)
+				  - worldSpacePosition.xyz; // subtract the model position to get the correct world position
+
+	//--------------------------------------------------------------------------
+	//Frame View Transform
+
+	vec3 A = Sprite_PositionBased_WorldPositionOffset + worldSpacePosition.xyz;
+	vec3 B = normalize(global.cameraPos - A);
+	vec3 C = B * ImpostorInfo_scaledSize * 0.5; // scale the direction vector by the size of the impostor
+	vec3 FinalWorldPositionOffset = C + Sprite_PositionBased_WorldPositionOffset; // add the scaled direction vector to the object position
+
+	gl_Position = global.projection * global.view * vec4(worldSpacePosition.xyz + FinalWorldPositionOffset,1.0);
 	
 }
