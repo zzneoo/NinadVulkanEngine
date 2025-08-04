@@ -8,7 +8,7 @@ layout(location = 1) in vec2 v2UV00;
 layout(location = 2) in vec2 v2UV1001;
 layout(location = 3) in vec2 v2UV11;
 
-
+layout(location = 4) in vec2 out_Impostor_MS_TiledUV;
 
 layout(push_constant) uniform PushConstants {
     mat4 model;

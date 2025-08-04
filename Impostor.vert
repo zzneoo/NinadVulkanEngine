@@ -27,10 +27,11 @@ layout(location = 1) out vec2 v2UV00;
 layout(location = 2) out vec2 v2UV1001;
 layout(location = 3) out vec2 v2UV11;
 
+layout(location = 4) out vec2 out_Impostor_MS_TiledUV;
+
 vec2 semiOct(vec3 dir)
 {
     vec2 N = vec2(-dir.x,dir.z);
-	dir.y = max(dir.y,0.001);//new line
     N.xy /= dot( vec3(1.0), abs(dir) );
 	return vec2( N.x + N.y, N.x - N.y ) * 0.5 +0.5;
 }
@@ -92,6 +93,11 @@ vec3 octDecodeYUp(vec2 uv)
     return normalize(vec3(-oct.x, z, oct.y));
 }
 
+vec2 VirtualPlaneCoordinates_Impostor(vec3 planeNormalAxis,vec3  planeXAxis,vec3 planeYAxis, vec3 rayDirectionLocal, vec3 rayOriginLocal)
+{
+
+	return vec2(0.0, 0.0); // Placeholder for the function implementation
+}
 
 void main(void)
 {
@@ -198,5 +204,22 @@ void main(void)
 	vec3 FinalWorldPositionOffset = C + Sprite_PositionBased_WorldPositionOffset; // add the scaled direction vector to the object position
 
 	gl_Position = global.projection * global.view * vec4(worldSpacePosition.xyz + FinalWorldPositionOffset,1.0);
-	
+
+	//--------------------------------------------------------------------------
+	//For fragment shader
+	vec3 Impostor_MS_viewVector = normalize(global.cameraPos - ImpostorInfo_position);
+
+	//worldSpace to tangent space
+	Impostor_MS_viewVector = normalize(transpose(TBN) * Impostor_MS_viewVector);
+	Impostor_MS_viewVector.y =  max(Impostor_MS_viewVector.y,0.001);//new line
+	vec2 Impostor_MS_UV = clamp(semiOct(normalize(Impostor_MS_viewVector)),0.0,1.0);
+	out_Impostor_MS_TiledUV = Impostor_MS_UV * (atlasDims - 1.0) ; // scale to atlas size)
+
+	vec2 Impostor_MS_Floored = floor(out_Impostor_MS_TiledUV)/ (atlasDims - 1.0); // scale to atlas size)
+	Impostor_MS_Floored = Impostor_MS_Floored * 2.0 - 1.0; // remap to [-1,1] range
+
+	vec3 ImpostorFrameTransform_Setup = octDecodeYUp(Impostor_MS_Floored);
+
+	vec3 ImpostorFrameTransform_Right = normalize(cross(worldUp, ImpostorFrameTransform_Setup));
+	vec3 ImpostorFrameTransform_Up = -normalize(cross(ImpostorFrameTransform_Setup, ImpostorFrameTransform_Right));
 }

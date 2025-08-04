@@ -170,6 +170,12 @@ typedef struct
 
 typedef struct
 {
+	VulkanData vertexData;
+	VulkanData indexData;
+} VulkanComboData;
+
+typedef struct
+{
     VkImage        vkImage;
     VkDeviceMemory vkDeviceMemory;
     VkImageView    vkImageView;
@@ -187,8 +193,11 @@ SwapChainResourceData gSwapChainResourceData;
 
 // position
 VulkanData vertexData_coloredTriangle;
-VulkanData vertexData_uvQuad;
-VulkanData vertexData_uvQuad_index;
+VulkanData vertexData_Axis;
+//VulkanData vertexData_Impostor;
+//VulkanData indexData_Impostor;
+
+VulkanComboData  ImpostorBufferData;
 
 
 
@@ -203,16 +212,7 @@ const uint16_t quad_indices[] =
 	0, 1, 2, // second triangle
 };
 
-const uint16_t impostor_indices[] = {
-    0, 1, 2,
-    3, 0, 2,
-    4, 2, 1,
-    5, 3, 2,
-    4, 6, 2,
-    7, 5, 2,
-    6, 8, 2,
-    8, 7, 2
-};
+
 
 
 
@@ -785,8 +785,15 @@ VkResult initialize(void)
     VkResult createSwapchainResources(void);
     VkResult createCommandPool(void);
     VkResult createCommandBuffers(void);
-	VkResult createVertexBuffer_coloredTriangle(void);
-	VkResult createVertexBuffer_uvQuad(void);
+	//VkResult createVertexBuffer_coloredTriangle(void);
+    VkResult ZzCreateVertexBuffer(const float * vertices, VkDeviceSize vertexBufferSize, VulkanData * vulkanData);
+	VkResult ZzCreateIndex16Buffer(const uint16_t * indices, VkDeviceSize indexBufferSize, VulkanData * vulkanData);
+    VkResult ZzCreateVertexAndIndexBuffer(
+        const float * vertices, VkDeviceSize vertexBufferSize,
+        const uint16_t * indices, VkDeviceSize indexBufferSize,
+        VulkanComboData * vulkanComboData
+	);
+	//VkResult createVertexBuffer_uvQuad(void);
     VkResult createUniformBuffer(void);
     VkResult createShaders(void);
     VkResult createDescriptorSetLayout_FrameData(void);
@@ -930,21 +937,86 @@ VkResult initialize(void)
     }
 
 	//create vertex buffer for colored triangle
-    vkResult = createVertexBuffer_coloredTriangle();
+    // 3 vertices, each with 3D position and RGB color
+    const VertexData_PositionColor vertices[] = {
+        {{ 0.0f, 1.0f, 0.0f}, {1.0f, 0.0f, 0.0f}},  // bottom (z=0), red
+        {{ -1.0f,  -1.0f, 0.0f}, {0.0f, 1.0f, 0.0f}},  // right, green
+        {{ 1.0f,  -1.0f, 0.0f}, {0.0f, 0.0f, 1.0f}},  // left, blue
+    };
+
+	vkResult = ZzCreateVertexBuffer((float*)vertices, sizeof(vertices), &vertexData_coloredTriangle);
     if (vkResult != VK_SUCCESS)
     {
-        fprintf(gpFILE, "initialize() : createVertexBuffer() failed (%d).\n", vkResult);
+        fprintf(gpFILE, "initialize() : ZzCreateVertexBuffer() failed (%d).\n", vkResult);
         return(vkResult);
     }
 
-	//create vertex buffer for uv quad
-	vkResult = createVertexBuffer_uvQuad();
-	if (vkResult != VK_SUCCESS)
-	{
-		fprintf(gpFILE, "initialize() : createVertexBuffer_uvQuad() failed (%d).\n", vkResult);
-		return(vkResult);
+    //--------------------------------------------------------------------------------------------------
+
+	//create vertex buffer for axis
+	float lineWidth = 0.1f;
+
+    const VertexData_PositionColor AxisVerticesColor[] = {
+        {{ 0.0f, lineWidth, lineWidth}, {1.0f, 0.0f, 0.0f}},
+        {{ 0.0f,  -lineWidth, -lineWidth}, {1.0f, 0.0f, 0.0f}},  //x-axis
+        {{ 1000.0f,  0.0f, 0.0f}, {1.0f, 0.0f, 0.0f}},  
+
+        {{ 0.0f, 1000.0f, 0.0f}, {0.0f, 1.0f, 0.0f}}, 
+        {{ -lineWidth,  0.0f, lineWidth}, {0.0f, 1.0f, 0.0f}},  //y-axis
+        {{ lineWidth,  0.0f, -lineWidth}, {0.0f, 1.0f, 0.0f}},
+
+        {{ lineWidth, lineWidth, 0.0f}, {0.0f, 0.0f, 1.0f}},
+		{{ -lineWidth,  -lineWidth, 0.0f}, {0.0f, 0.0f, 1.0f}},  //z-axis
+        {{ 0.0f,  0.0f, 1000.0f}, {0.0f, 0.0f, 1.0f}},  
+	};
+
+	vkResult = ZzCreateVertexBuffer((float*)AxisVerticesColor, sizeof(AxisVerticesColor), &vertexData_Axis);
+    if (vkResult != VK_SUCCESS)
+    {
+        fprintf(gpFILE, "initialize() : ZzCreateVertexBuffer() for Axis failed (%d).\n", vkResult);
+        return(vkResult);
 	}
-	
+
+    //--------------------------------------------------------------------------------------------------
+
+    //create vertex buffer for Impostor
+    const VertexData_PositionTexCoord ImpostorPosUV[] = {
+{{  0.244862f,  8.643809f, -0.592991f }, { 0.002604f, 0.000521f }},
+{{ -0.264767f,  8.643809f, -0.083362f }, { 0.000521f, 0.002604f }},
+{{  0.627084f,  8.643809f,  0.298860f }, { 0.004166f, 0.004166f }},
+{{  1.009306f,  8.643809f, -0.592991f }, { 0.005726f, 0.000521f }},
+{{ -0.264767f,  8.643809f,  0.935896f }, { 0.000521f, 0.006767f }},
+{{  1.518936f,  8.643809f, -0.083362f }, { 0.007812f, 0.002604f }},
+{{  0.117455f,  8.643809f,  1.318118f }, { 0.002083f, 0.008331f }},
+{{  1.518936f,  8.643809f,  0.935896f }, { 0.007812f, 0.006767f }},
+{{  1.136714f,  8.643809f,  1.318118f }, { 0.006248f, 0.008331f }},
+    };
+
+	//create index buffer for Impostor
+    const uint16_t impostor_indices[] = {
+    0, 1, 2,
+    3, 0, 2,
+    4, 2, 1,
+    5, 3, 2,
+    4, 6, 2,
+    7, 5, 2,
+    6, 8, 2,
+    8, 7, 2
+    };
+
+	//vulkanComboData for Impostor
+    vkResult = ZzCreateVertexAndIndexBuffer(
+        (float*)ImpostorPosUV, sizeof(ImpostorPosUV),
+        impostor_indices, sizeof(impostor_indices),
+        &ImpostorBufferData
+	);
+    if (vkResult != VK_SUCCESS)
+    {
+        fprintf(gpFILE, "initialize() : ZzCreateVetexAndIndexBuffer() failed (%d).\n", vkResult);
+        return(vkResult);
+	}
+
+    //--------------------------------------------------------------------------------------------------
 
     //create uniform buffer
     vkResult = createUniformBuffer();
@@ -1646,6 +1718,9 @@ void uninitialize(void)
 	void destroySwapchainResources(void);
 	void destroySamplers(void);
 	void destroyTextureData(ImageData* imageData);
+    void ZzDestroyVertexBuffer(VulkanData* vulkanData);
+    void ZzDestroyIndexBuffer(VulkanData* vulkanData);
+	void ZzDestroyVertexAndIndexBuffer(VulkanComboData * vulkanComboData);
 
     // code
     // if application is exitting in fullscreen
@@ -1842,46 +1917,15 @@ void uninitialize(void)
 		vkShaderModule_impostor_fs = VK_NULL_HANDLE;
 	}
         
-	
 
-    //indexData    
-    if (vertexData_uvQuad_index.vkDeviceMemory)
-    {
-        vkFreeMemory(vkDevice, vertexData_uvQuad_index.vkDeviceMemory, NULL);
-        vertexData_uvQuad_index.vkDeviceMemory = VK_NULL_HANDLE;
-    }
-    if (vertexData_uvQuad_index.vkBuffer)
-    {
-        vkDestroyBuffer(vkDevice, vertexData_uvQuad_index.vkBuffer, NULL);
-        vertexData_uvQuad_index.vkBuffer = VK_NULL_HANDLE;
-    }
+    //Destroy vertex data for colored triangle
+	ZzDestroyVertexBuffer(&vertexData_coloredTriangle);
+    //vertexData_Axis 
+	ZzDestroyVertexBuffer(&vertexData_Axis);
 
-	//vertexData_coloredTriangle
-	if (vertexData_coloredTriangle.vkDeviceMemory)
-	{
-		vkFreeMemory(vkDevice, vertexData_coloredTriangle.vkDeviceMemory, NULL);
-        vertexData_coloredTriangle.vkDeviceMemory = VK_NULL_HANDLE;
+	//Impostor CombinedData
+	ZzDestroyVertexAndIndexBuffer(&ImpostorBufferData);
 
-	}
-
-	if (vertexData_coloredTriangle.vkBuffer)
-	{
-		vkDestroyBuffer(vkDevice, vertexData_coloredTriangle.vkBuffer, NULL);
-        vertexData_coloredTriangle.vkBuffer = VK_NULL_HANDLE;
-	}
-
-
-	//vertexData_uvQuad
-	if (vertexData_uvQuad.vkDeviceMemory)
-	{
-		vkFreeMemory(vkDevice, vertexData_uvQuad.vkDeviceMemory, NULL);
-		vertexData_uvQuad.vkDeviceMemory = VK_NULL_HANDLE;
-	}
-	if (vertexData_uvQuad.vkBuffer)
-	{
-		vkDestroyBuffer(vkDevice, vertexData_uvQuad.vkBuffer, NULL);
-		vertexData_uvQuad.vkBuffer = VK_NULL_HANDLE;
-	}
 
     //uniform buffer
 
@@ -4139,6 +4183,447 @@ VkResult createVertexBuffer_(void)
 }
 */
 
+VkResult ZzCreateVertexBuffer(const float *vertices, VkDeviceSize vertexBufferSize,VulkanData *vulkanData)
+{
+    // local variables
+    VkResult vkResult = VK_SUCCESS;
+
+    //// 3 vertices, each with 3D position and RGB color
+    //const VertexData_PositionColor vertices[] = {
+    //    {{ 0.0f, 1.0f, 0.0f}, {1.0f, 0.0f, 0.0f}},  // bottom (z=0), red
+    //    {{ -1.0f,  -1.0f, 0.0f}, {0.0f, 1.0f, 0.0f}},  // right, green
+    //    {{ 1.0f,  -1.0f, 0.0f}, {0.0f, 0.0f, 1.0f}},  // left, blue
+    //};
+
+
+    //staging buffer
+    VulkanData vertexData_stagingBffer_position;
+    memset((void*)&vertexData_stagingBffer_position, 0, sizeof(VulkanData));
+
+    VkBufferCreateInfo vkBufferCreateInfo_stagingBuffer;
+    memset((void*)&vkBufferCreateInfo_stagingBuffer, 0, sizeof(VkBufferCreateInfo));
+
+    vkBufferCreateInfo_stagingBuffer.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
+    vkBufferCreateInfo_stagingBuffer.pNext = NULL;
+    vkBufferCreateInfo_stagingBuffer.flags = 0;
+    vkBufferCreateInfo_stagingBuffer.size = vertexBufferSize;
+    vkBufferCreateInfo_stagingBuffer.usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT; // staging buffer is used for transfering data to device local buffer
+    vkBufferCreateInfo_stagingBuffer.sharingMode = VK_SHARING_MODE_EXCLUSIVE; // not sharing with other queues
+
+    // Call vkCreateBuffer() to create the staging buffer
+    vkResult = vkCreateBuffer(vkDevice, &vkBufferCreateInfo_stagingBuffer, NULL, &vertexData_stagingBffer_position.vkBuffer);
+    if (vkResult != VK_SUCCESS)
+    {
+        fprintf(gpFILE, "createVertexBuffer() -> vkCreateBuffer():  failed.\n");
+        return(vkResult);
+    }
+
+    //------------
+    // Get memory requirements for the staging buffer
+    VkMemoryRequirements vkMemoryRequirements_stagingBuffer;
+    memset((void*)&vkMemoryRequirements_stagingBuffer, 0, sizeof(vkMemoryRequirements_stagingBuffer));
+
+    vkGetBufferMemoryRequirements(vkDevice, vertexData_stagingBffer_position.vkBuffer, &vkMemoryRequirements_stagingBuffer);
+    //------------
+    // Allocate memory for the staging buffer
+    VkMemoryAllocateInfo vkMemoryAllocateInfo_stagingBuffer;
+    memset((void*)&vkMemoryAllocateInfo_stagingBuffer, 0, sizeof(VkMemoryAllocateInfo));
+    vkMemoryAllocateInfo_stagingBuffer.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
+    vkMemoryAllocateInfo_stagingBuffer.pNext = NULL;
+    vkMemoryAllocateInfo_stagingBuffer.allocationSize = vkMemoryRequirements_stagingBuffer.size;
+    vkMemoryAllocateInfo_stagingBuffer.memoryTypeIndex = 0;
+    //-------------
+    // Find a suitable memory type for the staging buffer
+    for (uint32_t i = 0; i < vkPhysicalDeviceMemoryProperties.memoryTypeCount; i++)
+    {
+        if ((vkMemoryRequirements_stagingBuffer.memoryTypeBits & 1) == 1)
+        {
+            if (vkPhysicalDeviceMemoryProperties.memoryTypes[i].propertyFlags & (VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT)) // host visible and coherent memory(no need to manage vulkan cache  for flushing or mapping)
+            {
+                vkMemoryAllocateInfo_stagingBuffer.memoryTypeIndex = i;
+                break;
+            }
+        }
+
+        vkMemoryRequirements_stagingBuffer.memoryTypeBits >>= 1;
+    }
+
+    //--------------  
+    // Allocate memory for the staging buffer
+    vkResult = vkAllocateMemory(vkDevice, &vkMemoryAllocateInfo_stagingBuffer, NULL, &vertexData_stagingBffer_position.vkDeviceMemory);
+    if (vkResult != VK_SUCCESS)
+    {
+        fprintf(gpFILE, "createVertexBuffer() -> vkAllocateMemory() :  failed.\n");
+        return(vkResult);
+    }
+
+    //---------------
+    // Bind the staging buffer memory to the staging buffer
+    vkResult = vkBindBufferMemory(vkDevice, vertexData_stagingBffer_position.vkBuffer, vertexData_stagingBffer_position.vkDeviceMemory, 0);
+    if (vkResult != VK_SUCCESS)
+    {
+        fprintf(gpFILE, "createVertexBuffer() -> vkBindBufferMemory() :  failed.\n");
+        return(vkResult);
+    }
+
+    //----------------
+    void* data = NULL;
+    vkResult = vkMapMemory(vkDevice, vertexData_stagingBffer_position.vkDeviceMemory, 0, vkMemoryAllocateInfo_stagingBuffer.allocationSize, 0, &data);
+    if (vkResult != VK_SUCCESS)
+    {
+        fprintf(gpFILE, "createVertexBuffer() -> vkMapMemory() :  failed.\n");
+        return(vkResult);
+    }
+
+
+    //-------actual memory mapped io
+    memcpy(data, vertices, vertexBufferSize);
+    //-------unmap memory
+    vkUnmapMemory(vkDevice, vertexData_stagingBffer_position.vkDeviceMemory);
+
+    //-----------------------------------------------------------------------------------
+
+    //device buffer
+    memset((void*)vulkanData, 0, sizeof(VulkanData));
+    VkBufferCreateInfo vkBufferCreateInfo_deviceBuffer;
+    memset((void*)&vkBufferCreateInfo_deviceBuffer, 0, sizeof(VkBufferCreateInfo));
+    vkBufferCreateInfo_deviceBuffer.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
+    vkBufferCreateInfo_deviceBuffer.pNext = NULL;
+    vkBufferCreateInfo_deviceBuffer.flags = 0;
+    vkBufferCreateInfo_deviceBuffer.size = vertexBufferSize;
+    vkBufferCreateInfo_deviceBuffer.usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT; // device buffer is used for vertex buffer and transfer destination
+    vkBufferCreateInfo_deviceBuffer.sharingMode = VK_SHARING_MODE_EXCLUSIVE; // not sharing with other queues
+
+    vkResult = vkCreateBuffer(vkDevice, &vkBufferCreateInfo_deviceBuffer, NULL, &vulkanData->vkBuffer);
+    if (vkResult != VK_SUCCESS)
+    {
+        fprintf(gpFILE, "createVertexBuffer() -> vkCreateBuffer():  failed.\n");
+        return(vkResult);
+    }
+
+
+    //------------
+    // Get memory requirements for the device local buffer
+    VkMemoryRequirements vkMemoryRequirements_deviceBuffer;
+    memset((void*)&vkMemoryRequirements_deviceBuffer, 0, sizeof(vkMemoryRequirements_deviceBuffer));
+    vkGetBufferMemoryRequirements(vkDevice, vulkanData->vkBuffer, &vkMemoryRequirements_deviceBuffer);
+    //------------
+    // Allocate memory for the device local buffer
+    VkMemoryAllocateInfo vkMemoryAllocateInfo_deviceBuffer;
+    memset((void*)&vkMemoryAllocateInfo_deviceBuffer, 0, sizeof(VkMemoryAllocateInfo));
+    vkMemoryAllocateInfo_deviceBuffer.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
+    vkMemoryAllocateInfo_deviceBuffer.pNext = NULL;
+    vkMemoryAllocateInfo_deviceBuffer.allocationSize = vkMemoryRequirements_deviceBuffer.size;
+    vkMemoryAllocateInfo_deviceBuffer.memoryTypeIndex = 0;
+    //-------------
+    // Find a suitable memory type for the device local buffer
+
+    for (uint32_t i = 0; i < vkPhysicalDeviceMemoryProperties.memoryTypeCount; i++)
+    {
+        if ((vkMemoryRequirements_deviceBuffer.memoryTypeBits & 1) == 1)
+        {
+            if (vkPhysicalDeviceMemoryProperties.memoryTypes[i].propertyFlags & VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT) // device local memory
+            {
+                vkMemoryAllocateInfo_deviceBuffer.memoryTypeIndex = i;
+                break;
+            }
+        }
+
+        vkMemoryRequirements_deviceBuffer.memoryTypeBits >>= 1;
+    }
+
+    //--------------
+    // Allocate memory for the device local buffer
+    vkResult = vkAllocateMemory(vkDevice, &vkMemoryAllocateInfo_deviceBuffer, NULL, &vulkanData->vkDeviceMemory);
+
+    if (vkResult != VK_SUCCESS)
+    {
+        fprintf(gpFILE, "createVertexBuffer() -> vkAllocateMemory() :  failed.\n");
+        return(vkResult);
+    }
+
+    //---------------
+    // Bind the device local buffer memory to the device local buffer
+    vkResult = vkBindBufferMemory(vkDevice, vulkanData->vkBuffer, vulkanData->vkDeviceMemory, 0);
+    if (vkResult != VK_SUCCESS)
+    {
+        fprintf(gpFILE, "createVertexBuffer() -> vkBindBufferMemory() :  failed.\n");
+        return(vkResult);
+    }
+
+
+    //----------------
+    //command buffer for copy
+    VkCommandBufferAllocateInfo vkCommandBufferAllocateInfo;
+    memset((void*)&vkCommandBufferAllocateInfo, 0, sizeof(VkCommandBufferAllocateInfo));
+    vkCommandBufferAllocateInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+    vkCommandBufferAllocateInfo.pNext = NULL;
+    vkCommandBufferAllocateInfo.commandPool = vkCommandPool;
+    vkCommandBufferAllocateInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+    vkCommandBufferAllocateInfo.commandBufferCount = 1;
+
+    VkCommandBuffer vkCommandBuffer_Copy = VK_NULL_HANDLE;
+    vkResult = vkAllocateCommandBuffers(vkDevice, &vkCommandBufferAllocateInfo, &vkCommandBuffer_Copy);
+    if (vkResult != VK_SUCCESS)
+    {
+        fprintf(gpFILE, "createVertexBuffer() -> vkAllocateCommandBuffers() :  failed.\n");
+        return(vkResult);
+    }
+
+
+    //----------------
+
+    // Begin command buffer recording
+    VkCommandBufferBeginInfo vkCommandBufferBeginInfo;
+    memset((void*)&vkCommandBufferBeginInfo, 0, sizeof(VkCommandBufferBeginInfo));
+    vkCommandBufferBeginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+    vkCommandBufferBeginInfo.pNext = NULL;
+    vkCommandBufferBeginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT; // one time submit means we will submit this command buffer only once
+    vkCommandBufferBeginInfo.pInheritanceInfo = NULL; // not using secondary command buffer inheritance
+    vkResult = vkBeginCommandBuffer(vkCommandBuffer_Copy, &vkCommandBufferBeginInfo);
+    if (vkResult != VK_SUCCESS)
+    {
+        fprintf(gpFILE, "createVertexBuffer() -> vkBeginCommandBuffer() :  failed.\n");
+        return(vkResult);
+    }
+
+
+    //----------------
+    // Record the command to copy data from staging buffer to device local buffer
+    VkBufferCopy vkBufferCopy;
+    memset((void*)&vkBufferCopy, 0, sizeof(VkBufferCopy));
+    vkBufferCopy.srcOffset = 0; // offset in the source buffer
+    vkBufferCopy.dstOffset = 0; // offset in the destination buffer
+    vkBufferCopy.size = vertexBufferSize; // size of the data to copy
+    vkCmdCopyBuffer(vkCommandBuffer_Copy, vertexData_stagingBffer_position.vkBuffer, vulkanData->vkBuffer, 1, &vkBufferCopy);
+
+    // End command buffer recording
+    vkResult = vkEndCommandBuffer(vkCommandBuffer_Copy);
+    if (vkResult != VK_SUCCESS)
+    {
+        fprintf(gpFILE, "createVertexBuffer() -> vkEndCommandBuffer() :  failed.\n");
+        return(vkResult);
+    }
+
+
+    //----------------
+    // Submit the command buffer to the queue
+    VkSubmitInfo vkSubmitInfo;
+    memset((void*)&vkSubmitInfo, 0, sizeof(VkSubmitInfo));
+    vkSubmitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+    vkSubmitInfo.pNext = NULL;
+    vkSubmitInfo.waitSemaphoreCount = 0; // no wait semaphores
+    vkSubmitInfo.pWaitSemaphores = NULL; // no wait semaphores
+    vkSubmitInfo.pWaitDstStageMask = NULL; // no wait stage mask
+    vkSubmitInfo.commandBufferCount = 1; // one command buffer
+    vkSubmitInfo.pCommandBuffers = &vkCommandBuffer_Copy; // pointer to the command buffer to submit
+    vkSubmitInfo.signalSemaphoreCount = 0; // no signal semaphores
+    vkSubmitInfo.pSignalSemaphores = NULL; // no signal semaphores
+
+
+    vkResult = vkQueueSubmit(vkQueue, 1, &vkSubmitInfo, VK_NULL_HANDLE);
+    if (vkResult != VK_SUCCESS)
+    {
+        fprintf(gpFILE, "createVertexBuffer() -> vkQueueSubmit() :  failed.\n");
+        return(vkResult);
+    }
+
+    // Wait for the queue to finish processing
+    vkResult = vkQueueWaitIdle(vkQueue);
+    if (vkResult != VK_SUCCESS)
+    {
+        fprintf(gpFILE, "createVertexBuffer() -> vkQueueWaitIdle() :  failed.\n");
+        return(vkResult);
+    }
+
+
+    //----------------
+    // Free the staging buffer
+    if (vertexData_stagingBffer_position.vkBuffer)
+    {
+        vkDestroyBuffer(vkDevice, vertexData_stagingBffer_position.vkBuffer, NULL);
+        vertexData_stagingBffer_position.vkBuffer = VK_NULL_HANDLE;
+    }
+
+
+    // Free the staging buffer memory
+    if (vertexData_stagingBffer_position.vkDeviceMemory)
+    {
+        vkFreeMemory(vkDevice, vertexData_stagingBffer_position.vkDeviceMemory, NULL);
+        vertexData_stagingBffer_position.vkDeviceMemory = VK_NULL_HANDLE;
+    }
+
+    //-----------------------------------------------------------------------------------
+    // Now, vertexData_position.vkBuffer contains the device local buffer with the triangle position data
+    // and vertexData_position.vkDeviceMemory contains the device local buffer memory.
+
+    if (vkCommandBuffer_Copy)
+    {
+        vkFreeCommandBuffers(vkDevice, vkCommandPool, 1, &vkCommandBuffer_Copy);
+        vkCommandBuffer_Copy = VK_NULL_HANDLE;
+    }
+
+    return vkResult;
+}
+
+VkResult ZzCreateIndex16Buffer(const uint16_t* indices, VkDeviceSize indexBufferSize, VulkanData* vulkanData)
+{
+    // local variables
+    VkResult vkResult = VK_SUCCESS;
+
+    //position index buffer
+//----------------------------------------------------------------------------------------------------
+    memset((void*)vulkanData, 0, sizeof(VulkanData));
+
+    VkBufferCreateInfo vkBufferCreateInfo;
+    memset((void*)&vkBufferCreateInfo, 0, sizeof(VkBufferCreateInfo));
+
+    vkBufferCreateInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
+    vkBufferCreateInfo.pNext = NULL;
+    vkBufferCreateInfo.flags = 0;
+    vkBufferCreateInfo.size = indexBufferSize;
+    vkBufferCreateInfo.usage = VK_BUFFER_USAGE_INDEX_BUFFER_BIT;
+
+    vkResult = vkCreateBuffer(vkDevice, &vkBufferCreateInfo, NULL, &vulkanData->vkBuffer);
+
+    if (vkResult != VK_SUCCESS)
+    {
+        fprintf(gpFILE, "createVertexBuffer() -> vkCreateBuffer() (index):  failed.\n");
+        return(vkResult);
+    }
+
+    //------------
+    VkMemoryRequirements vkMemoryRequirements;
+    memset((void*)&vkMemoryRequirements, 0, sizeof(vkMemoryRequirements));
+
+    vkGetBufferMemoryRequirements(vkDevice, vulkanData->vkBuffer, &vkMemoryRequirements);
+
+    //------------
+    VkMemoryAllocateInfo vkMemoryAllocateInfo;
+    memset((void*)&vkMemoryAllocateInfo, 0, sizeof(vkMemoryAllocateInfo));
+
+    vkMemoryAllocateInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
+    vkMemoryAllocateInfo.pNext = NULL;
+    vkMemoryAllocateInfo.allocationSize = vkMemoryRequirements.size;
+    vkMemoryAllocateInfo.memoryTypeIndex = 0;
+
+    //-------------
+    for (uint32_t i = 0; i < vkPhysicalDeviceMemoryProperties.memoryTypeCount; i++)
+    {
+        if ((vkMemoryRequirements.memoryTypeBits & 1) == 1)
+        {
+            if (vkPhysicalDeviceMemoryProperties.memoryTypes[i].propertyFlags & VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT)
+            {
+                vkMemoryAllocateInfo.memoryTypeIndex = i;
+                break;
+            }
+        }
+
+        vkMemoryRequirements.memoryTypeBits >>= 1;
+    }
+
+    //--------------
+    vkResult = vkAllocateMemory(vkDevice, &vkMemoryAllocateInfo, NULL, &vulkanData->vkDeviceMemory);
+    if (vkResult != VK_SUCCESS)
+    {
+        fprintf(gpFILE, "createVertexBuffer() -> vkAllocateMemory() :  failed.\n");
+        return(vkResult);
+    }
+
+
+    //---------------
+    vkResult = vkBindBufferMemory(vkDevice, vulkanData->vkBuffer, vulkanData->vkDeviceMemory, 0);
+    if (vkResult != VK_SUCCESS)
+    {
+        fprintf(gpFILE, "createVertexBuffer() -> vkBindBufferMemory() :  failed.\n");
+        return(vkResult);
+    }
+
+
+    //----------------
+    void* dataIndex = NULL;
+    vkResult = vkMapMemory(vkDevice, vulkanData->vkDeviceMemory, 0, vkMemoryAllocateInfo.allocationSize, 0, &dataIndex);
+    if (vkResult != VK_SUCCESS)
+    {
+        fprintf(gpFILE, "createVertexBuffer() -> vkMapMemory() :  failed.\n");
+        return(vkResult);
+    }
+
+
+    //-------actual memory mapped io
+    memcpy(dataIndex, indices, indexBufferSize);
+
+    //-------unmap memory
+    vkUnmapMemory(vkDevice, vulkanData->vkDeviceMemory);
+
+    return vkResult;
+}
+
+VkResult ZzCreateVertexAndIndexBuffer(
+    const float *vertices, 
+    VkDeviceSize vertexBufferSize, 
+    const uint16_t *indices, 
+    VkDeviceSize indexBufferSize, 
+    VulkanComboData *vulkanComboData)
+{
+    // Create vertex buffer
+    VkResult vkResult = ZzCreateVertexBuffer(vertices, vertexBufferSize, &vulkanComboData->vertexData);
+    if (vkResult != VK_SUCCESS)
+    {
+        fprintf(gpFILE, "ZzCreateVertexAndIndexBuffer() -> ZzCreateVertexBuffer() failed.\n");
+        return vkResult;
+    }
+    // Create index buffer
+    vkResult = ZzCreateIndex16Buffer(indices, indexBufferSize, &vulkanComboData->indexData);
+    if (vkResult != VK_SUCCESS)
+    {
+        fprintf(gpFILE, "ZzCreateVertexAndIndexBuffer() -> ZzCreateIndex16Buffer() failed.\n");
+        return vkResult;
+    }
+    return vkResult;
+}
+
+void ZzDestroyVertexBuffer(VulkanData *vulkanData)
+{
+
+    // Destroy the vertex buffer
+    if (vulkanData->vkBuffer)
+    {
+        vkDestroyBuffer(vkDevice, vulkanData->vkBuffer, NULL);
+        vulkanData->vkBuffer = VK_NULL_HANDLE;
+    }
+    // Free the vertex buffer memory
+    if (vulkanData->vkDeviceMemory)
+    {
+        vkFreeMemory(vkDevice, vulkanData->vkDeviceMemory, NULL);
+        vulkanData->vkDeviceMemory = VK_NULL_HANDLE;
+    }
+}
+
+void ZzDestroyIndexBuffer(VulkanData *vulkanData)
+{
+    // Destroy the index buffer
+    if (vulkanData->vkBuffer)
+    {
+        vkDestroyBuffer(vkDevice, vulkanData->vkBuffer, NULL);
+        vulkanData->vkBuffer = VK_NULL_HANDLE;
+    }
+    // Free the index buffer memory
+    if (vulkanData->vkDeviceMemory)
+    {
+        vkFreeMemory(vkDevice, vulkanData->vkDeviceMemory, NULL);
+        vulkanData->vkDeviceMemory = VK_NULL_HANDLE;
+    }
+}
+
+void ZzDestroyVertexAndIndexBuffer(VulkanComboData *vulkanComboData)
+{
+    // Destroy vertex buffer
+    ZzDestroyVertexBuffer(&vulkanComboData->vertexData);
+    // Destroy index buffer
+    ZzDestroyIndexBuffer(&vulkanComboData->indexData);
+}
+
 VkResult createVertexBuffer_coloredTriangle(void)
 {
     // local variables
@@ -4435,7 +4920,7 @@ VkResult createVertexBuffer_coloredTriangle(void)
 
     return vkResult;
 }
-
+/*
 VkResult createVertexBuffer_uvQuad(void)
 {
     // local variables
@@ -4562,7 +5047,7 @@ VkResult createVertexBuffer_uvQuad(void)
     //-----------------------------------------------------------------------------------
 
     //device buffer
-    memset((void*)&vertexData_uvQuad, 0, sizeof(VulkanData));
+    memset((void*)&vertexData_Impostor, 0, sizeof(VulkanData));
     VkBufferCreateInfo vkBufferCreateInfo_deviceBuffer;
     memset((void*)&vkBufferCreateInfo_deviceBuffer, 0, sizeof(VkBufferCreateInfo));
     vkBufferCreateInfo_deviceBuffer.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
@@ -4572,7 +5057,7 @@ VkResult createVertexBuffer_uvQuad(void)
     vkBufferCreateInfo_deviceBuffer.usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT; // device buffer is used for vertex buffer and transfer destination
     vkBufferCreateInfo_deviceBuffer.sharingMode = VK_SHARING_MODE_EXCLUSIVE; // not sharing with other queues
 
-    vkResult = vkCreateBuffer(vkDevice, &vkBufferCreateInfo_deviceBuffer, NULL, &vertexData_uvQuad.vkBuffer);
+    vkResult = vkCreateBuffer(vkDevice, &vkBufferCreateInfo_deviceBuffer, NULL, &vertexData_Impostor.vkBuffer);
     if (vkResult != VK_SUCCESS)
     {
         fprintf(gpFILE, "createVertexBuffer() -> vkCreateBuffer():  failed.\n");
@@ -4584,7 +5069,7 @@ VkResult createVertexBuffer_uvQuad(void)
     // Get memory requirements for the device local buffer
     VkMemoryRequirements vkMemoryRequirements_deviceBuffer;
     memset((void*)&vkMemoryRequirements_deviceBuffer, 0, sizeof(vkMemoryRequirements_deviceBuffer));
-    vkGetBufferMemoryRequirements(vkDevice, vertexData_uvQuad.vkBuffer, &vkMemoryRequirements_deviceBuffer);
+    vkGetBufferMemoryRequirements(vkDevice, vertexData_Impostor.vkBuffer, &vkMemoryRequirements_deviceBuffer);
     //------------
     // Allocate memory for the device local buffer
     VkMemoryAllocateInfo vkMemoryAllocateInfo_deviceBuffer;
@@ -4612,7 +5097,7 @@ VkResult createVertexBuffer_uvQuad(void)
 
     //--------------
     // Allocate memory for the device local buffer
-    vkResult = vkAllocateMemory(vkDevice, &vkMemoryAllocateInfo_deviceBuffer, NULL, &vertexData_uvQuad.vkDeviceMemory);
+    vkResult = vkAllocateMemory(vkDevice, &vkMemoryAllocateInfo_deviceBuffer, NULL, &vertexData_Impostor.vkDeviceMemory);
 
     if (vkResult != VK_SUCCESS)
     {
@@ -4622,7 +5107,7 @@ VkResult createVertexBuffer_uvQuad(void)
 
     //---------------
     // Bind the device local buffer memory to the device local buffer
-    vkResult = vkBindBufferMemory(vkDevice, vertexData_uvQuad.vkBuffer, vertexData_uvQuad.vkDeviceMemory, 0);
+    vkResult = vkBindBufferMemory(vkDevice, vertexData_Impostor.vkBuffer, vertexData_Impostor.vkDeviceMemory, 0);
     if (vkResult != VK_SUCCESS)
     {
         fprintf(gpFILE, "createVertexBuffer() -> vkBindBufferMemory() :  failed.\n");
@@ -4673,7 +5158,7 @@ VkResult createVertexBuffer_uvQuad(void)
     vkBufferCopy.srcOffset = 0; // offset in the source buffer
     vkBufferCopy.dstOffset = 0; // offset in the destination buffer
     vkBufferCopy.size = sizeof(verticesUv); // size of the data to copy
-    vkCmdCopyBuffer(vkCommandBuffer_Copy, vertexData_stagingBffer.vkBuffer, vertexData_uvQuad.vkBuffer, 1, &vkBufferCopy);
+    vkCmdCopyBuffer(vkCommandBuffer_Copy, vertexData_stagingBffer.vkBuffer, vertexData_Impostor.vkBuffer, 1, &vkBufferCopy);
 
     // End command buffer recording
     vkResult = vkEndCommandBuffer(vkCommandBuffer_Copy);
@@ -4746,7 +5231,7 @@ VkResult createVertexBuffer_uvQuad(void)
 
     //position index buffer
     //----------------------------------------------------------------------------------------------------
-    memset((void*)&vertexData_uvQuad_index, 0, sizeof(VulkanData));
+    memset((void*)&vertexData_Impostor_index, 0, sizeof(VulkanData));
 
     VkBufferCreateInfo vkBufferCreateInfo;
     memset((void*)&vkBufferCreateInfo, 0, sizeof(VkBufferCreateInfo));
@@ -4757,7 +5242,7 @@ VkResult createVertexBuffer_uvQuad(void)
     vkBufferCreateInfo.size = sizeof(impostor_indices);
     vkBufferCreateInfo.usage = VK_BUFFER_USAGE_INDEX_BUFFER_BIT;
 
-    vkResult = vkCreateBuffer(vkDevice, &vkBufferCreateInfo, NULL, &vertexData_uvQuad_index.vkBuffer);
+    vkResult = vkCreateBuffer(vkDevice, &vkBufferCreateInfo, NULL, &vertexData_Impostor_index.vkBuffer);
 
     if (vkResult != VK_SUCCESS)
     {
@@ -4769,7 +5254,7 @@ VkResult createVertexBuffer_uvQuad(void)
     VkMemoryRequirements vkMemoryRequirements;
     memset((void*)&vkMemoryRequirements, 0, sizeof(vkMemoryRequirements));
 
-    vkGetBufferMemoryRequirements(vkDevice, vertexData_uvQuad_index.vkBuffer, &vkMemoryRequirements);
+    vkGetBufferMemoryRequirements(vkDevice, vertexData_Impostor_index.vkBuffer, &vkMemoryRequirements);
 
     //------------
     VkMemoryAllocateInfo vkMemoryAllocateInfo;
@@ -4796,7 +5281,7 @@ VkResult createVertexBuffer_uvQuad(void)
     }
 
     //--------------
-    vkResult = vkAllocateMemory(vkDevice, &vkMemoryAllocateInfo, NULL, &vertexData_uvQuad_index.vkDeviceMemory);
+    vkResult = vkAllocateMemory(vkDevice, &vkMemoryAllocateInfo, NULL, &vertexData_Impostor_index.vkDeviceMemory);
     if (vkResult != VK_SUCCESS)
     {
         fprintf(gpFILE, "createVertexBuffer() -> vkAllocateMemory() :  failed.\n");
@@ -4805,7 +5290,7 @@ VkResult createVertexBuffer_uvQuad(void)
 
 
     //---------------
-    vkResult = vkBindBufferMemory(vkDevice, vertexData_uvQuad_index.vkBuffer, vertexData_uvQuad_index.vkDeviceMemory, 0);
+    vkResult = vkBindBufferMemory(vkDevice, vertexData_Impostor_index.vkBuffer, vertexData_Impostor_index.vkDeviceMemory, 0);
     if (vkResult != VK_SUCCESS)
     {
         fprintf(gpFILE, "createVertexBuffer() -> vkBindBufferMemory() :  failed.\n");
@@ -4815,7 +5300,7 @@ VkResult createVertexBuffer_uvQuad(void)
 
     //----------------
     void* dataIndex = NULL;
-    vkResult = vkMapMemory(vkDevice, vertexData_uvQuad_index.vkDeviceMemory, 0, vkMemoryAllocateInfo.allocationSize, 0, &dataIndex);
+    vkResult = vkMapMemory(vkDevice, vertexData_Impostor_index.vkDeviceMemory, 0, vkMemoryAllocateInfo.allocationSize, 0, &dataIndex);
     if (vkResult != VK_SUCCESS)
     {
         fprintf(gpFILE, "createVertexBuffer() -> vkMapMemory() :  failed.\n");
@@ -4827,11 +5312,11 @@ VkResult createVertexBuffer_uvQuad(void)
     memcpy(dataIndex, impostor_indices, sizeof(impostor_indices));
 
     //-------unmap memory
-    vkUnmapMemory(vkDevice, vertexData_uvQuad_index.vkDeviceMemory);
+    vkUnmapMemory(vkDevice, vertexData_Impostor_index.vkDeviceMemory);
 
     return vkResult;
 }
-
+*/
 //VkResult createDiscriptorSet(void)
 //{
 //    // local variables
@@ -4866,7 +5351,7 @@ VkResult createVertexBuffer_uvQuad(void)
 
 VkResult createUniformBuffer(void)
 {
-	VkResult updateUniformBuffer_camera(uint32_t frameIndex);   
+	//VkResult updateUniformBuffer_camera(uint32_t frameIndex);   
 	VkResult updateUniformBuffer_frameData(uint32_t frameIndex);
 
     VkResult vkResult = VK_SUCCESS;
@@ -7293,7 +7778,40 @@ void RenderColoredTriangle(uint32_t curIndex)
 	vkCmdDraw(vkCommandBuffer_Array[curIndex], 3, 1, 0, 0);
 }
 
-void RenderUVQuad(uint32_t curIndex)
+void RenderAxes(uint32_t curIndex)
+{
+    PushConstants pushConstants;
+    memset(&pushConstants, 0, sizeof(PushConstants));
+
+    pushConstants.model = glm::mat4(1.0f); // Identity matrix for no transformation
+
+    pushConstants.v3Color = glm::vec3(1.0);
+    pushConstants.fFactor = 1.0f;
+
+    // Bind the pipeline and descriptor sets
+    vkCmdBindPipeline(vkCommandBuffer_Array[curIndex], VK_PIPELINE_BIND_POINT_GRAPHICS, vkPipeline_PerVertexColor);
+    vkCmdBindDescriptorSets(vkCommandBuffer_Array[curIndex], VK_PIPELINE_BIND_POINT_GRAPHICS, vkPipelineLayout, 0, 1, &vkDescriptorSets_frameData[curIndex], 0, NULL);
+
+    // Push the model matrix
+    vkCmdPushConstants(
+        vkCommandBuffer_Array[curIndex],
+        vkPipelineLayout,
+        VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, // stages where the push constant will be used
+        0,                                      // offset
+        sizeof(PushConstants),                  // size
+        &pushConstants                          // pointer to our data
+    );
+    // Bind vertex buffer
+    VkDeviceSize offset = 0;
+    vkCmdBindVertexBuffers(vkCommandBuffer_Array[curIndex], 0, 1, &vertexData_Axis.vkBuffer, &offset);
+
+    // Draw the triangle
+    vkCmdDraw(vkCommandBuffer_Array[curIndex], 9, 1, 0, 0);
+
+    
+}
+
+void RenderImpostor(uint32_t curIndex)
 {
     PushConstants pushConstants;
     pushConstants.model = glm::translate(glm::mat4(1.0f), glm::vec3(3.0f, 0.0f, -10.0f));
@@ -7326,9 +7844,9 @@ void RenderUVQuad(uint32_t curIndex)
     );
     // Bind vertex buffer
     VkDeviceSize offset = 0;
-    vkCmdBindVertexBuffers(vkCommandBuffer_Array[curIndex], 0, 1, &vertexData_uvQuad.vkBuffer, &offset);
-    vkCmdBindIndexBuffer(vkCommandBuffer_Array[curIndex], vertexData_uvQuad_index.vkBuffer, 0, VK_INDEX_TYPE_UINT16);
-    vkCmdDrawIndexed(vkCommandBuffer_Array[curIndex], (uint32_t)(sizeof(impostor_indices) / sizeof(impostor_indices[0])), 1, 0, 0, 0);
+    vkCmdBindVertexBuffers(vkCommandBuffer_Array[curIndex], 0, 1, &ImpostorBufferData.vertexData.vkBuffer, &offset);
+    vkCmdBindIndexBuffer(vkCommandBuffer_Array[curIndex], ImpostorBufferData.indexData.vkBuffer, 0, VK_INDEX_TYPE_UINT16);
+    vkCmdDrawIndexed(vkCommandBuffer_Array[curIndex], (uint32_t)24, 1, 0, 0, 0);
 
 }
 
@@ -7382,12 +7900,14 @@ VkResult buildCommandBuffers(uint32_t curIndex)
 
 	//RenderFullscreenQuad(curIndex); // Render the fullscreen quad
 
+	RenderAxes(curIndex); // Render the axes
+
     RenderColoredTriangle(curIndex); // Render the colored triangle
     // Draw the indexed triangle
     //vkCmdBindIndexBuffer(vkCommandBuffer_Array[curIndex], vertexData_position_index.vkBuffer, 0, VK_INDEX_TYPE_UINT32);
     //vkCmdDrawIndexed(vkCommandBuffer_Array[curIndex], (uint32_t)(sizeof(triangle_indices) / sizeof(triangle_indices[0])), 1, 0, 0, 0);
 
-	RenderUVQuad(curIndex); // Render the UV quad
+    RenderImpostor(curIndex); // Render the UV quad
 
 #ifdef IMGUI_ENABLE
 	RenderImGui(curIndex); // Render ImGui UI
