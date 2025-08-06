@@ -939,9 +939,9 @@ VkResult initialize(void)
 	//create vertex buffer for colored triangle
     // 3 vertices, each with 3D position and RGB color
     const VertexData_PositionColor vertices[] = {
-        {{ 0.0f, 1.0f, 0.0f}, {1.0f, 0.0f, 0.0f}},  // bottom (z=0), red
-        {{ -1.0f,  -1.0f, 0.0f}, {0.0f, 1.0f, 0.0f}},  // right, green
-        {{ 1.0f,  -1.0f, 0.0f}, {0.0f, 0.0f, 1.0f}},  // left, blue
+        {{ 0.0f, 0.0f, 1.0f}, {1.0f, 0.0f, 0.0f}},  // bottom (z=0), red
+        {{ -1.0f,  0.0f,-1.0f}, {0.0f, 1.0f, 0.0f}},  // right, green
+        {{ 1.0f,  0.0f,-1.0f}, {0.0f, 0.0f, 1.0f}},  // left, blue
     };
 
 	vkResult = ZzCreateVertexBuffer((float*)vertices, sizeof(vertices), &vertexData_coloredTriangle);
@@ -959,15 +959,15 @@ VkResult initialize(void)
     const VertexData_PositionColor AxisVerticesColor[] = {
         {{ 0.0f, lineWidth, lineWidth}, {1.0f, 0.0f, 0.0f}},
         {{ 0.0f,  -lineWidth, -lineWidth}, {1.0f, 0.0f, 0.0f}},  //x-axis
-        {{ 1000.0f,  0.0f, 0.0f}, {1.0f, 0.0f, 0.0f}},  
+        {{ 10000.0f,  0.0f, 0.0f}, {1.0f, 0.0f, 0.0f}},  
 
-        {{ 0.0f, 1000.0f, 0.0f}, {0.0f, 1.0f, 0.0f}}, 
+        {{ 0.0f, 10000.0f, 0.0f}, {0.0f, 1.0f, 0.0f}}, 
         {{ -lineWidth,  0.0f, lineWidth}, {0.0f, 1.0f, 0.0f}},  //y-axis
         {{ lineWidth,  0.0f, -lineWidth}, {0.0f, 1.0f, 0.0f}},
 
         {{ lineWidth, lineWidth, 0.0f}, {0.0f, 0.0f, 1.0f}},
 		{{ -lineWidth,  -lineWidth, 0.0f}, {0.0f, 0.0f, 1.0f}},  //z-axis
-        {{ 0.0f,  0.0f, 1000.0f}, {0.0f, 0.0f, 1.0f}},  
+        {{ 0.0f,  0.0f, 10000.0f}, {0.0f, 0.0f, 1.0f}},  
 	};
 
 	vkResult = ZzCreateVertexBuffer((float*)AxisVerticesColor, sizeof(AxisVerticesColor), &vertexData_Axis);
@@ -981,15 +981,15 @@ VkResult initialize(void)
 
     //create vertex buffer for Impostor
     const VertexData_PositionTexCoord ImpostorPosUV[] = {
-{{  0.244862f,  8.643809f, -0.592991f }, { 0.002604f, 0.000521f }},
-{{ -0.264767f,  8.643809f, -0.083362f }, { 0.000521f, 0.002604f }},
-{{  0.627084f,  8.643809f,  0.298860f }, { 0.004166f, 0.004166f }},
-{{  1.009306f,  8.643809f, -0.592991f }, { 0.005726f, 0.000521f }},
-{{ -0.264767f,  8.643809f,  0.935896f }, { 0.000521f, 0.006767f }},
-{{  1.518936f,  8.643809f, -0.083362f }, { 0.007812f, 0.002604f }},
-{{  0.117455f,  8.643809f,  1.318118f }, { 0.002083f, 0.008331f }},
-{{  1.518936f,  8.643809f,  0.935896f }, { 0.007812f, 0.006767f }},
-{{  1.136714f,  8.643809f,  1.318118f }, { 0.006248f, 0.008331f }},
+        {{ -0.592991f,  0.244862f, 8.643809f }, { 0.002604f, 0.000521f }},
+        {{ -0.083362f, -0.264767f, 8.643809f }, { 0.000521f, 0.002604f }},
+        {{  0.298860f,  0.627084f, 8.643809f }, { 0.004166f, 0.004166f }},
+        {{ -0.592991f,  1.009306f, 8.643809f }, { 0.005726f, 0.000521f }},
+        {{  0.935896f, -0.264767f, 8.643809f }, { 0.000521f, 0.006767f }},
+        {{ -0.083362f,  1.518936f, 8.643809f }, { 0.007812f, 0.002604f }},
+        {{  1.318118f,  0.117455f, 8.643809f }, { 0.002083f, 0.008331f }},
+        {{  0.935896f,  1.518936f, 8.643809f }, { 0.007812f, 0.006767f }},
+        {{  1.318118f,  1.136714f, 8.643809f }, { 0.006248f, 0.008331f }},
     };
 
 	//create index buffer for Impostor
@@ -7746,7 +7746,7 @@ void RenderColoredTriangle(uint32_t curIndex)
     PushConstants pushConstants;
 	memset(&pushConstants, 0, sizeof(PushConstants));
 
-    pushConstants.model = glm::translate(glm::mat4(1.0f), glm::vec3(-3.0f, 0.0f, -10.0f))* glm::rotate(glm::mat4(1.0f), glm::radians(fAngle), glm::vec3(0.0f, 1.0f, 0.0f));
+    pushConstants.model = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, -3.0f, 0.0f))* glm::rotate(glm::mat4(1.0f), glm::radians(fAngle), glm::vec3(0.0f, 0.0f, 1.0f));
 
 #ifdef IMGUI_ENABLE
     pushConstants.v3Color = v3Color;
@@ -7814,7 +7814,7 @@ void RenderAxes(uint32_t curIndex)
 void RenderImpostor(uint32_t curIndex)
 {
     PushConstants pushConstants;
-    pushConstants.model = glm::translate(glm::mat4(1.0f), glm::vec3(3.0f, 0.0f, -10.0f));
+    pushConstants.model = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 3.0f, 0.0f));
     //pushConstants.model = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.0f, 0.0f));
 	//ushConstants.model = glm::mat4(1.0f); // Identity matrix for no transformation
 

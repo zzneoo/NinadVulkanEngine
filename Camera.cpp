@@ -18,6 +18,8 @@ Camera::Camera()
 
 	Yaw = -90.0f;
 	Pitch = 0.0f;
+
+	InitViewMatrix();
 }
 
 
@@ -135,7 +137,7 @@ void Camera::UpdateViewMatrix(HWND hwnd)
 	dx *= MouseSensitivity;
 	dy *= MouseSensitivity;
 
-	Yaw += dx;
+	Yaw -= dx;
 	Pitch += dy;
 
 	if (Pitch > 80.0f)
@@ -150,14 +152,27 @@ void Camera::UpdateViewMatrix(HWND hwnd)
 
 
 	glm::vec3 front{};
-	front.x = cosf(fPitch) * cosf(fYaw);
-	front.y = sinf(fPitch);
-	front.z = cosf(fPitch) * sinf(fYaw);
 
-	glm::vec3 up = glm::vec3(0.0f, 1.0f, 0.0f);
+	//for y up
+	/*front.x = cosf(fPitch) * cosf(fYaw);
+	front.y = sinf(fPitch);
+	front.z = cosf(fPitch) * sinf(fYaw);*/
+
+	//for z up
+	front.x = cosf(fPitch) * cosf(fYaw);
+	front.y = cosf(fPitch) * sinf(fYaw);
+	front.z = sinf(fPitch);
+
+
+	glm::vec3 worldUp = glm::vec3(0.0f, 0.0f, 1.0f);
+
+	//for y up
+	/*CameraForward = glm::normalize(front);
+	CameraRight = glm::normalize(glm::cross( CameraForward, worldUp));
+	CameraUp = glm::cross( CameraRight, CameraForward);*/
 
 	CameraForward = glm::normalize(front);
-	CameraRight = glm::normalize(glm::cross( CameraForward, up));
+	CameraRight = glm::normalize(glm::cross(CameraForward, worldUp));
 	CameraUp = glm::cross( CameraRight, CameraForward);
 
 
@@ -195,6 +210,79 @@ void Camera::UpdateViewMatrix(HWND hwnd)
 		glm::vec4(CameraRight[1], CameraUp[1], -CameraForward[1], 0.0f),
 		glm::vec4(CameraRight[2], CameraUp[2], -CameraForward[2], 0.0f),
 		glm::vec4(glm::vec3(-RdotE, -UdotE, FdotE), 1.0f));
+
+	//ViewMatrix= glm::lookAtRH(CameraPosition, CameraPosition+ CameraForward, glm::vec3(0.0f, 0.0f, 1.0f));
+}
+
+void Camera::InitViewMatrix(void)
+{
+
+
+	float fPitch = Pitch * 0.01745329251f;
+	float fYaw = Yaw * 0.01745329251f;
+
+
+	glm::vec3 front{};
+
+	//for y up
+	/*front.x = cosf(fPitch) * cosf(fYaw);
+	front.y = sinf(fPitch);
+	front.z = cosf(fPitch) * sinf(fYaw);*/
+
+	//for z up
+	front.x = cosf(fPitch) * cosf(fYaw);
+	front.y = cosf(fPitch) * sinf(fYaw);
+	front.z = sinf(fPitch);
+
+
+	glm::vec3 worldUp = glm::vec3(0.0f, 0.0f, 1.0f);
+
+	//for y up
+	/*CameraForward = glm::normalize(front);
+	CameraRight = glm::normalize(glm::cross( CameraForward, worldUp));
+	CameraUp = glm::cross( CameraRight, CameraForward);*/
+
+	CameraForward = glm::normalize(front);
+	CameraRight = glm::normalize(glm::cross(worldUp, CameraForward));
+	CameraUp = glm::cross(CameraForward, CameraRight);
+
+
+	//Camera Position
+	{
+		if (MyWin32::myCamStruct.bCameraMoving_Forward)//W
+		{
+			CameraPosition += CameraForward * MyWin32::fDeltaTime * CameraSpeed * MyWin32::myCamStruct.CameraTurboSpeed;
+		}
+		if (MyWin32::myCamStruct.bCameraMoving_Backward)//S
+		{
+			CameraPosition -= CameraForward * MyWin32::fDeltaTime * CameraSpeed * MyWin32::myCamStruct.CameraTurboSpeed;
+		}
+		if (MyWin32::myCamStruct.bCameraMoving_Left)//A
+		{
+			CameraPosition -= CameraRight * MyWin32::fDeltaTime * CameraSpeed * MyWin32::myCamStruct.CameraTurboSpeed;
+		}
+		if (MyWin32::myCamStruct.bCameraMoving_Right)//D
+		{
+			CameraPosition += CameraRight * MyWin32::fDeltaTime * CameraSpeed * MyWin32::myCamStruct.CameraTurboSpeed;
+		}
+	}
+
+	//	CameraPosition[1] = 0.0f;
+
+		//ViewMatrix
+		//short for matrix multiplication C(angles) x T(position)
+	float RdotE = glm::dot(CameraRight, CameraPosition);
+	float UdotE = glm::dot(CameraUp, CameraPosition);
+	float FdotE = glm::dot(CameraForward, CameraPosition);
+
+
+	ViewMatrix = glm::mat4(
+		// --- columns, not rows --- 
+		glm::vec4(CameraRight, 0.0f),   // col0
+		glm::vec4(CameraUp, 0.0f),   // col1
+		glm::vec4(-CameraForward, 0.0f),   // col2
+		glm::vec4(-RdotE, -UdotE, FdotE, 1.0f) // col3
+	);
 
 	//ViewMatrix=vmath::lookat(CameraPosition, CameraPosition+ CameraForward, vmath::vec3(0.0f, 1.0f, 0.0f));
 }

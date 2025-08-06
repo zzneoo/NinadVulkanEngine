@@ -12,6 +12,7 @@ public:
 	~Camera();
 
 	void UpdateViewMatrix(HWND hwnd);
+	void InitViewMatrix(void);
 	//void UpdateInfiniteViewMatrix(void);
 	//void UpdateLightViewMatrix(glm::vec3 sunPos, glm::vec3 Target);
 
@@ -96,7 +97,7 @@ private:
 
 	float CameraSpeed;
 
-	float Yaw{ 270.0f };
+	float Yaw{ 0.0f };
 	float Pitch{ 0.0f };
 };
 

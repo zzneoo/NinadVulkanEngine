@@ -1,4 +1,4 @@
-#version 460 core
+#version 460
 
 layout(location = 0) in vec3 vPosition;
 layout(location = 1) in vec2 vTexCoord;
@@ -28,16 +28,15 @@ layout(location = 2) out vec2 v2UV1001;
 layout(location = 3) out vec2 v2UV11;
 
 layout(location = 4) out vec2 out_Impostor_MS_TiledUV;
+layout(location = 5) out vec3 v3Test;
+
 
 vec2 semiOct(vec3 dir)
 {
-    vec2 N = vec2(-dir.x,dir.z);
+    vec2 N = vec2(dir.x,dir.y);
     N.xy /= dot( vec3(1.0), abs(dir) );
 	return vec2( N.x + N.y, N.x - N.y ) * 0.5 +0.5;
 }
-
-	//N.xy /= dot( 1, abs(N) );
-	//return float2( N.x + N.y, N.x - N.y );
 
 vec2 getAtlasUV(ivec2 tileIdx,
                 vec2 texcoord,
@@ -71,18 +70,8 @@ ivec2 ClampV2(ivec2 tileIdx,ivec2 atlasDims)
 }
 
 
+// assuming Z is the up axis.
 vec3 semiOctDecode(vec2 uv)
-{
-    // 1. Remap from [0,1] to [-1,1]
-    vec2 Oct = uv;
-
-	Oct = vec2( Oct.x + Oct.y, Oct.x - Oct.y ) * 0.5;
-	vec3 N = vec3( Oct, 1.0 - dot( vec2(1.0), abs(Oct) ) );
-	return normalize(N);
-}
-
-// assuming Y is the up axis.
-vec3 octDecodeYUp(vec2 uv)
 {
     // unwrap the octahedral projection
     vec2 oct = vec2(uv.x + uv.y, uv.x - uv.y) * 0.5;
@@ -90,13 +79,33 @@ vec3 octDecodeYUp(vec2 uv)
     // this is now the Y component (up)
     float z = 1.0 - dot(abs(oct), vec2(1.0));
 
-    return normalize(vec3(-oct.x, z, oct.y));
+    return normalize(vec3(oct.x,oct.y,z));
 }
 
-vec2 VirtualPlaneCoordinates_Impostor(vec3 planeNormalAxis,vec3  planeXAxis,vec3 planeYAxis, vec3 rayDirectionLocal, vec3 rayOriginLocal)
-{
 
-	return vec2(0.0, 0.0); // Placeholder for the function implementation
+vec2 VirtualPlaneCoordinates_Impostor(vec3 planeNormalAxis, vec3 planeRightAxis, vec3 planeUpAxis,vec2 UVscale,vec3 rayOriginLocal,vec3 rayDirectionLocal)
+{
+	vec2 outUV;
+	
+	float planeDistance = dot(planeNormalAxis,rayOriginLocal);
+		
+	float normalDotRayDirection = dot(planeNormalAxis,rayDirectionLocal);
+	
+	float intersectionTime = -planeDistance/normalDotRayDirection;
+	
+	vec3 intersectionPosition = rayOriginLocal + rayDirectionLocal * intersectionTime;
+	
+	float rightAxisDotIntersection = dot(planeRightAxis,intersectionPosition);
+	float upAxisDotIntersection = dot(planeUpAxis,intersectionPosition);
+	
+	vec2 appendVector2 = vec2(rightAxisDotIntersection,upAxisDotIntersection);
+
+	outUV = (intersectionTime>0.0) ?appendVector2 : vec2(0.0,0.0);
+
+	outUV= (outUV/UVscale)+0.5; // scale the UV coordinates
+	//outUV += vec2(0.5); // shift to [0,1] range 
+
+	return outUV;
 }
 
 void main(void)
@@ -169,20 +178,22 @@ void main(void)
 	//--------------------------------position-----------------------------
 
 		// now rebuild right/up from lockedView:
-	 vec3 worldUp = vec3(0.0,1.0,0.0);
-	 //vec3 right = normalize(cross(worldUp, viewVector));
-	 //vec3 up    = normalize(cross(viewVector, right));
-	 vec3 right = vec3(global.view[0][0],global.view[1][0],global.view[2][0]); // use camera right vector
-	 vec3 up = vec3(global.view[0][1],global.view[1][1],global.view[2][1]); // use camera up vector
+	 vec3 worldUp = vec3(0.0,0.0,1.0);
+	 vec3 right = normalize(cross(worldUp, viewVector));
+	 vec3 up    = normalize(cross(viewVector, right));
+	 //vec3 right = vec3(global.view[0][0],global.view[1][0],global.view[2][0]); // use camera right vector
+	 //vec3 up = vec3(global.view[0][1],global.view[1][1],global.view[2][1]); // use camera up vector
 	 //vec3 forward = vec3(global.view[0][2],global.view[1][2],global.view[2][2]); // use camera forward vector
 
-	 mat3 TBN = mat3(right, up, viewVector);
+	 mat3 tangentToWorld = mat3(right, up, viewVector);
+	 mat3 worldToTangent = transpose(tangentToWorld);
+
 	 float objectScale = 0.2; //1.0 scale factor for the object, from modelMatrix
 	 float centimeterToMeter = 0.01; // conversion factor from centimeters to meters
 
 	 	//ImpostorInfo
 	vec3 ImpostorInfo_worldSpaceCenterPosition = worldSpaceCenterPosition.xyz; // world space center position
-	vec3 ImpostorInfo_PivotOffsetVector = TBN * (vec3(62.708435, 29.885986,864.380981) * centimeterToMeter *objectScale); // pivot offset in meters
+	vec3 ImpostorInfo_PivotOffsetVector = ((tangentToWorld * (vec3(62.708435,29.885986,864.380981)* centimeterToMeter))  *objectScale); // pivot offset in meters
 	vec3 ImpostorInfo_position = ImpostorInfo_worldSpaceCenterPosition + ImpostorInfo_PivotOffsetVector; // add pivot offset to the center position
 	float ImpostorInfo_scaledSize = 2038.516968 * objectScale * centimeterToMeter; // default size of the mesh in centimeters
 
@@ -207,19 +218,37 @@ void main(void)
 
 	//--------------------------------------------------------------------------
 	//For fragment shader
-	vec3 Impostor_MS_viewVector = normalize(global.cameraPos - ImpostorInfo_position);
+	vec3 Impostor_MS_camPos = global.cameraPos - ImpostorInfo_position; // camera position relative to the impostor center
+	vec3 Impostor_MS_viewVector = (Impostor_MS_camPos);
 
 	//worldSpace to tangent space
-	Impostor_MS_viewVector = normalize(transpose(TBN) * Impostor_MS_viewVector);
-	Impostor_MS_viewVector.y =  max(Impostor_MS_viewVector.y,0.001);//new line
+	Impostor_MS_viewVector = (worldToTangent * Impostor_MS_viewVector);
+	Impostor_MS_viewVector.z =  max(Impostor_MS_viewVector.z,0.001);//new line
 	vec2 Impostor_MS_UV = clamp(semiOct(normalize(Impostor_MS_viewVector)),0.0,1.0);
 	out_Impostor_MS_TiledUV = Impostor_MS_UV * (atlasDims - 1.0) ; // scale to atlas size)
 
 	vec2 Impostor_MS_Floored = floor(out_Impostor_MS_TiledUV)/ (atlasDims - 1.0); // scale to atlas size)
 	Impostor_MS_Floored = Impostor_MS_Floored * 2.0 - 1.0; // remap to [-1,1] range
 
-	vec3 ImpostorFrameTransform_Setup = octDecodeYUp(Impostor_MS_Floored);
+	vec3 ImpostorFrameTransform_WorldZ = semiOctDecode(Impostor_MS_Floored);
+	//vec3 ImpostorFrameTransform_Right = normalize(cross(worldUp, ImpostorFrameTransform_WorldZ));
+	vec3 ImpostorFrameTransform_Right = normalize(vec3(ImpostorFrameTransform_WorldZ.y,-ImpostorFrameTransform_WorldZ.x,0.0));
+	vec3 ImpostorFrameTransform_Up = normalize(cross(ImpostorFrameTransform_WorldZ, ImpostorFrameTransform_Right));
 
-	vec3 ImpostorFrameTransform_Right = normalize(cross(worldUp, ImpostorFrameTransform_Setup));
-	vec3 ImpostorFrameTransform_Up = -normalize(cross(ImpostorFrameTransform_Setup, ImpostorFrameTransform_Right));
+	//--------------------------------
+
+	vec3 tangentSpaceImpostor_MS_camPos = worldToTangent * Impostor_MS_camPos;
+
+	vec3 absoluteWorldSpacePositionWithoutMaterialOffset = worldSpacePosition.xyz + Sprite_PositionBased_WorldPositionOffset;
+
+	vec3 tangentSpaceImpostor_MS_viewVector = absoluteWorldSpacePositionWithoutMaterialOffset - global.cameraPos;
+	tangentSpaceImpostor_MS_viewVector = worldToTangent * tangentSpaceImpostor_MS_viewVector;
+
+
+	vec2 outUV = VirtualPlaneCoordinates_Impostor(ImpostorFrameTransform_WorldZ, ImpostorFrameTransform_Right, ImpostorFrameTransform_Up, vec2(ImpostorInfo_scaledSize) , tangentSpaceImpostor_MS_camPos, tangentSpaceImpostor_MS_viewVector );
+
+	v2UV00 = outUV.yx; // output the UV coordinates for the fragment shader
+
+	//v3Test = vec3(tangentSpaceImpostor_MS_camPos);
+	//v3Test = vec3(outUV.x,outUV.y,0.0);
 }

@@ -1,4 +1,4 @@
-#version 460 core
+#version 460
 
 layout(location = 0) out vec4 FragColor;
 
@@ -10,6 +10,8 @@ layout(location = 3) in vec2 v2UV11;
 
 layout(location = 4) in vec2 out_Impostor_MS_TiledUV;
 
+layout(location = 5) in vec3 v3Test;
+
 layout(push_constant) uniform PushConstants {
     mat4 model;
 	vec3 v3Color;
@@ -20,33 +22,22 @@ layout(push_constant) uniform PushConstants {
 // Descriptor set 1, binding 0 → your texture sampler
 layout(set = 1, binding = 0) uniform sampler2D tSampler;
 
-// Maps a hemisphere (upper unit hemisphere) to 2D UV space
-vec2 semiOctahedralMap(vec3 dir) 
-{
-    dir = normalize(dir);
-    float sum = abs(dir.x) + abs(dir.y) + abs(dir.z);
-    vec2 p = dir.xz / sum; // using X and Z as planar axes, Y as up
-
-    // Reflect direction if below the horizon (hemisphere fold)
-    if (dir.y < 0.0) {
-        p = (1.0 - abs(p.yx)) * sign(p);
-    }
-
-    // Map from [-1,1] to [0,1]
-    return p * 0.5 + 0.5;
-}
-
 
 void main(void)
 {
 
 	//3 Frames
-	vec4 color00 = texture(tSampler, v2UV00);
+
+    vec2 uv00 = clamp(v2UV00, 0.0, 1.0)/12.0;
+
+	vec4 color00 = texture(tSampler, uv00);
     vec4 color1001 = texture(tSampler, v2UV1001);
     vec4 color11 = texture(tSampler, v2UV11);
 	
 	FragColor = color00 * v3Weights.x + color1001 * v3Weights.y + color11 * v3Weights.z;
 
+    FragColor.rgb  = clamp(v3Test.rgb,vec3(0.0),vec3(1.0))/12.0;
+    FragColor.rgb  = color00.rgb;
     FragColor.rgb *= 6.0;
     //FragColor.rgb = vec3(1.0);
 
