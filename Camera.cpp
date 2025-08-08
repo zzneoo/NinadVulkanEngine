@@ -158,10 +158,12 @@ void Camera::UpdateViewMatrix(HWND hwnd)
 	front.y = sinf(fPitch);
 	front.z = cosf(fPitch) * sinf(fYaw);*/
 
-	//for z up
+	//for z up LH
 	front.x = cosf(fPitch) * cosf(fYaw);
-	front.y = cosf(fPitch) * sinf(fYaw);
+	front.y = -cosf(fPitch) * sinf(fYaw);
 	front.z = sinf(fPitch);
+
+
 
 
 	glm::vec3 worldUp = glm::vec3(0.0f, 0.0f, 1.0f);
@@ -172,8 +174,8 @@ void Camera::UpdateViewMatrix(HWND hwnd)
 	CameraUp = glm::cross( CameraRight, CameraForward);*/
 
 	CameraForward = glm::normalize(front);
-	CameraRight = glm::normalize(glm::cross(CameraForward, worldUp));
-	CameraUp = glm::cross( CameraRight, CameraForward);
+	CameraRight = glm::normalize(glm::cross(worldUp, CameraForward));
+	CameraUp = glm::cross(CameraForward, CameraRight);
 
 
 	//Camera Position
@@ -211,7 +213,7 @@ void Camera::UpdateViewMatrix(HWND hwnd)
 		glm::vec4(CameraRight[2], CameraUp[2], -CameraForward[2], 0.0f),
 		glm::vec4(glm::vec3(-RdotE, -UdotE, FdotE), 1.0f));
 
-	//ViewMatrix= glm::lookAtRH(CameraPosition, CameraPosition+ CameraForward, glm::vec3(0.0f, 0.0f, 1.0f));
+	ViewMatrix= glm::lookAtLH(CameraPosition, CameraPosition + CameraForward, glm::vec3(0.0f, 0.0f, 1.0f));
 }
 
 void Camera::InitViewMatrix(void)
@@ -285,6 +287,7 @@ void Camera::InitViewMatrix(void)
 	);
 
 	//ViewMatrix=vmath::lookat(CameraPosition, CameraPosition+ CameraForward, vmath::vec3(0.0f, 1.0f, 0.0f));
+	ViewMatrix = glm::lookAtLH(CameraPosition, CameraPosition + CameraForward, glm::vec3(0.0f, 0.0f, 1.0f));
 }
 
 //void Camera::UpdateInfiniteViewMatrix(void)

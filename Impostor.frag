@@ -38,6 +38,7 @@ void main(void)
 
     FragColor.rgb  = clamp(v3Test.rgb,vec3(0.0),vec3(1.0))/12.0;
     FragColor.rgb  = color00.rgb;
+    //FragColor.rgb  = (pow(normalize(v3Test.rgb),vec3(0.454545)));
     FragColor.rgb *= 6.0;
     //FragColor.rgb = vec3(1.0);
 
