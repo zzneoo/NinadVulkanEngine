@@ -95,7 +95,7 @@ vec2 VirtualPlaneCoordinates_Impostor(vec3 planeNormalAxis, vec3 planeRightAxis,
 	
 	vec3 intersectionPosition = rayOriginLocal + rayDirectionLocal * intersectionTime;
 	
-	float rightAxisDotIntersection = dot(planeRightAxis,intersectionPosition);
+	float rightAxisDotIntersection = -dot(planeRightAxis,intersectionPosition);
 	float upAxisDotIntersection = dot(planeUpAxis,intersectionPosition);
 	
 	vec2 appendVector2 = vec2(rightAxisDotIntersection,upAxisDotIntersection);
@@ -108,49 +108,16 @@ vec2 VirtualPlaneCoordinates_Impostor(vec3 planeNormalAxis, vec3 planeRightAxis,
 	return outUV;
 }
 
-mat3 BuildImpostorTBN(vec3 worldCenter, vec3 cameraPos_world, vec3 worldUp, bool lockUpright) {
-    // viewVector points from the surface center TO the camera (camera - center)
-    vec3 viewVector = cameraPos_world - worldCenter;
-    float vlen = length(viewVector);
-    if (vlen < 1e-6) {
-        // camera basically at the center — pick a sane default forward
-        viewVector = vec3(0.0, 0.0, 1.0); // or camera forward if available
-    } else {
-        viewVector /= vlen;
-    }
-
-    // Choose tangent/right via worldUp x viewVector (safe fallback handled below).
-    // Using cross(worldUp, viewVector) makes "right" point roughly along +X when camera
-    // is looking from +X; this is a common choice for upright billboards.
-    vec3 right;
-    if (lockUpright) {
-        float dp = abs(dot(worldUp, viewVector));
-        if (dp > 0.999) {
-            // near-parallel: pick an arbitrary axis to form a stable right vector
-            vec3 alt = abs(worldUp.x) < 0.99 ? vec3(1.0,0.0,0.0) : vec3(0.0,1.0,0.0);
-            right = normalize(cross(alt, viewVector));
-        } else {
-            right = normalize(cross(worldUp, viewVector));
-        }
-    } else {
-        // full-face camera-facing: allow full rotation (may tilt the quad)
-        float dp = abs(dot(worldUp, viewVector));
-        if (dp > 0.999) {
-            vec3 alt = abs(worldUp.x) < 0.99 ? vec3(1.0,0.0,0.0) : vec3(0.0,1.0,0.0);
-            right = normalize(cross(alt, viewVector));
-        } else {
-            right = normalize(cross(worldUp, viewVector));
-        }
-    }
-
-    // Gram-Schmidt: make right orthogonal to viewVector and normalize
-    right = normalize(right - viewVector * dot(viewVector, right));
-
-    // up (bitangent) consistent with right and viewVector
-    vec3 up = normalize(cross(viewVector, right)); // note cross(view, right) to keep handedness
-
-    // Final TBN matrix: columns = (T=right, B=up, N=viewVector)
-    return mat3(right, up, viewVector);
+vec3 ImpostorFrameTransform_setup(vec2 v2Frame,vec2 XY_Frames)
+{
+	vec3 worldUp = vec3(0.0, 0.0, 1.0); // assuming Z is up in world space
+	vec2 Impostor_MS_Floored = v2Frame/ (XY_Frames - 1.0); // scale to atlas size)
+	Impostor_MS_Floored = Impostor_MS_Floored * 2.0 - 1.0; // remap to [-1,1] range
+	//vec3 ImpostorFrameTransform_Right = normalize(cross(ImpostorFrameTransform_WorldZ,worldUp));
+	//vec3 ImpostorFrameTransform_Right = -normalize(vec3(ImpostorFrameTransform_WorldZ.y,-ImpostorFrameTransform_WorldZ.x,0.0));//flip uv.y
+	//vec3 ImpostorFrameTransform_Up = normalize(cross(ImpostorFrameTransform_WorldZ, ImpostorFrameTransform_Right));
+	
+	return semiOctDecode(Impostor_MS_Floored);
 }
 
 void main(void)
@@ -179,13 +146,14 @@ void main(void)
     ivec2 baseTile = ivec2(floor(tileCoordF));
 
     // Interpolation weights
-    vec2 frac = fract(tileCoordF);
+    //vec2 frac = fract(tileCoordF);
 
 	//float eq_a = (1.0-max(frac.x,frac.y));
 	//float eq_c = (1.0-max(1.0-frac.x,1.0-frac.y));
 	//float eq_b = (abs(frac.y -frac.x)); 
 	//float eq_d = (1.0-step(frac.x,frac.y));
 	
+	/*
 	vec2 inv = 1.0 - frac;
 	// eq_a = 1.0 - max(frac.x, frac.y)
 	float eq_a = min(inv.x, inv.y);
@@ -195,12 +163,13 @@ void main(void)
 	float eq_b = abs(frac.y - frac.x);
 	// eq_d = 1.0 - step(frac.x, frac.y)  →  strictly (frac.y < frac.x)
 	float eq_d = float(frac.y < frac.x);
-
+	*/
 	
-	v3Weights = vec3(eq_a,eq_b,eq_c);
+	//v3Weights = vec3(eq_a,eq_b,eq_c);
 	
 	
 	//----------------------tileCoords--------------------------
+	/*
 		ivec2 tileId00 = baseTile;
 	ivec2 tileId10 = baseTile + ivec2(1, 0);
 	ivec2 tileId01 = baseTile + ivec2(0, 1);
@@ -218,9 +187,10 @@ void main(void)
 	v2UV00 =  getAtlasUV(ClampV2(tileId00,iAtlasDims), scaledTexCoord, tileSize,padding);
 	v2UV1001 = getAtlasUV(ClampV2(choiceTile,iAtlasDims), scaledTexCoord, tileSize,padding);
 	v2UV11 = getAtlasUV(ClampV2(tileId11,iAtlasDims), scaledTexCoord, tileSize,padding);
-	
+	*/
 	//--------------------------------position-----------------------------
 	vec3 worldUp = vec3(0.0, 0.0, 1.0); // assuming Z is up in world space
+	vec2 scaledTexCoord = vTexCoord.xy * atlasDims * 10.0; // scale to atlas size, adjust as needed
 
 	 float objectScale = 0.2; //1.0 scale factor for the object, from modelMatrix
 	 float centimeterToMeter = 0.01; // conversion factor from centimeters to meters
@@ -255,30 +225,64 @@ void main(void)
 	vec3 Impostor_MS_camPos = global.cameraPos - ImpostorInfo_position; // camera position relative to the impostor center
 	vec3 Impostor_MS_viewVector = (Impostor_MS_camPos);
 
-	//worldSpace to tangent space
+	//worldSpace 
 	Impostor_MS_viewVector = normalize( Impostor_MS_viewVector);
 	Impostor_MS_viewVector.z =  max(Impostor_MS_viewVector.z,0.001);//new line
 	vec2 Impostor_MS_UV = clamp(semiOct(normalize(Impostor_MS_viewVector)),0.0,1.0);
 	out_Impostor_MS_TiledUV = Impostor_MS_UV * (atlasDims - 1.0) ; // scale to atlas size)
 
-	vec2 Impostor_MS_Floored = floor(out_Impostor_MS_TiledUV)/ (atlasDims - 1.0); // scale to atlas size)
-	Impostor_MS_Floored = Impostor_MS_Floored * 2.0 - 1.0; // remap to [-1,1] range
+	vec2 flooredUV = floor(out_Impostor_MS_TiledUV);
 
-	vec3 ImpostorFrameTransform_WorldZ = semiOctDecode(Impostor_MS_Floored);
-	//vec3 ImpostorFrameTransform_Right = normalize(cross(ImpostorFrameTransform_WorldZ,worldUp));
-	vec3 ImpostorFrameTransform_Right = -normalize(vec3(ImpostorFrameTransform_WorldZ.y,-ImpostorFrameTransform_WorldZ.x,0.0));//flip uv.y
-	vec3 ImpostorFrameTransform_Up = normalize(cross(ImpostorFrameTransform_WorldZ, ImpostorFrameTransform_Right));
+	// Interpolation weights
+    vec2 frac = fract(out_Impostor_MS_TiledUV);
+
+	//float eq_a = (1.0-max(frac.x,frac.y));
+	//float eq_c = (1.0-max(1.0-frac.x,1.0-frac.y));
+	//float eq_b = (abs(frac.y -frac.x)); 
+	//float eq_d = (1.0-step(frac.x,frac.y));
+	
+	vec2 inv = 1.0 - frac;
+	// eq_a = 1.0 - max(frac.x, frac.y)
+	float eq_a = min(inv.x, inv.y);
+	// eq_c = 1.0 - max(inv.x, inv.y)  →  min(frac.x, frac.y)
+	float eq_c = min(frac.x, frac.y);
+	// eq_b = abs(frac.y - frac.x)
+	float eq_b = abs(frac.y - frac.x);
+	// eq_d = 1.0 - step(frac.x, frac.y)  →  strictly (frac.y < frac.x)
+	float eq_d = float(frac.y < frac.x);
+
+	v3Weights = vec3(eq_a,eq_b,eq_c);
+
+	//Frame_First
+	vec3 ImpostorFrameTransform_WorldZ_First = -ImpostorFrameTransform_setup(flooredUV, atlasDims);
+  //vec3 ImpostorFrameTransform_Right_First = normalize(cross(ImpostorFrameTransform_WorldZ_First,worldUp));
+	vec3 ImpostorFrameTransform_Right_First = -normalize(vec3(ImpostorFrameTransform_WorldZ_First.y,-ImpostorFrameTransform_WorldZ_First.x,0.0));//flip uv.y
+	vec3 ImpostorFrameTransform_Up_First = normalize(cross(ImpostorFrameTransform_WorldZ_First, ImpostorFrameTransform_Right_First));
+
+	//Frame Second
+	vec2 choiceTile = (eq_d < 0.5) ? vec2(0.0, 1.0) : vec2(1.0, 0.0); // top/right
+
+	vec3 ImpostorFrameTransform_WorldZ_Second = -ImpostorFrameTransform_setup(flooredUV + choiceTile, atlasDims);//bottom left
+  //vec3 ImpostorFrameTransform_Right_Second = normalize(cross(ImpostorFrameTransform_WorldZ_Second,worldUp));
+	vec3 ImpostorFrameTransform_Right_Second = -normalize(vec3(ImpostorFrameTransform_WorldZ_Second.y,-ImpostorFrameTransform_WorldZ_Second.x,0.0));//flip uv.y
+	vec3 ImpostorFrameTransform_Up_Second = normalize(cross(ImpostorFrameTransform_WorldZ_Second, ImpostorFrameTransform_Right_Second));
+
+
+	//Frame Third
+	vec3 ImpostorFrameTransform_WorldZ_Third = -ImpostorFrameTransform_setup(flooredUV + 1.0, atlasDims);//top right
+  //vec3 ImpostorFrameTransform_Right_Third = normalize(cross(ImpostorFrameTransform_WorldZ_Third,worldUp));
+	vec3 ImpostorFrameTransform_Right_Third = -normalize(vec3(ImpostorFrameTransform_WorldZ_Third.y,-ImpostorFrameTransform_WorldZ_Third.x,0.0));//flip uv.y
+	vec3 ImpostorFrameTransform_Up_Third = normalize(cross(ImpostorFrameTransform_WorldZ_Third, ImpostorFrameTransform_Right_Third));
 
 	//--------------------------------
 
 	vec3 absoluteWorldSpacePositionWithoutMaterialOffset = worldSpacePosition.xyz + Sprite_PositionBased_WorldPositionOffset;
-
 	vec3 rayOriginLocal = Impostor_MS_camPos;
 	vec3 rayDirLocal = absoluteWorldSpacePositionWithoutMaterialOffset - global.cameraPos;
 
-	vec2 outUV = VirtualPlaneCoordinates_Impostor(ImpostorFrameTransform_WorldZ, ImpostorFrameTransform_Right, ImpostorFrameTransform_Up, vec2(ImpostorInfo_scaledSize) ,rayOriginLocal , rayDirLocal );
-
-	v2UV00 = outUV.xy; // output the UV coordinates for the fragment shader
+	v2UV00 = VirtualPlaneCoordinates_Impostor(ImpostorFrameTransform_WorldZ_First, ImpostorFrameTransform_Right_First, ImpostorFrameTransform_Up_First, vec2(ImpostorInfo_scaledSize) ,rayOriginLocal , rayDirLocal );
+	v2UV1001 = VirtualPlaneCoordinates_Impostor(ImpostorFrameTransform_WorldZ_Second, ImpostorFrameTransform_Right_Second, ImpostorFrameTransform_Up_Second, vec2(ImpostorInfo_scaledSize) ,rayOriginLocal , rayDirLocal );
+	v2UV11 = VirtualPlaneCoordinates_Impostor(ImpostorFrameTransform_WorldZ_Third, ImpostorFrameTransform_Right_Third, ImpostorFrameTransform_Up_Third, vec2(ImpostorInfo_scaledSize) ,rayOriginLocal , rayDirLocal );
 
 	v3Test = vec3(ImpostorInfo_PivotOffsetVector);
 	//v3Test = vec3(outUV.x,outUV.y,0.0);

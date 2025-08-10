@@ -919,6 +919,7 @@ VkResult initialize(void)
 	}
 
 	vkResult = loadTextureData(&imposterTextureData, "Resources/StockTextures/test_impo.png");
+	//vkResult = loadTextureData(&imposterTextureData, "Resources/StockTextures/count_big_2048.png");
 	if (vkResult != VK_SUCCESS)
 	{
 		fprintf(gpFILE, "initialize() : loadTextureData() failed (%d).\n", vkResult);
@@ -7813,7 +7814,7 @@ void RenderAxes(uint32_t curIndex)
 void RenderImpostor(uint32_t curIndex)
 {
     PushConstants pushConstants;
-    pushConstants.model = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.0f, 0.0f));//glm::vec3(0.0f, 3.0f, 0.0f)
+    pushConstants.model = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 3.0f, 0.0f));//glm::vec3(0.0f, 3.0f, 0.0f)
     //pushConstants.model = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.0f, 0.0f));
 	//ushConstants.model = glm::mat4(1.0f); // Identity matrix for no transformation
 

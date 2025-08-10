@@ -26,22 +26,55 @@ layout(set = 1, binding = 0) uniform sampler2D tSampler;
 void main(void)
 {
 
-	//3 Frames
+    	// Interpolation weights
+    vec2 frac = fract(out_Impostor_MS_TiledUV);
+    const float scaleFactor = 0.08333333; // 1/12.0
 
-    vec2 uv00 = clamp(v2UV00, 0.0, 1.0)/12.0;
+	//float eq_a = (1.0-max(frac.x,frac.y));
+	//float eq_c = (1.0-max(1.0-frac.x,1.0-frac.y));
+	//float eq_b = (abs(frac.y -frac.x)); 
+	//float eq_d = (1.0-step(frac.x,frac.y));
+	
+	vec2 inv = 1.0 - frac;
+	// eq_a = 1.0 - max(frac.x, frac.y)
+	float eq_a = min(inv.x, inv.y);
+	// eq_c = 1.0 - max(inv.x, inv.y)  →  min(frac.x, frac.y)
+	float eq_c = min(frac.x, frac.y);
+	// eq_b = abs(frac.y - frac.x)
+	float eq_b = abs(frac.y - frac.x);
+	// eq_d = 1.0 - step(frac.x, frac.y)  →  strictly (frac.y < frac.x)
+	float eq_d = float(frac.y < frac.x);
+
+	//3 Frames
+    vec2 uv00 = clamp(v2UV00, 0.0, 1.0) * scaleFactor;// 1.0//12.0
+    vec2 floored00 = floor(out_Impostor_MS_TiledUV)* scaleFactor;
+    uv00 = (uv00 + floored00);
+
+    vec2 uv1001 = clamp(v2UV1001, 0.0, 1.0) * scaleFactor;
+    vec2 choiceTile = mix(vec2(0.0,1.0), vec2(1.0,0.0), eq_d);
+    vec2 floored1001 = floor(out_Impostor_MS_TiledUV + choiceTile)* scaleFactor;
+    uv1001 = (uv1001 + floored1001);
+
+    vec2 uv11 = clamp(v2UV11, 0.0, 1.0)* scaleFactor;
+    vec2 floored11 = floor(out_Impostor_MS_TiledUV + vec2(1.0))* scaleFactor;
+    uv11 = (uv11 + floored11);
+
+
+    vec3 v3Weights = vec3(eq_a, eq_b, eq_c);
 
 	vec4 color00 = texture(tSampler, uv00);
-    vec4 color1001 = texture(tSampler, v2UV1001);
-    vec4 color11 = texture(tSampler, v2UV11);
+    vec4 color1001 = texture(tSampler, uv1001);
+    vec4 color11 = texture(tSampler, uv11);
 	
 	FragColor = color00 * v3Weights.x + color1001 * v3Weights.y + color11 * v3Weights.z;
 
-    FragColor.rgb  = clamp(v3Test.rgb,vec3(0.0),vec3(1.0))/12.0;
-    FragColor.rgb  = color00.rgb;
+    //FragColor.rgb  = clamp(v3Test.rgb,vec3(0.0),vec3(1.0))/12.0;
+    //FragColor.rgb  = color1001.rgb;
+    //FragColor.rgb  = vec3(v3Weights.xyz);
     //FragColor.rgb  = (pow(normalize(v3Test.rgb),vec3(0.454545)));
     FragColor.rgb *= 6.0;
-    //FragColor.rgb = vec3(1.0);
+    //FragColor.rgb = vec3(frac.xy,0.0);
 
-    //if (FragColor.a < 0.5)
-      //  discard;
+    if (FragColor.a < 0.45)
+        discard;
 }
