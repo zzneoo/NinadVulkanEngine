@@ -20,7 +20,8 @@ layout(push_constant) uniform PushConstants {
 
 
 // Descriptor set 1, binding 0 → your texture sampler
-layout(set = 1, binding = 0) uniform sampler2D tSampler;
+layout(set = 1, binding = 0) uniform sampler2D tSampler_albedo;
+layout(set = 1, binding = 1) uniform sampler2D tSampler_normal;
 
 
 void main(void)
@@ -62,19 +63,25 @@ void main(void)
 
     vec3 v3Weights = vec3(eq_a, eq_b, eq_c);
 
-	vec4 color00 = texture(tSampler, uv00);
-    vec4 color1001 = texture(tSampler, uv1001);
-    vec4 color11 = texture(tSampler, uv11);
+	vec4 albedo00 = texture(tSampler_albedo, uv00);
+    vec4 albedo1001 = texture(tSampler_albedo, uv1001);
+    vec4 albedo11 = texture(tSampler_albedo, uv11);
+    vec4 blendedAlbedo = albedo00 * v3Weights.x + albedo1001 * v3Weights.y + albedo11 * v3Weights.z;
+    if (blendedAlbedo.a < 0.486)
+    discard;
+
+    vec4 normal00 = texture(tSampler_normal, uv00);
+    vec4 normal1001 = texture(tSampler_normal, uv1001);
+    vec4 normal11 = texture(tSampler_normal, uv11);
+    vec4 blendedNormal = normal00 * v3Weights.x + normal1001 * v3Weights.y + normal11 * v3Weights.z;
 	
-	FragColor = color00 * v3Weights.x + color1001 * v3Weights.y + color11 * v3Weights.z;
+    vec3 albedo = blendedAlbedo.rgb; //
+    vec3 normal = normalize(blendedNormal.rgb * 2.0 - 1.0);
 
-    //FragColor.rgb  = clamp(v3Test.rgb,vec3(0.0),vec3(1.0))/12.0;
-    //FragColor.rgb  = color1001.rgb;
-    //FragColor.rgb  = vec3(v3Weights.xyz);
-    //FragColor.rgb  = (pow(normalize(v3Test.rgb),vec3(0.454545)));
-    FragColor.rgb *= 6.0;
-    //FragColor.rgb = vec3(frac.xy,0.0);
+    vec3 finalColor = albedo * max(dot(normal,vec3(0.0,1.0,0.0)),0.1) ;
+    finalColor = pow(finalColor, vec3(0.454545)); // linear to sRGB
 
-    if (FragColor.a < 0.45)
-        discard;
+	FragColor.rgb = finalColor ;
+	FragColor.a = 1.0;
+
 }

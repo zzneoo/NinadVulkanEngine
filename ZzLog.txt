@@ -34,6 +34,7 @@ fillDeviceExtensionNames() : Enabled Vulkan device extension name = VK_KHR_swapc
 createSwapchain() : minImageCount = 2, maxImageCount = 8
 createSwapchain() : (1) Swapchain Image width x height = 1884 x 977
 createImagesAndImageViews() : gives swapchain image count = 2
+createSamplers() : Samplers created successfully.
 
 Success: Loaded image 'Resources/StockTextures/grass.png' ( 1024 x 1024 ), 4 channels
 
@@ -44,6 +45,14 @@ Success: Loaded image 'Resources/StockTextures/border.png' ( 1600 x 941 ), 4 cha
 loadTextureData() : Texture image loaded successfully.
 
 Success: Loaded image 'Resources/StockTextures/test_impo.png' ( 2048 x 2048 ), 4 channels
+
+loadTextureData() : Texture image loaded successfully.
+
+Success: Loaded image 'Resources/Impostors/BlackAlder_Field_02/T_Impostor_BaseColor_Field_02_Summer.tga' ( 8192 x 8192 ), 4 channels
+
+loadTextureData() : Texture image loaded successfully.
+
+Success: Loaded image 'Resources/Impostors/BlackAlder_Field_02/T_Impostor_Normal_Field_02_Summer.tga' ( 8192 x 8192 ), 4 channels
 
 loadTextureData() : Texture image loaded successfully.
 initialize() : initialize complete.

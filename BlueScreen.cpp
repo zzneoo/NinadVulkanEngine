@@ -236,17 +236,22 @@ VkShaderModule vkShaderModule_impostor_fs = VK_NULL_HANDLE;
 ImageData grassTextureData;
 ImageData borderTextureData;
 ImageData imposterTextureData;
+ImageData imposterTextureData_blackAlder_Field_02_Albedo;
+ImageData imposterTextureData_blackAlder_Field_02_Normal;
 
 //Samplers
 VkSampler vkSampler_LinearClampAniso = VK_NULL_HANDLE;//need mipmaps to be generated for aniso 
+VkSampler vkSampler_LinearClamp = VK_NULL_HANDLE;
 
 //desccriptor set layout 
 VkDescriptorSetLayout vkDescriptorSetLayout_frameData = VK_NULL_HANDLE;
 VkDescriptorSetLayout vkDescriptorSetLayout_SingleImage = VK_NULL_HANDLE;
+VkDescriptorSetLayout vkDescriptorSetLayout_AlbedoNormal = VK_NULL_HANDLE;
 
 VkDescriptorPool vkDescriptorPool = VK_NULL_HANDLE;
 VkDescriptorSet  vkDescriptorSets_frameData[MAX_FRAMES];
 VkDescriptorSet  vkDescriptorSet_SingleImage;
+VkDescriptorSet  vkDescriptorSet_AlbedoNormal;
 
 //pipeline
 VkViewport vkViewport;
@@ -798,12 +803,15 @@ VkResult initialize(void)
     VkResult createShaders(void);
     VkResult createDescriptorSetLayout_FrameData(void);
 	VkResult createDescriptorSetLayout_CamImage(void);
+	VkResult createDescriptorSetLayout_AlbedoNormal(void);
+
     VkResult createPipelineLayout(void);
     VkResult createPipelineLayout_previewImage(void);
 	VkResult createPipelineLayout_Impostor(void);
     VkResult createDescriptorPool(void);
     VkResult createDescriptorSet_FrameData(void);
 	VkResult createDescriptorSet_SingleImage(void);
+    VkResult createDescriptorSet_AlbedoNormal(void);
 
 	VkResult createSamplers(void);
 
@@ -814,7 +822,7 @@ VkResult initialize(void)
     VkResult createSemaphores(void);
     VkResult createFences(void);
 
-    VkResult loadTextureData(ImageData * imageData, const char* filePath);
+    VkResult loadTextureData(ImageData * imageData, const char* filePath,VkFormat format);
 
     //allocate memory for MAX_FRAME arrays
     {
@@ -894,7 +902,7 @@ VkResult initialize(void)
         fprintf(gpFILE, "initialize() : createCommandPool() failed (%d).\n", vkResult);
         return(vkResult);
     }
-
+    //-----------------------------------------------------------------------------------------------
 	//samplers
 	vkResult = createSamplers();
     if (vkResult != VK_SUCCESS)
@@ -903,29 +911,45 @@ VkResult initialize(void)
         return(vkResult);
     }
 
+    //VK_FORMAT_R8G8B8A8_UNORM, // RGBA format
+    //VK_FORMAT_R8G8B8A8_SRGB,  // SRGB format
+    // 
 	//load all textures
-	vkResult = loadTextureData(&grassTextureData, "Resources/StockTextures/grass.png");
+	vkResult = loadTextureData(&grassTextureData, "Resources/StockTextures/grass.png", VK_FORMAT_R8G8B8A8_UNORM);
 	if (vkResult != VK_SUCCESS)
 	{
 		fprintf(gpFILE, "initialize() : loadTextureData() failed (%d).\n", vkResult);
 		return(vkResult);
 	}
 
-	vkResult = loadTextureData(&borderTextureData, "Resources/StockTextures/border.png");
+	vkResult = loadTextureData(&borderTextureData, "Resources/StockTextures/border.png", VK_FORMAT_R8G8B8A8_UNORM);
 	if (vkResult != VK_SUCCESS)
 	{
 		fprintf(gpFILE, "initialize() : loadTextureData() failed (%d).\n", vkResult);
 		return(vkResult);
 	}
 
-	vkResult = loadTextureData(&imposterTextureData, "Resources/StockTextures/test_impo.png");
+	vkResult = loadTextureData(&imposterTextureData, "Resources/StockTextures/test_impo.png", VK_FORMAT_R8G8B8A8_UNORM);
 	//vkResult = loadTextureData(&imposterTextureData, "Resources/StockTextures/count_big_2048.png");
 	if (vkResult != VK_SUCCESS)
 	{
-		fprintf(gpFILE, "initialize() : loadTextureData() failed (%d).\n", vkResult);
+		fprintf(gpFILE, "initialize() : loadTextureData() imposterTextureData failed (%d).\n", vkResult);
 		return(vkResult);
 	}
 
+	vkResult = loadTextureData(&imposterTextureData_blackAlder_Field_02_Albedo, "Resources/Impostors/BlackAlder_Field_02/T_Impostor_BaseColor_Field_02_Summer.tga", VK_FORMAT_R8G8B8A8_SRGB);
+	if (vkResult != VK_SUCCESS)
+	{
+		fprintf(gpFILE, "initialize() : loadTextureData() imposterTextureData_blackAlder_Field_02_Albedo failed (%d).\n", vkResult);
+		return(vkResult);
+	}
+
+	vkResult = loadTextureData(&imposterTextureData_blackAlder_Field_02_Normal, "Resources/Impostors/BlackAlder_Field_02/T_Impostor_Normal_Field_02_Summer.tga" , VK_FORMAT_R8G8B8A8_UNORM);
+    if (vkResult != VK_SUCCESS)
+    {
+        fprintf(gpFILE, "initialize() : loadTextureData() imposterTextureData_blackAlder_Field_02_Normal failed (%d).\n", vkResult);
+        return(vkResult);
+    }
 
 
 
@@ -1049,6 +1073,14 @@ VkResult initialize(void)
         return(vkResult);
 	}
 
+	//descriptor set layout for albedo normal
+	vkResult = createDescriptorSetLayout_AlbedoNormal();
+    if (vkResult != VK_SUCCESS)
+    {
+        fprintf(gpFILE, "initialize() : createDescriptorSetLayout_AlbedoNormal() failed (%d).\n", vkResult);
+        return(vkResult);
+	}
+
     //pipeline layout
     vkResult = createPipelineLayout();
     if (vkResult != VK_SUCCESS)
@@ -1088,11 +1120,18 @@ VkResult initialize(void)
         return(vkResult);
     }
 
-	//Create Descriptor Set for Camera Image
+	//Create Descriptor Set for Image
 	vkResult = createDescriptorSet_SingleImage();
     if (vkResult != VK_SUCCESS)
     {
         fprintf(gpFILE, "initialize() : createDescriptorSet_SingleImage() failed (%d).\n", vkResult);
+        return(vkResult);
+	}
+	//Create Descriptor Set for Albedo Normal
+	vkResult = createDescriptorSet_AlbedoNormal();
+    if (vkResult != VK_SUCCESS)
+    {
+        fprintf(gpFILE, "initialize() : createDescriptorSet_AlbedoNormal() failed (%d).\n", vkResult);
         return(vkResult);
 	}
 
@@ -1865,6 +1904,12 @@ void uninitialize(void)
         vkDescriptorSetLayout_SingleImage = VK_NULL_HANDLE;
 	}
 
+    if (vkDescriptorSetLayout_AlbedoNormal)
+    {
+        vkDestroyDescriptorSetLayout(vkDevice, vkDescriptorSetLayout_AlbedoNormal, NULL);
+        vkDescriptorSetLayout_AlbedoNormal = VK_NULL_HANDLE;
+	}
+
     //shaderModule 
     if (vkShaderModule_basic_fs)
     {
@@ -1992,7 +2037,8 @@ void uninitialize(void)
     destroyTextureData(&grassTextureData);
 	destroyTextureData(&borderTextureData);
 	destroyTextureData(&imposterTextureData);
-
+    destroyTextureData(&imposterTextureData_blackAlder_Field_02_Albedo);
+	destroyTextureData(&imposterTextureData_blackAlder_Field_02_Normal);
 
 	// Destroy swapchain resources
 	 destroySwapchainResources();
@@ -2086,7 +2132,7 @@ void uninitialize(void)
     }
 }
 
-VkResult loadTextureData(ImageData *imageData, const char* filename)
+VkResult loadTextureData(ImageData *imageData, const char* filename, VkFormat format)
 {
 	VkResult vkResult = VK_SUCCESS;
 
@@ -2201,7 +2247,7 @@ VkResult loadTextureData(ImageData *imageData, const char* filename)
 	memset(&imageCreateInfo, 0, sizeof(VkImageCreateInfo));
 	imageCreateInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
 	imageCreateInfo.imageType = VK_IMAGE_TYPE_2D; // 2D image
-	imageCreateInfo.format = VK_FORMAT_R8G8B8A8_UNORM; // Assuming RGBA format
+	imageCreateInfo.format = format; // Assuming RGBA format
 	imageCreateInfo.extent.width = width; // Width of the image
 	imageCreateInfo.extent.height = height; // Height of the image
 	imageCreateInfo.extent.depth = 1; // Depth of the image (1 for 2D)
@@ -2421,7 +2467,7 @@ VkResult loadTextureData(ImageData *imageData, const char* filename)
 	imageViewCreateInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
 	imageViewCreateInfo.image = imageData->vkImage; // The image to create the view for
 	imageViewCreateInfo.viewType = VK_IMAGE_VIEW_TYPE_2D; // 2D image view
-	imageViewCreateInfo.format = VK_FORMAT_R8G8B8A8_UNORM; // Format of the image
+	imageViewCreateInfo.format = format; // Format of the image
 	imageViewCreateInfo.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT; // Color aspect
 	imageViewCreateInfo.subresourceRange.baseMipLevel = 0; // Base mip level
 	imageViewCreateInfo.subresourceRange.levelCount = 1; // One mip level
@@ -3726,6 +3772,35 @@ VkResult createSamplers(void)
         return vkResult;
     }
 
+    //vkSampler_LinearClamp
+    memset(&samplerCreateInfo, 0, sizeof(VkSamplerCreateInfo));
+	samplerCreateInfo.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
+	samplerCreateInfo.magFilter = VK_FILTER_LINEAR; // Magnification filter
+	samplerCreateInfo.minFilter = VK_FILTER_LINEAR; // Minification filter
+	samplerCreateInfo.addressModeU = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE; // U coordinate addressing mode
+	samplerCreateInfo.addressModeV = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE; // V coordinate addressing mode
+	samplerCreateInfo.addressModeW = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE; // W coordinate addressing mode
+	samplerCreateInfo.anisotropyEnable = VK_FALSE; // Disable anisotropic filtering
+	samplerCreateInfo.maxAnisotropy = 1.0f; // Maximum anisotropy level (1.0 means no anisotropic filtering)
+	samplerCreateInfo.borderColor = VK_BORDER_COLOR_INT_OPAQUE_BLACK; // Border color
+	samplerCreateInfo.unnormalizedCoordinates = VK_FALSE; // Use normalized coordinates
+	samplerCreateInfo.compareEnable = VK_FALSE; // No comparison
+	samplerCreateInfo.compareOp = VK_COMPARE_OP_ALWAYS; // Comparison operation (not used here)
+	samplerCreateInfo.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR; // Mipmap mode
+	samplerCreateInfo.mipLodBias = 0.0f; // Mipmap level of detail bias
+	samplerCreateInfo.minLod = 0.0f; // Minimum LOD
+	samplerCreateInfo.maxLod = 0.0f; // Maximum LOD (0 means no mipmaps)
+    vkResult = vkCreateSampler(vkDevice, &samplerCreateInfo, NULL, &vkSampler_LinearClamp);
+    if (vkResult != VK_SUCCESS)
+    {
+        fprintf(gpFILE, "createSamplers() : vkCreateSampler() for vkSampler_LinearClamp failed (%d).\n", vkResult);
+        return vkResult;
+    }
+    //vkSampler_LinearClampAniso = VK_NULL_HANDLE; // Initialize to null handle
+    //vkSampler_LinearClamp = VK_NULL_HANDLE; // Initialize to null handle
+	fprintf(gpFILE, "createSamplers() : Samplers created successfully.\n");
+
+
 	return VK_SUCCESS;
 }
 
@@ -3737,6 +3812,11 @@ void destroySamplers(void)
         vkDestroySampler(vkDevice, vkSampler_LinearClampAniso, NULL);
         vkSampler_LinearClampAniso = VK_NULL_HANDLE;
     }
+    if (vkSampler_LinearClamp)
+    {
+        vkDestroySampler(vkDevice, vkSampler_LinearClamp, NULL);
+        vkSampler_LinearClamp = VK_NULL_HANDLE;
+	}
 
 }
 
@@ -5953,6 +6033,40 @@ VkResult createDescriptorSetLayout_CamImage(void)
 	return vkResult;
 }
 
+VkResult createDescriptorSetLayout_AlbedoNormal(void)
+{
+    // variable declarations
+    VkResult vkResult = VK_SUCCESS;
+    VkDescriptorSetLayoutBinding vkDescriptorSetLayoutBinding_Array[2];
+    memset((void*)&vkDescriptorSetLayoutBinding_Array, 0, sizeof(vkDescriptorSetLayoutBinding_Array));
+    vkDescriptorSetLayoutBinding_Array[0].binding = 0; // binding index
+    vkDescriptorSetLayoutBinding_Array[0].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER; // descriptor type
+    vkDescriptorSetLayoutBinding_Array[0].descriptorCount = 1; // number of descriptors
+    vkDescriptorSetLayoutBinding_Array[0].stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT; // stage flags for the descriptor set layout binding
+    vkDescriptorSetLayoutBinding_Array[0].pImmutableSamplers = NULL; // no immutable samplers
+
+    vkDescriptorSetLayoutBinding_Array[1].binding = 1; // binding index
+    vkDescriptorSetLayoutBinding_Array[1].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER; // descriptor type
+    vkDescriptorSetLayoutBinding_Array[1].descriptorCount = 1; // number of descriptors
+    vkDescriptorSetLayoutBinding_Array[1].stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT; // stage flags for the descriptor set layout binding
+    vkDescriptorSetLayoutBinding_Array[1].pImmutableSamplers = NULL; // no immutable samplers
+    // code
+    VkDescriptorSetLayoutCreateInfo vkDescriptorSetLayoutCreateInfo;
+    memset((void*)&vkDescriptorSetLayoutCreateInfo, 0, sizeof(VkDescriptorSetLayoutCreateInfo));
+    vkDescriptorSetLayoutCreateInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
+    vkDescriptorSetLayoutCreateInfo.pNext = NULL;
+    vkDescriptorSetLayoutCreateInfo.flags = 0;
+    vkDescriptorSetLayoutCreateInfo.bindingCount = 2;
+    vkDescriptorSetLayoutCreateInfo.pBindings = vkDescriptorSetLayoutBinding_Array; // pointer to the descriptor set layout binding array
+    vkResult = vkCreateDescriptorSetLayout(vkDevice, &vkDescriptorSetLayoutCreateInfo, NULL, &vkDescriptorSetLayout_AlbedoNormal);
+    if (vkResult != VK_SUCCESS)
+    {
+        fprintf(gpFILE, "createDiscriptorSetLayout_AlbedoNormal() -> vkCreateDescriptorSetLayout() :  failed: %d.\n", vkResult);
+        return(vkResult);
+    }
+	return vkResult;
+}
+
 VkResult createPipelineLayout(void)
 {
     // local variables
@@ -6035,7 +6149,7 @@ VkResult createPipelineLayout_Impostor(void)
     VkPipelineLayoutCreateInfo vkPipelineLayoutCreateInfo;
     memset((void*)&vkPipelineLayoutCreateInfo, 0, sizeof(VkPipelineLayoutCreateInfo));
 
-	VkDescriptorSetLayout vkDescriptorSetLayouts[] = { vkDescriptorSetLayout_frameData, vkDescriptorSetLayout_SingleImage };
+	VkDescriptorSetLayout vkDescriptorSetLayouts[] = { vkDescriptorSetLayout_frameData, vkDescriptorSetLayout_AlbedoNormal };
 
     vkPipelineLayoutCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
     vkPipelineLayoutCreateInfo.pNext = NULL;
@@ -6259,6 +6373,75 @@ VkResult createDescriptorSet_SingleImage(void)
 
 
     return(vkResult);
+}
+
+VkResult createDescriptorSet_AlbedoNormal(void)
+{
+ // local variables
+    VkResult vkResult = VK_SUCCESS;
+
+    // code
+    // Declare and initialize VkDescriptorSetAllocateInfo structure.
+    VkDescriptorSetAllocateInfo vkDescriptorSetAllocateInfo;
+    memset((void*)&vkDescriptorSetAllocateInfo, 0, sizeof(VkDescriptorSetAllocateInfo));
+
+    vkDescriptorSetAllocateInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
+    vkDescriptorSetAllocateInfo.pNext = NULL;
+    vkDescriptorSetAllocateInfo.descriptorPool = vkDescriptorPool; // global descriptor pool
+    vkDescriptorSetAllocateInfo.descriptorSetCount = 1;//
+    vkDescriptorSetAllocateInfo.pSetLayouts = &vkDescriptorSetLayout_AlbedoNormal; // pointer to the descriptor set layout
+
+	// Call vkAllocateDescriptorSets() to allocate the descriptor set
+    vkResult = vkAllocateDescriptorSets(vkDevice, &vkDescriptorSetAllocateInfo, &vkDescriptorSet_AlbedoNormal);
+    if (vkResult != VK_SUCCESS)
+    {
+        fprintf(gpFILE, "createDiscriptorSet() : vkAllocateDescriptorSets() failed.\n");
+        return(vkResult);
+	}
+    // Declare and initialize VkDescriptorImageInfo structure which will have information about the albedo image.
+    VkDescriptorImageInfo vkDescriptorImageInfo_Albedo;
+    memset((void*)&vkDescriptorImageInfo_Albedo, 0, sizeof(VkDescriptorImageInfo));
+    vkDescriptorImageInfo_Albedo.sampler = vkSampler_LinearClamp; // sampler for the albedo image
+    vkDescriptorImageInfo_Albedo.imageView = imposterTextureData_blackAlder_Field_02_Albedo.vkImageView; // image view for the albedo image
+    vkDescriptorImageInfo_Albedo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL; // image layout for the albedo image
+    // Declare and initialize VkDescriptorImageInfo structure which will have information about the normal image.
+    VkDescriptorImageInfo vkDescriptorImageInfo_Normal;
+    memset((void*)&vkDescriptorImageInfo_Normal, 0, sizeof(VkDescriptorImageInfo));
+    vkDescriptorImageInfo_Normal.sampler = vkSampler_LinearClamp; // sampler for the normal image
+    vkDescriptorImageInfo_Normal.imageView = imposterTextureData_blackAlder_Field_02_Normal.vkImageView; // image view for the normal image
+	vkDescriptorImageInfo_Normal.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL; // image layout for the normal image
+
+    //write or copy the descriptor set with the albedo and normal image information
+    // Declare and initialize VkWriteDescriptorSet structure which will have information about the descriptor set.
+	VkWriteDescriptorSet vkWriteDescriptorSet_array[2];
+    memset((void*)vkWriteDescriptorSet_array, 0, sizeof(VkWriteDescriptorSet) * _ARRAYSIZE(vkWriteDescriptorSet_array));
+    vkWriteDescriptorSet_array[0].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+    vkWriteDescriptorSet_array[0].pNext = NULL;
+    vkWriteDescriptorSet_array[0].dstSet = vkDescriptorSet_AlbedoNormal; // descriptor set
+    vkWriteDescriptorSet_array[0].dstBinding = 0; // 0 means the index number of the binding
+    vkWriteDescriptorSet_array[0].dstArrayElement = 0; // 0 means the index number of the array element
+    vkWriteDescriptorSet_array[0].descriptorCount = 1; // we are using only one descriptor
+    vkWriteDescriptorSet_array[0].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER; // type of the descriptor
+    vkWriteDescriptorSet_array[0].pImageInfo = &vkDescriptorImageInfo_Albedo; // pointer to the albedo image info
+    vkWriteDescriptorSet_array[0].pBufferInfo = NULL; // no buffer info
+    vkWriteDescriptorSet_array[0].pTexelBufferView = NULL; // no texel buffer view
+
+    vkWriteDescriptorSet_array[1].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+    vkWriteDescriptorSet_array[1].pNext = NULL;
+    vkWriteDescriptorSet_array[1].dstSet = vkDescriptorSet_AlbedoNormal; // descriptor set
+    vkWriteDescriptorSet_array[1].dstBinding = 1; // 1 means the index number of the binding
+    vkWriteDescriptorSet_array[1].dstArrayElement = 0; // 0 means the index number of the array element
+    vkWriteDescriptorSet_array[1].descriptorCount = 1; // we are using only one descriptor
+    vkWriteDescriptorSet_array[1].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER; // type of the descriptor
+    vkWriteDescriptorSet_array[1].pImageInfo = &vkDescriptorImageInfo_Normal; // pointer to the normal image info
+    vkWriteDescriptorSet_array[1].pBufferInfo = NULL; // no buffer info
+	vkWriteDescriptorSet_array[1].pTexelBufferView = NULL; // no tex
+
+
+    // Call vkUpdateDescriptorSets() to update the descriptor set with the albedo and normal image information.
+	vkUpdateDescriptorSets(vkDevice, _ARRAYSIZE(vkWriteDescriptorSet_array), vkWriteDescriptorSet_array, 0, NULL);
+
+	return vkResult;
 }
 
 VkResult getSupportedDepthFormat(VkFormat* pVkFormat)
@@ -7830,7 +8013,7 @@ void RenderImpostor(uint32_t curIndex)
     // Bind the pipeline and descriptor sets
     vkCmdBindPipeline(vkCommandBuffer_Array[curIndex], VK_PIPELINE_BIND_POINT_GRAPHICS, vkPipeline_Impostor);
 
-	VkDescriptorSet vkLocalDescriptorSets[] = { vkDescriptorSets_frameData[curIndex], vkDescriptorSet_SingleImage };
+	VkDescriptorSet vkLocalDescriptorSets[] = { vkDescriptorSets_frameData[curIndex], vkDescriptorSet_AlbedoNormal };
     vkCmdBindDescriptorSets(vkCommandBuffer_Array[curIndex], VK_PIPELINE_BIND_POINT_GRAPHICS, vkPipelineLayout_Impostor, 0, 2, vkLocalDescriptorSets, 0, NULL);
 
     // Push the model matrix
