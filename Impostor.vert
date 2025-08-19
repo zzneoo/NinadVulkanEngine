@@ -30,6 +30,10 @@ layout(location = 3) out vec2 v2UV11;
 layout(location = 4) out vec2 out_Impostor_MS_TiledUV;
 layout(location = 5) out vec3 v3Test;
 
+layout(location = 6) out vec2 v2Parallax_First;
+layout(location = 7) out vec2 v2Parallax_Second;
+layout(location = 8) out vec2 v2Parallax_Third;
+
 
 vec2 semiOct(vec3 dir)
 {
@@ -256,22 +260,22 @@ void main(void)
 	//Frame_First
 	vec3 ImpostorFrameTransform_WorldZ_First = -ImpostorFrameTransform_setup(flooredUV, atlasDims);
   //vec3 ImpostorFrameTransform_Right_First = normalize(cross(ImpostorFrameTransform_WorldZ_First,worldUp));
-	vec3 ImpostorFrameTransform_Right_First = -normalize(vec3(ImpostorFrameTransform_WorldZ_First.y,-ImpostorFrameTransform_WorldZ_First.x,0.0));//flip uv.y
+	vec3 ImpostorFrameTransform_Right_First = normalize(vec3(ImpostorFrameTransform_WorldZ_First.y,-ImpostorFrameTransform_WorldZ_First.x,0.0));//flip uv.y
 	vec3 ImpostorFrameTransform_Up_First = normalize(cross(ImpostorFrameTransform_WorldZ_First, ImpostorFrameTransform_Right_First));
 
 	//Frame Second
-	vec2 choiceTile = (eq_d < 0.5) ? vec2(0.0, 1.0) : vec2(1.0, 0.0); // top/right
+	vec2 choiceTile = (eq_d < 0.49) ? vec2(0.0, 1.0) : vec2(1.0, 0.0); // top/right
 
 	vec3 ImpostorFrameTransform_WorldZ_Second = -ImpostorFrameTransform_setup(flooredUV + choiceTile, atlasDims);//bottom left
   //vec3 ImpostorFrameTransform_Right_Second = normalize(cross(ImpostorFrameTransform_WorldZ_Second,worldUp));
-	vec3 ImpostorFrameTransform_Right_Second = -normalize(vec3(ImpostorFrameTransform_WorldZ_Second.y,-ImpostorFrameTransform_WorldZ_Second.x,0.0));//flip uv.y
+	vec3 ImpostorFrameTransform_Right_Second = normalize(vec3(ImpostorFrameTransform_WorldZ_Second.y,-ImpostorFrameTransform_WorldZ_Second.x,0.0));//flip uv.y
 	vec3 ImpostorFrameTransform_Up_Second = normalize(cross(ImpostorFrameTransform_WorldZ_Second, ImpostorFrameTransform_Right_Second));
 
 
 	//Frame Third
 	vec3 ImpostorFrameTransform_WorldZ_Third = -ImpostorFrameTransform_setup(flooredUV + 1.0, atlasDims);//top right
   //vec3 ImpostorFrameTransform_Right_Third = normalize(cross(ImpostorFrameTransform_WorldZ_Third,worldUp));
-	vec3 ImpostorFrameTransform_Right_Third = -normalize(vec3(ImpostorFrameTransform_WorldZ_Third.y,-ImpostorFrameTransform_WorldZ_Third.x,0.0));//flip uv.y
+	vec3 ImpostorFrameTransform_Right_Third = normalize(vec3(ImpostorFrameTransform_WorldZ_Third.y,-ImpostorFrameTransform_WorldZ_Third.x,0.0));//flip uv.y
 	vec3 ImpostorFrameTransform_Up_Third = normalize(cross(ImpostorFrameTransform_WorldZ_Third, ImpostorFrameTransform_Right_Third));
 
 	//--------------------------------
@@ -286,4 +290,17 @@ void main(void)
 
 	v3Test = vec3(ImpostorInfo_PivotOffsetVector);
 	//v3Test = vec3(outUV.x,outUV.y,0.0);
+
+
+	//parallax
+	vec3 parllaxDir = normalize(rayDirLocal);
+	v2Parallax_First = vec2(dot(parllaxDir,-ImpostorFrameTransform_Right_First), dot(parllaxDir,ImpostorFrameTransform_Up_First));
+	v2Parallax_First *= 0.0625 * 0.5;
+
+	v2Parallax_Second = vec2(dot(parllaxDir,-ImpostorFrameTransform_Right_Second), dot(parllaxDir,ImpostorFrameTransform_Up_Second));
+	v2Parallax_Second *= 0.083333 *0.5;
+
+	v2Parallax_Third = vec2(dot(parllaxDir,-ImpostorFrameTransform_Right_Third), dot(parllaxDir,ImpostorFrameTransform_Up_Third));
+	v2Parallax_Third *= 0.083333 *0.5;
+
 }

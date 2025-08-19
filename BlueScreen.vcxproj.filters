@@ -39,9 +39,6 @@
     <ClInclude Include="VK.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="VertexInputState.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="Camera.h">
       <Filter>Header Files</Filter>
     </ClInclude>

@@ -154,7 +154,6 @@
     <ClInclude Include="Resource.h" />
     <ClInclude Include="stb_image.h" />
     <ClInclude Include="targetver.h" />
-    <ClInclude Include="VertexInputState.h" />
     <ClInclude Include="VK.h" />
   </ItemGroup>
   <ItemGroup>

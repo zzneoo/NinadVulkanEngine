@@ -6,6 +6,10 @@
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb_image.h"
 
+#define TINYDDSLOADER_IMPLEMENTATION
+#include "tinyddsloader.h"
+using namespace tinyddsloader;
+
 //#define PRINT_EXTENIONS
 
 #define MAX_FRAMES 2 // for double buffering
@@ -170,8 +174,8 @@ typedef struct
 
 typedef struct
 {
-	VulkanData vertexData;
-	VulkanData indexData;
+    VulkanData vertexData;
+    VulkanData indexData;
 } VulkanComboData;
 
 typedef struct
@@ -209,7 +213,7 @@ const uint16_t triangle_indices[] =
 const uint16_t quad_indices[] =
 {
     0, 2, 3, // first triangle
-	0, 1, 2, // second triangle
+    0, 1, 2, // second triangle
 };
 
 
@@ -403,7 +407,7 @@ int WINAPI WinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, _
         }
         else if (gbActive)
         {
-			//delta time calculation
+            //delta time calculation
                     // get current time
             LARGE_INTEGER curTime;
             QueryPerformanceCounter(&curTime);
@@ -429,7 +433,7 @@ int WINAPI WinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, _
             // Update
             update();
 
-			MyWin32::iFrameID++;
+            MyWin32::iFrameID++;
         }
     }
 
@@ -508,9 +512,9 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM lParam)
             MyWin32::myCamStruct.bCameraMoving_Right = true;
             break;
 
-		case VK_SHIFT:
-			MyWin32::myCamStruct.CameraTurboSpeed = 7.0f;
-			break;
+        case VK_SHIFT:
+            MyWin32::myCamStruct.CameraTurboSpeed = 7.0f;
+            break;
 
 
         case 0x47: //G
@@ -735,10 +739,10 @@ void compileShaderVS_FS(const char* shaderName)
         &si, &pi
     );
 
-    if (!success) 
+    if (!success)
     {
         std::cerr << "Failed to run process: " << GetLastError() << std::endl;
-		exit(EXIT_FAILURE);
+        exit(EXIT_FAILURE);
     }
 
     // Wait until the process exits
@@ -747,7 +751,7 @@ void compileShaderVS_FS(const char* shaderName)
     CloseHandle(pi.hThread);
 
 
-	//------------verify if shader files exist----------------
+    //------------verify if shader files exist----------------
     char filename[256];
     snprintf(filename, sizeof(filename), "%s.vert.spv", shaderName);
     if (!file_exists(filename))
@@ -790,39 +794,40 @@ VkResult initialize(void)
     VkResult createSwapchainResources(void);
     VkResult createCommandPool(void);
     VkResult createCommandBuffers(void);
-	//VkResult createVertexBuffer_coloredTriangle(void);
-    VkResult ZzCreateVertexBuffer(const float * vertices, VkDeviceSize vertexBufferSize, VulkanData * vulkanData);
-	VkResult ZzCreateIndex16Buffer(const uint16_t * indices, VkDeviceSize indexBufferSize, VulkanData * vulkanData);
+    //VkResult createVertexBuffer_coloredTriangle(void);
+    VkResult ZzCreateVertexBuffer(const float* vertices, VkDeviceSize vertexBufferSize, VulkanData * vulkanData);
+    VkResult ZzCreateIndex16Buffer(const uint16_t * indices, VkDeviceSize indexBufferSize, VulkanData * vulkanData);
     VkResult ZzCreateVertexAndIndexBuffer(
-        const float * vertices, VkDeviceSize vertexBufferSize,
+        const float* vertices, VkDeviceSize vertexBufferSize,
         const uint16_t * indices, VkDeviceSize indexBufferSize,
         VulkanComboData * vulkanComboData
-	);
-	//VkResult createVertexBuffer_uvQuad(void);
+    );
+    //VkResult createVertexBuffer_uvQuad(void);
     VkResult createUniformBuffer(void);
     VkResult createShaders(void);
     VkResult createDescriptorSetLayout_FrameData(void);
-	VkResult createDescriptorSetLayout_CamImage(void);
-	VkResult createDescriptorSetLayout_AlbedoNormal(void);
+    VkResult createDescriptorSetLayout_CamImage(void);
+    VkResult createDescriptorSetLayout_AlbedoNormal(void);
 
     VkResult createPipelineLayout(void);
     VkResult createPipelineLayout_previewImage(void);
-	VkResult createPipelineLayout_Impostor(void);
+    VkResult createPipelineLayout_Impostor(void);
     VkResult createDescriptorPool(void);
     VkResult createDescriptorSet_FrameData(void);
-	VkResult createDescriptorSet_SingleImage(void);
+    VkResult createDescriptorSet_SingleImage(void);
     VkResult createDescriptorSet_AlbedoNormal(void);
 
-	VkResult createSamplers(void);
+    VkResult createSamplers(void);
 
     VkResult createRenderPass(void);
     VkResult createGraphicsPipelines(void);
-	VkResult createDepthResources(void);
+    VkResult createDepthResources(void);
     VkResult createFramebuffers(void);
     VkResult createSemaphores(void);
     VkResult createFences(void);
 
-    VkResult loadTextureData(ImageData * imageData, const char* filePath,VkFormat format);
+    VkResult loadTextureData(ImageData * imageData, const char* filePath, VkFormat format);
+    VkResult loadTextureData_dds_c_bc7(ImageData * imageData, const char* filename, VkFormat format);
 
     //allocate memory for MAX_FRAME arrays
     {
@@ -832,7 +837,7 @@ VkResult initialize(void)
     // variable declarations
     VkResult vkResult = VK_SUCCESS;
 
-	compileShaderVS_FS("Impostor");
+    compileShaderVS_FS("Impostor");
 
     // code
     // STEP 3 : Create Vulkan instance
@@ -888,12 +893,12 @@ VkResult initialize(void)
         return(vkResult);
     }
 
-	vkResult = createSwapchainResources();
+    vkResult = createSwapchainResources();
     if (vkResult != VK_SUCCESS)
     {
         fprintf(gpFILE, "initialize() : createSwapchainResources() failed (%d).\n", vkResult);
         return(vkResult);
-	}
+    }
 
     // STEP 14 : Create command pool
     vkResult = createCommandPool();
@@ -903,8 +908,8 @@ VkResult initialize(void)
         return(vkResult);
     }
     //-----------------------------------------------------------------------------------------------
-	//samplers
-	vkResult = createSamplers();
+    //samplers
+    vkResult = createSamplers();
     if (vkResult != VK_SUCCESS)
     {
         fprintf(gpFILE, "initialize() : createSamplers() failed (%d).\n", vkResult);
@@ -914,43 +919,67 @@ VkResult initialize(void)
     //VK_FORMAT_R8G8B8A8_UNORM, // RGBA format
     //VK_FORMAT_R8G8B8A8_SRGB,  // SRGB format
     // 
-	//load all textures
-	vkResult = loadTextureData(&grassTextureData, "Resources/StockTextures/grass.png", VK_FORMAT_R8G8B8A8_UNORM);
-	if (vkResult != VK_SUCCESS)
-	{
-		fprintf(gpFILE, "initialize() : loadTextureData() failed (%d).\n", vkResult);
-		return(vkResult);
-	}
-
-	vkResult = loadTextureData(&borderTextureData, "Resources/StockTextures/border.png", VK_FORMAT_R8G8B8A8_UNORM);
-	if (vkResult != VK_SUCCESS)
-	{
-		fprintf(gpFILE, "initialize() : loadTextureData() failed (%d).\n", vkResult);
-		return(vkResult);
-	}
-
-	vkResult = loadTextureData(&imposterTextureData, "Resources/StockTextures/test_impo.png", VK_FORMAT_R8G8B8A8_UNORM);
-	//vkResult = loadTextureData(&imposterTextureData, "Resources/StockTextures/count_big_2048.png");
-	if (vkResult != VK_SUCCESS)
-	{
-		fprintf(gpFILE, "initialize() : loadTextureData() imposterTextureData failed (%d).\n", vkResult);
-		return(vkResult);
-	}
-
-	vkResult = loadTextureData(&imposterTextureData_blackAlder_Field_02_Albedo, "Resources/Impostors/BlackAlder_Field_02/T_Impostor_BaseColor_Field_02_Summer.tga", VK_FORMAT_R8G8B8A8_SRGB);
-	if (vkResult != VK_SUCCESS)
-	{
-		fprintf(gpFILE, "initialize() : loadTextureData() imposterTextureData_blackAlder_Field_02_Albedo failed (%d).\n", vkResult);
-		return(vkResult);
-	}
-
-	vkResult = loadTextureData(&imposterTextureData_blackAlder_Field_02_Normal, "Resources/Impostors/BlackAlder_Field_02/T_Impostor_Normal_Field_02_Summer.tga" , VK_FORMAT_R8G8B8A8_UNORM);
+    //load all textures
+    vkResult = loadTextureData(&grassTextureData, "Resources/StockTextures/grass.png", VK_FORMAT_R8G8B8A8_SRGB);
     if (vkResult != VK_SUCCESS)
     {
-        fprintf(gpFILE, "initialize() : loadTextureData() imposterTextureData_blackAlder_Field_02_Normal failed (%d).\n", vkResult);
+        fprintf(gpFILE, "initialize() : loadTextureData() failed (%d).\n", vkResult);
         return(vkResult);
     }
 
+    vkResult = loadTextureData(&borderTextureData, "Resources/StockTextures/border.png", VK_FORMAT_R8G8B8A8_SRGB);
+    if (vkResult != VK_SUCCESS)
+    {
+        fprintf(gpFILE, "initialize() : loadTextureData() failed (%d).\n", vkResult);
+        return(vkResult);
+    }
+
+    //vkResult = loadTextureData(&imposterTextureData, "Resources/StockTextures/test_impo.png", VK_FORMAT_R8G8B8A8_SRGB);
+    ////vkResult = loadTextureData(&imposterTextureData, "Resources/StockTextures/count_big_2048.png");
+    //if (vkResult != VK_SUCCESS)
+    //{
+    //	fprintf(gpFILE, "initialize() : loadTextureData() imposterTextureData failed (%d).\n", vkResult);
+    //	return(vkResult);
+    //}
+
+    //vkResult = loadTextureData(&imposterTextureData_blackAlder_Field_02_Albedo, "Resources/Impostors/BlackAlder_Field_02/T_Impostor_BaseColor_Field_02_Summer.tga", VK_FORMAT_R8G8B8A8_UNORM);
+    //if (vkResult != VK_SUCCESS)
+    //{
+    //	fprintf(gpFILE, "initialize() : loadTextureData() imposterTextureData_blackAlder_Field_02_Albedo failed (%d).\n", vkResult);
+    //	return(vkResult);
+    //}
+
+    //vkResult = loadTextureData(&imposterTextureData_blackAlder_Field_02_Normal, "Resources/Impostors/BlackAlder_Field_02/T_Impostor_Normal_Field_02_Summer.tga" , VK_FORMAT_R8G8B8A8_UNORM);
+ //   if (vkResult != VK_SUCCESS)
+ //   {
+ //       fprintf(gpFILE, "initialize() : loadTextureData() imposterTextureData_blackAlder_Field_02_Normal failed (%d).\n", vkResult);
+ //       return(vkResult);
+ //   }
+
+    //dds
+    //albedo
+    vkResult = loadTextureData_dds_c_bc7(&imposterTextureData_blackAlder_Field_02_Albedo, "Resources/Impostors/BlackAlder_Field_02/T_Impostor_BaseColor_Field_02_Summer.dds", VK_FORMAT_BC7_SRGB_BLOCK);
+    if (vkResult != VK_SUCCESS)
+    {
+        fprintf(gpFILE, "initialize() : loadTextureData_dds() imposterTextureData_blackAlder_Field_02_Normal failed (%d).\n", vkResult);
+        return(vkResult);
+    }
+
+    //normal
+    vkResult = loadTextureData_dds_c_bc7(&imposterTextureData_blackAlder_Field_02_Normal, "Resources/Impostors/BlackAlder_Field_02/T_Impostor_Normal_Field_02_Summer.dds", VK_FORMAT_BC7_UNORM_BLOCK);
+    if (vkResult != VK_SUCCESS)
+    {
+        fprintf(gpFILE, "initialize() : loadTextureData_dds() imposterTextureData_blackAlder_Field_02_Normal failed (%d).\n", vkResult);
+        return(vkResult);
+    }
+
+    //lion
+    vkResult = loadTextureData_dds_c_bc7(&imposterTextureData, "Resources/StockTextures/lion.dds", VK_FORMAT_BC7_SRGB_BLOCK);
+    if (vkResult != VK_SUCCESS)
+    {
+        fprintf(gpFILE, "initialize() : loadTextureData_dds() imposterTextureData_ failed (%d).\n", vkResult);
+        return(vkResult);
+    }
 
 
     // STEP 15 : Create command buffers
@@ -961,7 +990,7 @@ VkResult initialize(void)
         return(vkResult);
     }
 
-	//create vertex buffer for colored triangle
+    //create vertex buffer for colored triangle
     // 3 vertices, each with 3D position and RGB color
     const VertexData_PositionColor vertices[] = {
         {{ 0.0f, 0.0f, 1.0f}, {1.0f, 0.0f, 0.0f}},  // bottom (z=0), red
@@ -969,7 +998,7 @@ VkResult initialize(void)
         {{ 1.0f,  0.0f,-1.0f}, {0.0f, 0.0f, 1.0f}},  // left, blue
     };
 
-	vkResult = ZzCreateVertexBuffer((float*)vertices, sizeof(vertices), &vertexData_coloredTriangle);
+    vkResult = ZzCreateVertexBuffer((float*)vertices, sizeof(vertices), &vertexData_coloredTriangle);
     if (vkResult != VK_SUCCESS)
     {
         fprintf(gpFILE, "initialize() : ZzCreateVertexBuffer() failed (%d).\n", vkResult);
@@ -978,29 +1007,29 @@ VkResult initialize(void)
 
     //--------------------------------------------------------------------------------------------------
 
-	//create vertex buffer for axis
-	float lineWidth = 0.1f;
+    //create vertex buffer for axis
+    float lineWidth = 0.1f;
 
     const VertexData_PositionColor AxisVerticesColor[] = {
         {{ 0.0f, lineWidth, lineWidth}, {1.0f, 0.0f, 0.0f}},
         {{ 0.0f,  -lineWidth, -lineWidth}, {1.0f, 0.0f, 0.0f}},  //x-axis
-        {{ 10000.0f,  0.0f, 0.0f}, {1.0f, 0.0f, 0.0f}},  
+        {{ 10000.0f,  0.0f, 0.0f}, {1.0f, 0.0f, 0.0f}},
 
-        {{ 0.0f, 10000.0f, 0.0f}, {0.0f, 1.0f, 0.0f}}, 
+        {{ 0.0f, 10000.0f, 0.0f}, {0.0f, 1.0f, 0.0f}},
         {{ -lineWidth,  0.0f, lineWidth}, {0.0f, 1.0f, 0.0f}},  //y-axis
         {{ lineWidth,  0.0f, -lineWidth}, {0.0f, 1.0f, 0.0f}},
 
         {{ lineWidth, lineWidth, 0.0f}, {0.0f, 0.0f, 1.0f}},
-		{{ -lineWidth,  -lineWidth, 0.0f}, {0.0f, 0.0f, 1.0f}},  //z-axis
-        {{ 0.0f,  0.0f, 10000.0f}, {0.0f, 0.0f, 1.0f}},  
-	};
+        {{ -lineWidth,  -lineWidth, 0.0f}, {0.0f, 0.0f, 1.0f}},  //z-axis
+        {{ 0.0f,  0.0f, 10000.0f}, {0.0f, 0.0f, 1.0f}},
+    };
 
-	vkResult = ZzCreateVertexBuffer((float*)AxisVerticesColor, sizeof(AxisVerticesColor), &vertexData_Axis);
+    vkResult = ZzCreateVertexBuffer((float*)AxisVerticesColor, sizeof(AxisVerticesColor), &vertexData_Axis);
     if (vkResult != VK_SUCCESS)
     {
         fprintf(gpFILE, "initialize() : ZzCreateVertexBuffer() for Axis failed (%d).\n", vkResult);
         return(vkResult);
-	}
+    }
 
     //--------------------------------------------------------------------------------------------------
 
@@ -1014,9 +1043,9 @@ VkResult initialize(void)
         { {  1.518936f, -0.083362f, 8.643809f }, { 0.007812f, 0.002604f } },
         { {  0.117455f,  1.318118f, 8.643809f }, { 0.002083f, 0.008331f } },
         { {  1.518936f,  0.935896f, 8.643809f }, { 0.007812f, 0.006767f } },
-        { {  1.136714f,  1.318118f, 8.643809f }, { 0.006248f, 0.008331f } }  };
+        { {  1.136714f,  1.318118f, 8.643809f }, { 0.006248f, 0.008331f } } };
 
-	//create index buffer for Impostor
+    //create index buffer for Impostor
     const uint16_t impostor_indices[] = {
     0, 1, 2,
     3, 0, 2,
@@ -1028,17 +1057,17 @@ VkResult initialize(void)
     8, 7, 2
     };
 
-	//vulkanComboData for Impostor
+    //vulkanComboData for Impostor
     vkResult = ZzCreateVertexAndIndexBuffer(
         (float*)ImpostorPosUV, sizeof(ImpostorPosUV),
         impostor_indices, sizeof(impostor_indices),
         &ImpostorBufferData
-	);
+    );
     if (vkResult != VK_SUCCESS)
     {
         fprintf(gpFILE, "initialize() : ZzCreateVetexAndIndexBuffer() failed (%d).\n", vkResult);
         return(vkResult);
-	}
+    }
 
     //--------------------------------------------------------------------------------------------------
 
@@ -1065,21 +1094,21 @@ VkResult initialize(void)
         return(vkResult);
     }
 
-	//descriptor set layout for impostor
-	vkResult = createDescriptorSetLayout_CamImage();
+    //descriptor set layout for impostor
+    vkResult = createDescriptorSetLayout_CamImage();
     if (vkResult != VK_SUCCESS)
     {
         fprintf(gpFILE, "initialize() : createDescriptorSetLayout_CamImage() failed (%d).\n", vkResult);
         return(vkResult);
-	}
+    }
 
-	//descriptor set layout for albedo normal
-	vkResult = createDescriptorSetLayout_AlbedoNormal();
+    //descriptor set layout for albedo normal
+    vkResult = createDescriptorSetLayout_AlbedoNormal();
     if (vkResult != VK_SUCCESS)
     {
         fprintf(gpFILE, "initialize() : createDescriptorSetLayout_AlbedoNormal() failed (%d).\n", vkResult);
         return(vkResult);
-	}
+    }
 
     //pipeline layout
     vkResult = createPipelineLayout();
@@ -1088,21 +1117,21 @@ VkResult initialize(void)
         fprintf(gpFILE, "initialize() : createPipelineLayout() failed (%d).\n", vkResult);
         return(vkResult);
     }
-	//pipeline layout for preview image
-	vkResult = createPipelineLayout_previewImage();
-	if (vkResult != VK_SUCCESS)
-	{
-		fprintf(gpFILE, "initialize() : createPipelineLayout_previewImage() failed (%d).\n", vkResult);
-		return(vkResult);
-	}
-	//pipeline layout for imposter
-	vkResult = createPipelineLayout_Impostor();
-	if (vkResult != VK_SUCCESS)
-	{
-		fprintf(gpFILE, "initialize() : createPipelineLayout_Imposter() failed (%d).\n", vkResult);
-		return(vkResult);
-	}
-	
+    //pipeline layout for preview image
+    vkResult = createPipelineLayout_previewImage();
+    if (vkResult != VK_SUCCESS)
+    {
+        fprintf(gpFILE, "initialize() : createPipelineLayout_previewImage() failed (%d).\n", vkResult);
+        return(vkResult);
+    }
+    //pipeline layout for imposter
+    vkResult = createPipelineLayout_Impostor();
+    if (vkResult != VK_SUCCESS)
+    {
+        fprintf(gpFILE, "initialize() : createPipelineLayout_Imposter() failed (%d).\n", vkResult);
+        return(vkResult);
+    }
+
 
     //Create Descriptor Pool
     vkResult = createDescriptorPool();
@@ -1120,20 +1149,20 @@ VkResult initialize(void)
         return(vkResult);
     }
 
-	//Create Descriptor Set for Image
-	vkResult = createDescriptorSet_SingleImage();
+    //Create Descriptor Set for Image
+    vkResult = createDescriptorSet_SingleImage();
     if (vkResult != VK_SUCCESS)
     {
         fprintf(gpFILE, "initialize() : createDescriptorSet_SingleImage() failed (%d).\n", vkResult);
         return(vkResult);
-	}
-	//Create Descriptor Set for Albedo Normal
-	vkResult = createDescriptorSet_AlbedoNormal();
+    }
+    //Create Descriptor Set for Albedo Normal
+    vkResult = createDescriptorSet_AlbedoNormal();
     if (vkResult != VK_SUCCESS)
     {
         fprintf(gpFILE, "initialize() : createDescriptorSet_AlbedoNormal() failed (%d).\n", vkResult);
         return(vkResult);
-	}
+    }
 
     // STEP 16 : Create RenderPass
     vkResult = createRenderPass();
@@ -1269,6 +1298,10 @@ VkResult initialize(void)
     bInitialized = TRUE;
     fprintf(gpFILE, "initialize() : initialize complete.\n");
 
+    //---------------------------------Test-----------------------------------
+
+
+
     return(vkResult);
 }
 
@@ -1296,11 +1329,11 @@ VkResult resize(int width, int height)
     VkResult createPipelineLayout(void);
     VkResult createGraphicsPipelines(void);
     VkResult createRenderPass(void);
-	VkResult createSwapchainResources(void);
+    VkResult createSwapchainResources(void);
     VkResult createFramebuffers(void);
 
     void destroySwapchainResources(void);
-	void destroyGraphicsPipelines(void);
+    void destroyGraphicsPipelines(void);
 
 
 
@@ -1369,7 +1402,7 @@ VkResult resize(int width, int height)
     }
 
     // pipeline
-    destroyGraphicsPipelines(); 
+    destroyGraphicsPipelines();
 
     // renderpass
     if (vkRenderPass)
@@ -1380,8 +1413,8 @@ VkResult resize(int width, int height)
         //fprintf(gpFILE, "resize() : vkDestroyRenderPass() succeeded.\n");
     }
 
-	//destroy swapchain resources
-	destroySwapchainResources();
+    //destroy swapchain resources
+    destroySwapchainResources();
 
 
     // destroy swapchain
@@ -1464,12 +1497,12 @@ VkResult resize(int width, int height)
     //    return(vkResult);
     //}
 
-	MyWin32::gProjectionMatrix = glm::perspectiveLH_ZO(
-		glm::radians(MyWin32::fovY),
-		(float)width / (float)height,
-		MyWin32::gNearFarFrustum.x,
-		MyWin32::gNearFarFrustum.y
-	);
+    MyWin32::gProjectionMatrix = glm::perspectiveLH_ZO(
+        glm::radians(MyWin32::fovY),
+        (float)width / (float)height,
+        MyWin32::gNearFarFrustum.x,
+        MyWin32::gNearFarFrustum.y
+    );
     MyWin32::gProjectionMatrix[1][1] *= -1.0f; // flip the Y axis for Vulkan
 
 
@@ -1741,7 +1774,7 @@ VkResult display(void)
 void update(void)
 {
     // code
-   
+
 
     if (FALSE == MyWin32::isGUI)
     {
@@ -1753,13 +1786,13 @@ void uninitialize(void)
 {
     // function declarations
     void ToggleFullscreen(void);
-	void destroyGraphicsPipelines(void);
-	void destroySwapchainResources(void);
-	void destroySamplers(void);
-	void destroyTextureData(ImageData* imageData);
-    void ZzDestroyVertexBuffer(VulkanData* vulkanData);
-    void ZzDestroyIndexBuffer(VulkanData* vulkanData);
-	void ZzDestroyVertexAndIndexBuffer(VulkanComboData * vulkanComboData);
+    void destroyGraphicsPipelines(void);
+    void destroySwapchainResources(void);
+    void destroySamplers(void);
+    void destroyTextureData(ImageData * imageData);
+    void ZzDestroyVertexBuffer(VulkanData * vulkanData);
+    void ZzDestroyIndexBuffer(VulkanData * vulkanData);
+    void ZzDestroyVertexAndIndexBuffer(VulkanComboData * vulkanComboData);
 
     // code
     // if application is exitting in fullscreen
@@ -1874,19 +1907,19 @@ void uninitialize(void)
         vkPipelineLayout = VK_NULL_HANDLE;
     }
 
-	//pipeline layout for preview image
-	if (vkPipelineLayout_previewImage)
-	{
-		vkDestroyPipelineLayout(vkDevice, vkPipelineLayout_previewImage, NULL);
-		vkPipelineLayout_previewImage = VK_NULL_HANDLE;
-	}
+    //pipeline layout for preview image
+    if (vkPipelineLayout_previewImage)
+    {
+        vkDestroyPipelineLayout(vkDevice, vkPipelineLayout_previewImage, NULL);
+        vkPipelineLayout_previewImage = VK_NULL_HANDLE;
+    }
 
-	//pipeline layout for imposter
-	if (vkPipelineLayout_Impostor)
-	{
-		vkDestroyPipelineLayout(vkDevice, vkPipelineLayout_Impostor, NULL);
-		vkPipelineLayout_Impostor = VK_NULL_HANDLE;
-	}
+    //pipeline layout for imposter
+    if (vkPipelineLayout_Impostor)
+    {
+        vkDestroyPipelineLayout(vkDevice, vkPipelineLayout_Impostor, NULL);
+        vkPipelineLayout_Impostor = VK_NULL_HANDLE;
+    }
 
 
     //descriptor set layout
@@ -1897,18 +1930,18 @@ void uninitialize(void)
 
     }
 
-	//descriptor set layout for impostor
-	if (vkDescriptorSetLayout_SingleImage)
-	{
-		vkDestroyDescriptorSetLayout(vkDevice, vkDescriptorSetLayout_SingleImage, NULL);
+    //descriptor set layout for impostor
+    if (vkDescriptorSetLayout_SingleImage)
+    {
+        vkDestroyDescriptorSetLayout(vkDevice, vkDescriptorSetLayout_SingleImage, NULL);
         vkDescriptorSetLayout_SingleImage = VK_NULL_HANDLE;
-	}
+    }
 
     if (vkDescriptorSetLayout_AlbedoNormal)
     {
         vkDestroyDescriptorSetLayout(vkDevice, vkDescriptorSetLayout_AlbedoNormal, NULL);
         vkDescriptorSetLayout_AlbedoNormal = VK_NULL_HANDLE;
-	}
+    }
 
     //shaderModule 
     if (vkShaderModule_basic_fs)
@@ -1922,59 +1955,59 @@ void uninitialize(void)
         vkShaderModule_vertex_shader = VK_NULL_HANDLE;
     }
 
-	//-- shader modules for white vertex shaders
-	if (vkShaderModule_whiteVertex_vs)
-	{
-		vkDestroyShaderModule(vkDevice, vkShaderModule_whiteVertex_vs, NULL);
+    //-- shader modules for white vertex shaders
+    if (vkShaderModule_whiteVertex_vs)
+    {
+        vkDestroyShaderModule(vkDevice, vkShaderModule_whiteVertex_vs, NULL);
         vkShaderModule_whiteVertex_vs = VK_NULL_HANDLE;
-	}
+    }
 
-	if (vkShaderModule_whiteVertex_fs)
-	{
-		vkDestroyShaderModule(vkDevice, vkShaderModule_whiteVertex_fs, NULL);
-		vkShaderModule_whiteVertex_fs = VK_NULL_HANDLE;
-	}
+    if (vkShaderModule_whiteVertex_fs)
+    {
+        vkDestroyShaderModule(vkDevice, vkShaderModule_whiteVertex_fs, NULL);
+        vkShaderModule_whiteVertex_fs = VK_NULL_HANDLE;
+    }
 
-	//-- shader modules for previewImage shaders
+    //-- shader modules for previewImage shaders
 
-	if (vkShaderModule_previewImage_vs)
-	{
-		vkDestroyShaderModule(vkDevice, vkShaderModule_previewImage_vs, NULL);
-		vkShaderModule_previewImage_vs = VK_NULL_HANDLE;
-	}
+    if (vkShaderModule_previewImage_vs)
+    {
+        vkDestroyShaderModule(vkDevice, vkShaderModule_previewImage_vs, NULL);
+        vkShaderModule_previewImage_vs = VK_NULL_HANDLE;
+    }
 
     if (vkShaderModule_previewImage_fs)
     {
-	    vkDestroyShaderModule(vkDevice, vkShaderModule_previewImage_fs, NULL);
-	    vkShaderModule_previewImage_fs = VK_NULL_HANDLE;
-	}
+        vkDestroyShaderModule(vkDevice, vkShaderModule_previewImage_fs, NULL);
+        vkShaderModule_previewImage_fs = VK_NULL_HANDLE;
+    }
 
-	//-- shader modules for impostor shaders
-	if (vkShaderModule_impostor_vs)
-	{
-		vkDestroyShaderModule(vkDevice, vkShaderModule_impostor_vs, NULL);
-		vkShaderModule_impostor_vs = VK_NULL_HANDLE;
-	}
+    //-- shader modules for impostor shaders
+    if (vkShaderModule_impostor_vs)
+    {
+        vkDestroyShaderModule(vkDevice, vkShaderModule_impostor_vs, NULL);
+        vkShaderModule_impostor_vs = VK_NULL_HANDLE;
+    }
 
-	if (vkShaderModule_impostor_fs)
-	{
-		vkDestroyShaderModule(vkDevice, vkShaderModule_impostor_fs, NULL);
-		vkShaderModule_impostor_fs = VK_NULL_HANDLE;
-	}
-        
+    if (vkShaderModule_impostor_fs)
+    {
+        vkDestroyShaderModule(vkDevice, vkShaderModule_impostor_fs, NULL);
+        vkShaderModule_impostor_fs = VK_NULL_HANDLE;
+    }
+
 
     //Destroy vertex data for colored triangle
-	ZzDestroyVertexBuffer(&vertexData_coloredTriangle);
+    ZzDestroyVertexBuffer(&vertexData_coloredTriangle);
     //vertexData_Axis 
-	ZzDestroyVertexBuffer(&vertexData_Axis);
+    ZzDestroyVertexBuffer(&vertexData_Axis);
 
-	//Impostor CombinedData
-	ZzDestroyVertexAndIndexBuffer(&ImpostorBufferData);
+    //Impostor CombinedData
+    ZzDestroyVertexAndIndexBuffer(&ImpostorBufferData);
 
 
     //uniform buffer
 
-	////Camera uniform buffer
+    ////Camera uniform buffer
  //   for (uint32_t i = 0; i < MAX_FRAMES; i++)
  //   {
  //       // Unmap the uniformData memory
@@ -1993,24 +2026,24 @@ void uninitialize(void)
  //       }
  //   }
 
-	//FrameData uniform buffer
-	for (uint32_t i = 0; i < MAX_FRAMES; i++)
-	{
-		// Unmap the uniformData memory
-		vkUnmapMemory(vkDevice, uniformBufferData_frameData[i].vkDeviceMemory);
+    //FrameData uniform buffer
+    for (uint32_t i = 0; i < MAX_FRAMES; i++)
+    {
+        // Unmap the uniformData memory
+        vkUnmapMemory(vkDevice, uniformBufferData_frameData[i].vkDeviceMemory);
 
-		//uniformData
-		if (uniformBufferData_frameData[i].vkDeviceMemory)
-		{
-			vkFreeMemory(vkDevice, uniformBufferData_frameData[i].vkDeviceMemory, NULL);
+        //uniformData
+        if (uniformBufferData_frameData[i].vkDeviceMemory)
+        {
+            vkFreeMemory(vkDevice, uniformBufferData_frameData[i].vkDeviceMemory, NULL);
             uniformBufferData_frameData[i].vkDeviceMemory = VK_NULL_HANDLE;
-		}
-		if (uniformBufferData_frameData[i].vkBuffer)
-		{
-			vkDestroyBuffer(vkDevice, uniformBufferData_frameData[i].vkBuffer, NULL);
+        }
+        if (uniformBufferData_frameData[i].vkBuffer)
+        {
+            vkDestroyBuffer(vkDevice, uniformBufferData_frameData[i].vkBuffer, NULL);
             uniformBufferData_frameData[i].vkBuffer = VK_NULL_HANDLE;
-		}	
-	}
+        }
+    }
 
     for (uint32_t i = 0; i < gSwapchainImageCount; i++)
     {
@@ -2033,15 +2066,15 @@ void uninitialize(void)
 
     //-----------------------------------------------------------
 
-	//destroy image data
+    //destroy image data
     destroyTextureData(&grassTextureData);
-	destroyTextureData(&borderTextureData);
-	destroyTextureData(&imposterTextureData);
+    destroyTextureData(&borderTextureData);
+    destroyTextureData(&imposterTextureData);
     destroyTextureData(&imposterTextureData_blackAlder_Field_02_Albedo);
-	destroyTextureData(&imposterTextureData_blackAlder_Field_02_Normal);
+    destroyTextureData(&imposterTextureData_blackAlder_Field_02_Normal);
 
-	// Destroy swapchain resources
-	 destroySwapchainResources();
+    // Destroy swapchain resources
+    destroySwapchainResources();
 
 
     // Destroy Vulkan swapchain
@@ -2056,7 +2089,7 @@ void uninitialize(void)
         vkSwapchainKHR = VK_NULL_HANDLE;
 
     }
-	destroySamplers();
+    destroySamplers();
 
     /*
      * no need to destroy / uninitialize device queue
@@ -2132,103 +2165,100 @@ void uninitialize(void)
     }
 }
 
-VkResult loadTextureData(ImageData *imageData, const char* filename, VkFormat format)
+VkResult loadTextureData(ImageData* imageData, const char* filename, VkFormat format)
 {
-	VkResult vkResult = VK_SUCCESS;
+    VkResult vkResult = VK_SUCCESS;
 
     //2)  Variables to receive image metadata
     int width, height, channels;
 
-	//flip the image vertically
-	stbi_set_flip_vertically_on_load(true); // flip the image vertically
+    //flip the image vertically
+    stbi_set_flip_vertically_on_load(true); // flip the image vertically
 
     // 3) stbi_load returns a pointer to the pixel data
     unsigned char* data = stbi_load(filename, &width, &height, &channels, 0);
-    if (!data) 
+    if (!data)
     {
         fprintf(gpFILE, "\nFailed: Error loading '%s': %s\n\n", filename, stbi_failure_reason());
-		vkResult = VK_ERROR_INITIALIZATION_FAILED;
-		return vkResult;
+        vkResult = VK_ERROR_INITIALIZATION_FAILED;
+        return vkResult;
     }
 
-    fprintf(gpFILE,
-        "\nSuccess: Loaded image '%s' ( %d x %d ), %d channels\n\n",
-        filename, width, height, channels
-    );
+    fprintf(gpFILE, "\nSuccess: Loaded image '%s' ( %d x %d ), %d channels\n\n", filename, width, height, channels);
 
-	// 4) Create a Vulkan image and upload the pixel data
-	VkBuffer vkBuffer_stagingBuffer;
-	VkDeviceMemory vkDeviceMemory_stagingBuffer;
-	VkDeviceSize imageSize = width * height * channels;//channels
+    // 4) Create a Vulkan image and upload the pixel data
+    VkBuffer vkBuffer_stagingBuffer;
+    VkDeviceMemory vkDeviceMemory_stagingBuffer;
+    VkDeviceSize imageSize = width * height * channels;//channels
 
     // Buffer create info
     VkBufferCreateInfo bufferCreateInfo;
-	memset(&bufferCreateInfo, 0, sizeof(VkBufferCreateInfo));
+    memset(&bufferCreateInfo, 0, sizeof(VkBufferCreateInfo));
 
-	bufferCreateInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
-	bufferCreateInfo.size = imageSize; // Size of the buffer in bytes
-	bufferCreateInfo.usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT; // Buffer will be used for transfer operations
-	bufferCreateInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE; // No sharing between queues
-	vkResult = vkCreateBuffer(vkDevice, &bufferCreateInfo, NULL, &vkBuffer_stagingBuffer);
-	if (vkResult != VK_SUCCESS)
-	{
-		fprintf(gpFILE, "loadTextureData() : vkCreateBuffer() failed (%d).\n", vkResult);
-		stbi_image_free(data); // Free the pixel data before returning
-		return vkResult;
-	}
+    bufferCreateInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
+    bufferCreateInfo.size = imageSize; // Size of the buffer in bytes
+    bufferCreateInfo.usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT; // Buffer will be used for transfer operations
+    bufferCreateInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE; // No sharing between queues
+    vkResult = vkCreateBuffer(vkDevice, &bufferCreateInfo, NULL, &vkBuffer_stagingBuffer);
+    if (vkResult != VK_SUCCESS)
+    {
+        fprintf(gpFILE, "loadTextureData() : vkCreateBuffer() failed (%d).\n", vkResult);
+        stbi_image_free(data); // Free the pixel data before returning
+        return vkResult;
+    }
 
 
-	// Allocate memory for the buffer
-	VkMemoryRequirements memoryRequirements;
-	vkGetBufferMemoryRequirements(vkDevice, vkBuffer_stagingBuffer, &memoryRequirements);
-	VkMemoryAllocateInfo memoryAllocateInfo;
-	memset(&memoryAllocateInfo, 0, sizeof(VkMemoryAllocateInfo));
-	memoryAllocateInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
-	memoryAllocateInfo.allocationSize = memoryRequirements.size; // Size of the memory to allocate
-	memoryAllocateInfo.memoryTypeIndex = findMemoryType(
-		memoryRequirements.memoryTypeBits, // Memory type bits from the buffer
-		VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT // Memory properties
-	);
-	if (memoryAllocateInfo.memoryTypeIndex == UINT32_MAX)
-	{
-		fprintf(gpFILE, "loadTextureData() : findMemoryType() failed.\n");
-		vkDestroyBuffer(vkDevice, vkBuffer_stagingBuffer, NULL); // Clean up the buffer
-		stbi_image_free(data); // Free the pixel data before returning
-		return VK_ERROR_MEMORY_MAP_FAILED;
-	}
-	vkResult = vkAllocateMemory(vkDevice, &memoryAllocateInfo, NULL, &vkDeviceMemory_stagingBuffer);
-	if (vkResult != VK_SUCCESS)
-	{
-		fprintf(gpFILE, "loadTextureData() : vkAllocateMemory() failed (%d).\n", vkResult);
-		vkDestroyBuffer(vkDevice, vkBuffer_stagingBuffer, NULL); // Clean up the buffer
-		stbi_image_free(data); // Free the pixel data before returning
-		return vkResult;
-	}
-	// Bind the buffer memory
-	vkResult = vkBindBufferMemory(vkDevice, vkBuffer_stagingBuffer, vkDeviceMemory_stagingBuffer, 0);
-	if (vkResult != VK_SUCCESS)
-	{
-		fprintf(gpFILE, "loadTextureData() : vkBindBufferMemory() failed (%d).\n", vkResult);
-		vkFreeMemory(vkDevice, vkDeviceMemory_stagingBuffer, NULL); // Clean up the memory
-		vkDestroyBuffer(vkDevice, vkBuffer_stagingBuffer, NULL); // Clean up the buffer
-		stbi_image_free(data); // Free the pixel data before returning
-		return vkResult;
-	}
-	// Map the buffer memory and copy the pixel data
-	void* mappedMemory;
-	vkResult = vkMapMemory(vkDevice, vkDeviceMemory_stagingBuffer, 0, imageSize, 0, &mappedMemory);
-	if (vkResult != VK_SUCCESS)
-	{
-		fprintf(gpFILE, "loadTextureData() : vkMapMemory() failed (%d).\n", vkResult);
-		vkFreeMemory(vkDevice, vkDeviceMemory_stagingBuffer, NULL); // Clean up the memory
-		vkDestroyBuffer(vkDevice, vkBuffer_stagingBuffer, NULL); // Clean up the buffer
-		stbi_image_free(data); // Free the pixel data before returning
-		return vkResult;
-	}
-	// Copy the pixel data to the mapped memory
-	memcpy(mappedMemory, data, imageSize);
-	// Unmap the memory after copying
-	vkUnmapMemory(vkDevice, vkDeviceMemory_stagingBuffer);
+    // Allocate memory for the buffer
+    VkMemoryRequirements memoryRequirements;
+    vkGetBufferMemoryRequirements(vkDevice, vkBuffer_stagingBuffer, &memoryRequirements);
+    VkMemoryAllocateInfo memoryAllocateInfo;
+    memset(&memoryAllocateInfo, 0, sizeof(VkMemoryAllocateInfo));
+    memoryAllocateInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
+    memoryAllocateInfo.allocationSize = memoryRequirements.size; // Size of the memory to allocate
+    memoryAllocateInfo.memoryTypeIndex = findMemoryType(
+        memoryRequirements.memoryTypeBits, // Memory type bits from the buffer
+        VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT // Memory properties
+    );
+    if (memoryAllocateInfo.memoryTypeIndex == UINT32_MAX)
+    {
+        fprintf(gpFILE, "loadTextureData() : findMemoryType() failed.\n");
+        vkDestroyBuffer(vkDevice, vkBuffer_stagingBuffer, NULL); // Clean up the buffer
+        stbi_image_free(data); // Free the pixel data before returning
+        return VK_ERROR_MEMORY_MAP_FAILED;
+    }
+    vkResult = vkAllocateMemory(vkDevice, &memoryAllocateInfo, NULL, &vkDeviceMemory_stagingBuffer);
+    if (vkResult != VK_SUCCESS)
+    {
+        fprintf(gpFILE, "loadTextureData() : vkAllocateMemory() failed (%d).\n", vkResult);
+        vkDestroyBuffer(vkDevice, vkBuffer_stagingBuffer, NULL); // Clean up the buffer
+        stbi_image_free(data); // Free the pixel data before returning
+        return vkResult;
+    }
+    // Bind the buffer memory
+    vkResult = vkBindBufferMemory(vkDevice, vkBuffer_stagingBuffer, vkDeviceMemory_stagingBuffer, 0);
+    if (vkResult != VK_SUCCESS)
+    {
+        fprintf(gpFILE, "loadTextureData() : vkBindBufferMemory() failed (%d).\n", vkResult);
+        vkFreeMemory(vkDevice, vkDeviceMemory_stagingBuffer, NULL); // Clean up the memory
+        vkDestroyBuffer(vkDevice, vkBuffer_stagingBuffer, NULL); // Clean up the buffer
+        stbi_image_free(data); // Free the pixel data before returning
+        return vkResult;
+    }
+    // Map the buffer memory and copy the pixel data
+    void* mappedMemory;
+    vkResult = vkMapMemory(vkDevice, vkDeviceMemory_stagingBuffer, 0, imageSize, 0, &mappedMemory);
+    if (vkResult != VK_SUCCESS)
+    {
+        fprintf(gpFILE, "loadTextureData() : vkMapMemory() failed (%d).\n", vkResult);
+        vkFreeMemory(vkDevice, vkDeviceMemory_stagingBuffer, NULL); // Clean up the memory
+        vkDestroyBuffer(vkDevice, vkBuffer_stagingBuffer, NULL); // Clean up the buffer
+        stbi_image_free(data); // Free the pixel data before returning
+        return vkResult;
+    }
+    // Copy the pixel data to the mapped memory
+    memcpy(mappedMemory, data, imageSize);
+    // Unmap the memory after copying
+    vkUnmapMemory(vkDevice, vkDeviceMemory_stagingBuffer);
 
 
 
@@ -2242,167 +2272,167 @@ VkResult loadTextureData(ImageData *imageData, const char* filename, VkFormat fo
         VK_FORMAT_R8G8B8A8_SRGB,  // four channel RGBA
     };
 
-	// Create a Vulkan image to hold the texture data
-	VkImageCreateInfo imageCreateInfo;
-	memset(&imageCreateInfo, 0, sizeof(VkImageCreateInfo));
-	imageCreateInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
-	imageCreateInfo.imageType = VK_IMAGE_TYPE_2D; // 2D image
-	imageCreateInfo.format = format; // Assuming RGBA format
-	imageCreateInfo.extent.width = width; // Width of the image
-	imageCreateInfo.extent.height = height; // Height of the image
-	imageCreateInfo.extent.depth = 1; // Depth of the image (1 for 2D)
-	imageCreateInfo.mipLevels = 1; // No mipmaps
-	imageCreateInfo.arrayLayers = 1; // Single layer
-	imageCreateInfo.samples = VK_SAMPLE_COUNT_1_BIT; // No multisampling
-	imageCreateInfo.tiling = VK_IMAGE_TILING_OPTIMAL; // Optimal tiling for performance
-	imageCreateInfo.usage = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT; // Transfer destination and sampled usage
-	imageCreateInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE; // No sharing between queues
-	vkResult = vkCreateImage(vkDevice, &imageCreateInfo, NULL, &imageData->vkImage);
-	if (vkResult != VK_SUCCESS)
-	{
-		fprintf(gpFILE, "loadTextureData() : vkCreateImage() failed (%d).\n", vkResult);
-		vkUnmapMemory(vkDevice, vkDeviceMemory_stagingBuffer); // Unmap the memory
-		vkFreeMemory(vkDevice, vkDeviceMemory_stagingBuffer, NULL); // Clean up the memory
-		vkDestroyBuffer(vkDevice, vkBuffer_stagingBuffer, NULL); // Clean up the buffer
-		stbi_image_free(data); // Free the pixel data before returning
-		return vkResult;
-	}
-	// Allocate memory for the image
-	VkMemoryRequirements imageMemoryRequirements;
-	vkGetImageMemoryRequirements(vkDevice, imageData->vkImage, &imageMemoryRequirements);
-	VkMemoryAllocateInfo imageMemoryAllocateInfo;
-	memset(&imageMemoryAllocateInfo, 0, sizeof(VkMemoryAllocateInfo));
-	imageMemoryAllocateInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
-	imageMemoryAllocateInfo.allocationSize = imageMemoryRequirements.size; // Size of the memory to allocate
-	imageMemoryAllocateInfo.memoryTypeIndex = findMemoryType(
-		imageMemoryRequirements.memoryTypeBits, // Memory type bits from the image
-		VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT // Memory properties (device local for optimal performance)
-	);
-	if (imageMemoryAllocateInfo.memoryTypeIndex == UINT32_MAX)
-	{
-		fprintf(gpFILE, "loadTextureData() : findMemoryType() failed.\n");
-		vkDestroyImage(vkDevice, imageData->vkImage, NULL); // Clean up the image
-		vkUnmapMemory(vkDevice, vkDeviceMemory_stagingBuffer); // Unmap the memory
-		vkFreeMemory(vkDevice, vkDeviceMemory_stagingBuffer, NULL); // Clean up the memory
-		vkDestroyBuffer(vkDevice, vkBuffer_stagingBuffer, NULL); // Clean up the buffer
-		stbi_image_free(data); // Free the pixel data before returning
-		return VK_ERROR_MEMORY_MAP_FAILED;
-	}
+    // Create a Vulkan image to hold the texture data
+    VkImageCreateInfo imageCreateInfo;
+    memset(&imageCreateInfo, 0, sizeof(VkImageCreateInfo));
+    imageCreateInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
+    imageCreateInfo.imageType = VK_IMAGE_TYPE_2D; // 2D image
+    imageCreateInfo.format = format; // Assuming RGBA format
+    imageCreateInfo.extent.width = width; // Width of the image
+    imageCreateInfo.extent.height = height; // Height of the image
+    imageCreateInfo.extent.depth = 1; // Depth of the image (1 for 2D)
+    imageCreateInfo.mipLevels = 1; // No mipmaps
+    imageCreateInfo.arrayLayers = 1; // Single layer
+    imageCreateInfo.samples = VK_SAMPLE_COUNT_1_BIT; // No multisampling
+    imageCreateInfo.tiling = VK_IMAGE_TILING_OPTIMAL; // Optimal tiling for performance
+    imageCreateInfo.usage = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT; // Transfer destination and sampled usage
+    imageCreateInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE; // No sharing between queues
+    vkResult = vkCreateImage(vkDevice, &imageCreateInfo, NULL, &imageData->vkImage);
+    if (vkResult != VK_SUCCESS)
+    {
+        fprintf(gpFILE, "loadTextureData() : vkCreateImage() failed (%d).\n", vkResult);
+        vkUnmapMemory(vkDevice, vkDeviceMemory_stagingBuffer); // Unmap the memory
+        vkFreeMemory(vkDevice, vkDeviceMemory_stagingBuffer, NULL); // Clean up the memory
+        vkDestroyBuffer(vkDevice, vkBuffer_stagingBuffer, NULL); // Clean up the buffer
+        stbi_image_free(data); // Free the pixel data before returning
+        return vkResult;
+    }
+    // Allocate memory for the image
+    VkMemoryRequirements imageMemoryRequirements;
+    vkGetImageMemoryRequirements(vkDevice, imageData->vkImage, &imageMemoryRequirements);
+    VkMemoryAllocateInfo imageMemoryAllocateInfo;
+    memset(&imageMemoryAllocateInfo, 0, sizeof(VkMemoryAllocateInfo));
+    imageMemoryAllocateInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
+    imageMemoryAllocateInfo.allocationSize = imageMemoryRequirements.size; // Size of the memory to allocate
+    imageMemoryAllocateInfo.memoryTypeIndex = findMemoryType(
+        imageMemoryRequirements.memoryTypeBits, // Memory type bits from the image
+        VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT // Memory properties (device local for optimal performance)
+    );
+    if (imageMemoryAllocateInfo.memoryTypeIndex == UINT32_MAX)
+    {
+        fprintf(gpFILE, "loadTextureData() : findMemoryType() failed.\n");
+        vkDestroyImage(vkDevice, imageData->vkImage, NULL); // Clean up the image
+        vkUnmapMemory(vkDevice, vkDeviceMemory_stagingBuffer); // Unmap the memory
+        vkFreeMemory(vkDevice, vkDeviceMemory_stagingBuffer, NULL); // Clean up the memory
+        vkDestroyBuffer(vkDevice, vkBuffer_stagingBuffer, NULL); // Clean up the buffer
+        stbi_image_free(data); // Free the pixel data before returning
+        return VK_ERROR_MEMORY_MAP_FAILED;
+    }
 
-	vkResult = vkAllocateMemory(vkDevice, &imageMemoryAllocateInfo, NULL, &imageData->vkDeviceMemory);
-	if (vkResult != VK_SUCCESS)
-	{
-		fprintf(gpFILE, "loadTextureData() : vkAllocateMemory() failed (%d).\n", vkResult);
-		vkDestroyImage(vkDevice, imageData->vkImage, NULL); // Clean up the image
-		vkUnmapMemory(vkDevice, vkDeviceMemory_stagingBuffer); // Unmap the memory
-		vkFreeMemory(vkDevice, vkDeviceMemory_stagingBuffer, NULL); // Clean up the memory
-		vkDestroyBuffer(vkDevice, vkBuffer_stagingBuffer, NULL); // Clean up the buffer
-		stbi_image_free(data); // Free the pixel data before returning
-		return vkResult;
-	}
-	// Bind the image memory
-	vkResult = vkBindImageMemory(vkDevice, imageData->vkImage, imageData->vkDeviceMemory, 0);
-	if (vkResult != VK_SUCCESS)
-	{
-		fprintf(gpFILE, "loadTextureData() : vkBindImageMemory() failed (%d).\n", vkResult);
-		vkDestroyImage(vkDevice, imageData->vkImage, NULL); // Clean up the image
-		vkUnmapMemory(vkDevice, vkDeviceMemory_stagingBuffer); // Unmap the memory
-		vkFreeMemory(vkDevice, vkDeviceMemory_stagingBuffer, NULL); // Clean up the memory
-		vkFreeMemory(vkDevice, imageData->vkDeviceMemory, NULL); // Clean up the image memory
-		vkDestroyBuffer(vkDevice, vkBuffer_stagingBuffer, NULL); // Clean up the buffer
-		stbi_image_free(data); // Free the pixel data before returning
-		return vkResult;
-	}
+    vkResult = vkAllocateMemory(vkDevice, &imageMemoryAllocateInfo, NULL, &imageData->vkDeviceMemory);
+    if (vkResult != VK_SUCCESS)
+    {
+        fprintf(gpFILE, "loadTextureData() : vkAllocateMemory() failed (%d).\n", vkResult);
+        vkDestroyImage(vkDevice, imageData->vkImage, NULL); // Clean up the image
+        vkUnmapMemory(vkDevice, vkDeviceMemory_stagingBuffer); // Unmap the memory
+        vkFreeMemory(vkDevice, vkDeviceMemory_stagingBuffer, NULL); // Clean up the memory
+        vkDestroyBuffer(vkDevice, vkBuffer_stagingBuffer, NULL); // Clean up the buffer
+        stbi_image_free(data); // Free the pixel data before returning
+        return vkResult;
+    }
+    // Bind the image memory
+    vkResult = vkBindImageMemory(vkDevice, imageData->vkImage, imageData->vkDeviceMemory, 0);
+    if (vkResult != VK_SUCCESS)
+    {
+        fprintf(gpFILE, "loadTextureData() : vkBindImageMemory() failed (%d).\n", vkResult);
+        vkDestroyImage(vkDevice, imageData->vkImage, NULL); // Clean up the image
+        vkUnmapMemory(vkDevice, vkDeviceMemory_stagingBuffer); // Unmap the memory
+        vkFreeMemory(vkDevice, vkDeviceMemory_stagingBuffer, NULL); // Clean up the memory
+        vkFreeMemory(vkDevice, imageData->vkDeviceMemory, NULL); // Clean up the image memory
+        vkDestroyBuffer(vkDevice, vkBuffer_stagingBuffer, NULL); // Clean up the buffer
+        stbi_image_free(data); // Free the pixel data before returning
+        return vkResult;
+    }
 
 
-	// Transition the image layout to VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL
-	VkCommandBuffer commandBuffer;
-	VkCommandBufferAllocateInfo commandBufferAllocateInfo;
-	memset(&commandBufferAllocateInfo, 0, sizeof(VkCommandBufferAllocateInfo));
-	commandBufferAllocateInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
-	commandBufferAllocateInfo.commandPool = vkCommandPool; // Command pool for allocation
-	commandBufferAllocateInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY; // Primary command buffer
-	commandBufferAllocateInfo.commandBufferCount = 1; // Allocate one command buffer
-	vkResult = vkAllocateCommandBuffers(vkDevice, &commandBufferAllocateInfo, &commandBuffer);
-	if (vkResult != VK_SUCCESS)
-	{
-		fprintf(gpFILE, "loadTextureData() : vkAllocateCommandBuffers() failed (%d).\n", vkResult);
-		vkDestroyImage(vkDevice, imageData->vkImage, NULL); // Clean up the image
-		vkUnmapMemory(vkDevice, vkDeviceMemory_stagingBuffer); // Unmap the memory
-		vkFreeMemory(vkDevice, vkDeviceMemory_stagingBuffer, NULL); // Clean up the memory
-		vkFreeMemory(vkDevice, imageData->vkDeviceMemory, NULL); // Clean up the image memory
-		vkDestroyBuffer(vkDevice, vkBuffer_stagingBuffer, NULL); // Clean up the buffer
-		stbi_image_free(data); // Free the pixel data before returning
-		return vkResult;
-	}
-	// Begin command buffer recording
-	VkCommandBufferBeginInfo commandBufferBeginInfo;
-	memset(&commandBufferBeginInfo, 0, sizeof(VkCommandBufferBeginInfo));
-	commandBufferBeginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-	commandBufferBeginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT; // One-time use command buffer
-	vkResult = vkBeginCommandBuffer(commandBuffer, &commandBufferBeginInfo);
-	if (vkResult != VK_SUCCESS)
-	{
-		fprintf(gpFILE, "loadTextureData() : vkBeginCommandBuffer() failed (%d).\n", vkResult);
-		vkDestroyImage(vkDevice, imageData->vkImage, NULL); // Clean up the image
-		vkUnmapMemory(vkDevice, vkDeviceMemory_stagingBuffer); // Unmap the memory
-		vkFreeMemory(vkDevice, vkDeviceMemory_stagingBuffer, NULL); // Clean up the memory
-		vkFreeMemory(vkDevice, imageData->vkDeviceMemory, NULL); // Clean up the image memory
-		vkDestroyBuffer(vkDevice, vkBuffer_stagingBuffer, NULL); // Clean up the buffer
-		stbi_image_free(data); // Free the pixel data before returning
-		return vkResult;
-	}
-	// Transition the image layout to VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL
-	VkImageMemoryBarrier imageMemoryBarrier;
-	memset(&imageMemoryBarrier, 0, sizeof(VkImageMemoryBarrier));
-	imageMemoryBarrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
-	imageMemoryBarrier.srcAccessMask = 0; // No source access mask
-	imageMemoryBarrier.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT; // Destination access mask for transfer write
-	imageMemoryBarrier.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED; // Old layout is undefined
-	imageMemoryBarrier.newLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL; // New layout is transfer destination optimal
-	imageMemoryBarrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_EXTERNAL; // Source queue family index
-	imageMemoryBarrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_EXTERNAL; // Destination queue family index
-	imageMemoryBarrier.image = imageData->vkImage; // Image to transition
-	imageMemoryBarrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT; // Color aspect
-	imageMemoryBarrier.subresourceRange.baseMipLevel = 0; // Base mip level
-	imageMemoryBarrier.subresourceRange.levelCount = 1; // One mip level
-	imageMemoryBarrier.subresourceRange.baseArrayLayer = 0; // Base array layer
-	imageMemoryBarrier.subresourceRange.layerCount = 1; // One layer
-	vkCmdPipelineBarrier(
-		commandBuffer, // Command buffer to record the barrier
-		VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, // Source stage mask
-		VK_PIPELINE_STAGE_TRANSFER_BIT, // Destination stage mask
-		0, // Dependency flags
-		0, NULL, // No memory barriers
-		0, NULL, // No buffer barriers
-		1, &imageMemoryBarrier // Image memory barrier
-	);
-	// Copy the pixel data from the staging buffer to the image
-	VkBufferImageCopy bufferImageCopy;
-	memset(&bufferImageCopy, 0, sizeof(VkBufferImageCopy));
-	bufferImageCopy.bufferOffset = 0; // Offset in the buffer
-	bufferImageCopy.bufferRowLength = 0; // No row length (image is tightly packed)
-	bufferImageCopy.bufferImageHeight = 0; // No image height (image is tightly packed)
-	bufferImageCopy.imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT; // Color aspect
-	bufferImageCopy.imageSubresource.mipLevel = 0; // Mip level
-	bufferImageCopy.imageSubresource.baseArrayLayer = 0; // Base array layer
-	bufferImageCopy.imageSubresource.layerCount = 1; // One layer
-	bufferImageCopy.imageOffset = { 0, 0, 0 }; // Offset in the image
-	bufferImageCopy.imageExtent = { (uint32_t)width, (uint32_t)height, 1 }; // Extent of the image
-	vkCmdCopyBufferToImage(
-		commandBuffer, // Command buffer to record the copy
-		vkBuffer_stagingBuffer, // Source buffer (staging buffer)
+    // Transition the image layout to VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL
+    VkCommandBuffer commandBuffer;
+    VkCommandBufferAllocateInfo commandBufferAllocateInfo;
+    memset(&commandBufferAllocateInfo, 0, sizeof(VkCommandBufferAllocateInfo));
+    commandBufferAllocateInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+    commandBufferAllocateInfo.commandPool = vkCommandPool; // Command pool for allocation
+    commandBufferAllocateInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY; // Primary command buffer
+    commandBufferAllocateInfo.commandBufferCount = 1; // Allocate one command buffer
+    vkResult = vkAllocateCommandBuffers(vkDevice, &commandBufferAllocateInfo, &commandBuffer);
+    if (vkResult != VK_SUCCESS)
+    {
+        fprintf(gpFILE, "loadTextureData() : vkAllocateCommandBuffers() failed (%d).\n", vkResult);
+        vkDestroyImage(vkDevice, imageData->vkImage, NULL); // Clean up the image
+        vkUnmapMemory(vkDevice, vkDeviceMemory_stagingBuffer); // Unmap the memory
+        vkFreeMemory(vkDevice, vkDeviceMemory_stagingBuffer, NULL); // Clean up the memory
+        vkFreeMemory(vkDevice, imageData->vkDeviceMemory, NULL); // Clean up the image memory
+        vkDestroyBuffer(vkDevice, vkBuffer_stagingBuffer, NULL); // Clean up the buffer
+        stbi_image_free(data); // Free the pixel data before returning
+        return vkResult;
+    }
+    // Begin command buffer recording
+    VkCommandBufferBeginInfo commandBufferBeginInfo;
+    memset(&commandBufferBeginInfo, 0, sizeof(VkCommandBufferBeginInfo));
+    commandBufferBeginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+    commandBufferBeginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT; // One-time use command buffer
+    vkResult = vkBeginCommandBuffer(commandBuffer, &commandBufferBeginInfo);
+    if (vkResult != VK_SUCCESS)
+    {
+        fprintf(gpFILE, "loadTextureData() : vkBeginCommandBuffer() failed (%d).\n", vkResult);
+        vkDestroyImage(vkDevice, imageData->vkImage, NULL); // Clean up the image
+        vkUnmapMemory(vkDevice, vkDeviceMemory_stagingBuffer); // Unmap the memory
+        vkFreeMemory(vkDevice, vkDeviceMemory_stagingBuffer, NULL); // Clean up the memory
+        vkFreeMemory(vkDevice, imageData->vkDeviceMemory, NULL); // Clean up the image memory
+        vkDestroyBuffer(vkDevice, vkBuffer_stagingBuffer, NULL); // Clean up the buffer
+        stbi_image_free(data); // Free the pixel data before returning
+        return vkResult;
+    }
+    // Transition the image layout to VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL
+    VkImageMemoryBarrier imageMemoryBarrier;
+    memset(&imageMemoryBarrier, 0, sizeof(VkImageMemoryBarrier));
+    imageMemoryBarrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+    imageMemoryBarrier.srcAccessMask = 0; // No source access mask
+    imageMemoryBarrier.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT; // Destination access mask for transfer write
+    imageMemoryBarrier.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED; // Old layout is undefined
+    imageMemoryBarrier.newLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL; // New layout is transfer destination optimal
+    imageMemoryBarrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_EXTERNAL; // Source queue family index
+    imageMemoryBarrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_EXTERNAL; // Destination queue family index
+    imageMemoryBarrier.image = imageData->vkImage; // Image to transition
+    imageMemoryBarrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT; // Color aspect
+    imageMemoryBarrier.subresourceRange.baseMipLevel = 0; // Base mip level
+    imageMemoryBarrier.subresourceRange.levelCount = 1; // One mip level
+    imageMemoryBarrier.subresourceRange.baseArrayLayer = 0; // Base array layer
+    imageMemoryBarrier.subresourceRange.layerCount = 1; // One layer
+    vkCmdPipelineBarrier(
+        commandBuffer, // Command buffer to record the barrier
+        VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, // Source stage mask
+        VK_PIPELINE_STAGE_TRANSFER_BIT, // Destination stage mask
+        0, // Dependency flags
+        0, NULL, // No memory barriers
+        0, NULL, // No buffer barriers
+        1, &imageMemoryBarrier // Image memory barrier
+    );
+    // Copy the pixel data from the staging buffer to the image
+    VkBufferImageCopy bufferImageCopy;
+    memset(&bufferImageCopy, 0, sizeof(VkBufferImageCopy));
+    bufferImageCopy.bufferOffset = 0; // Offset in the buffer
+    bufferImageCopy.bufferRowLength = 0; // No row length (image is tightly packed)
+    bufferImageCopy.bufferImageHeight = 0; // No image height (image is tightly packed)
+    bufferImageCopy.imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT; // Color aspect
+    bufferImageCopy.imageSubresource.mipLevel = 0; // Mip level
+    bufferImageCopy.imageSubresource.baseArrayLayer = 0; // Base array layer
+    bufferImageCopy.imageSubresource.layerCount = 1; // One layer
+    bufferImageCopy.imageOffset = { 0, 0, 0 }; // Offset in the image
+    bufferImageCopy.imageExtent = { (uint32_t)width, (uint32_t)height, 1 }; // Extent of the image
+    vkCmdCopyBufferToImage(
+        commandBuffer, // Command buffer to record the copy
+        vkBuffer_stagingBuffer, // Source buffer (staging buffer)
         imageData->vkImage, // Destination image
-		VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, // Destination image layout
-		1, // Number of regions to copy
-		&bufferImageCopy // Pointer to the buffer image copy region
-	);
+        VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, // Destination image layout
+        1, // Number of regions to copy
+        &bufferImageCopy // Pointer to the buffer image copy region
+    );
 
-	// Transition the image layout to VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
-	imageMemoryBarrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT; // Source access mask for transfer write
-	imageMemoryBarrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT; // Destination access mask for shader read
-	imageMemoryBarrier.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL; // Old layout is transfer destination optimal
-	imageMemoryBarrier.newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL; // New layout is shader read only optimal
+    // Transition the image layout to VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
+    imageMemoryBarrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT; // Source access mask for transfer write
+    imageMemoryBarrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT; // Destination access mask for shader read
+    imageMemoryBarrier.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL; // Old layout is transfer destination optimal
+    imageMemoryBarrier.newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL; // New layout is shader read only optimal
     vkCmdPipelineBarrier(
         commandBuffer, // Command buffer to record the barrier
         VK_PIPELINE_STAGE_TRANSFER_BIT, // Source stage mask
@@ -2411,91 +2441,563 @@ VkResult loadTextureData(ImageData *imageData, const char* filename, VkFormat fo
         0, NULL, // No memory barriers
         0, NULL, // No buffer barriers
         1, &imageMemoryBarrier // Image memory barrier
-	);
-        
-	// End command buffer recording
-	vkResult = vkEndCommandBuffer(commandBuffer);
-	if (vkResult != VK_SUCCESS)
-	{
-		fprintf(gpFILE, "loadTextureData() : vkEndCommandBuffer() failed (%d).\n", vkResult);
-		vkDestroyImage(vkDevice, imageData->vkImage, NULL); // Clean up the image
-		vkUnmapMemory(vkDevice, vkDeviceMemory_stagingBuffer); // Unmap the memory
-		vkFreeMemory(vkDevice, vkDeviceMemory_stagingBuffer, NULL); // Clean up the memory
-		vkFreeMemory(vkDevice, imageData->vkDeviceMemory, NULL); // Clean up the image memory
-		vkDestroyBuffer(vkDevice, vkBuffer_stagingBuffer, NULL); // Clean up the buffer
-		stbi_image_free(data); // Free the pixel data before returning
-		return vkResult;
-	}
-	// Submit the command buffer to the queue
-	VkSubmitInfo submitInfo;
-	memset(&submitInfo, 0, sizeof(VkSubmitInfo));
-	submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
-	submitInfo.commandBufferCount = 1; // One command buffer to submit
-	submitInfo.pCommandBuffers = &commandBuffer; // Pointer to the command buffer
-	vkResult = vkQueueSubmit(vkQueue, 1, &submitInfo, VK_NULL_HANDLE);
-	if (vkResult != VK_SUCCESS)
-	{
-		fprintf(gpFILE, "loadTextureData() : vkQueueSubmit() failed (%d).\n", vkResult);
-		vkDestroyImage(vkDevice, imageData->vkImage, NULL); // Clean up the image
-		vkUnmapMemory(vkDevice, vkDeviceMemory_stagingBuffer); // Unmap the memory
-		vkFreeMemory(vkDevice, vkDeviceMemory_stagingBuffer, NULL); // Clean up the memory
-		vkFreeMemory(vkDevice, imageData->vkDeviceMemory, NULL); // Clean up the image memory
-		vkDestroyBuffer(vkDevice, vkBuffer_stagingBuffer, NULL); // Clean up the buffer
-		stbi_image_free(data); // Free the pixel data before returning
-		return vkResult;
-	}
-	// Wait for the queue to finish processing
-	vkResult = vkQueueWaitIdle(vkQueue);
-	if (vkResult != VK_SUCCESS)
-	{
-		fprintf(gpFILE, "loadTextureData() : vkQueueWaitIdle() failed (%d).\n", vkResult);
-		vkDestroyImage(vkDevice, imageData->vkImage, NULL); // Clean up the image
-		vkUnmapMemory(vkDevice, vkDeviceMemory_stagingBuffer); // Unmap the memory
-		vkFreeMemory(vkDevice, vkDeviceMemory_stagingBuffer, NULL); // Clean up the memory
-		vkFreeMemory(vkDevice, imageData->vkDeviceMemory, NULL); // Clean up the image memory
-		vkDestroyBuffer(vkDevice, vkBuffer_stagingBuffer, NULL); // Clean up the buffer
-		stbi_image_free(data); // Free the pixel data before returning
-		return vkResult;
-	}
-	// Clean up the staging buffer and memory
-	vkDestroyBuffer(vkDevice, vkBuffer_stagingBuffer, NULL); // Clean up the staging buffer
-	vkFreeMemory(vkDevice, vkDeviceMemory_stagingBuffer, NULL); // Clean up the staging buffer memory
-	// At this point, the texture image is ready to be used in rendering
-	// 5) Create an image view for the texture image
-	VkImageViewCreateInfo imageViewCreateInfo;
-	memset(&imageViewCreateInfo, 0, sizeof(VkImageViewCreateInfo));
-	imageViewCreateInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
-	imageViewCreateInfo.image = imageData->vkImage; // The image to create the view for
-	imageViewCreateInfo.viewType = VK_IMAGE_VIEW_TYPE_2D; // 2D image view
-	imageViewCreateInfo.format = format; // Format of the image
-	imageViewCreateInfo.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT; // Color aspect
-	imageViewCreateInfo.subresourceRange.baseMipLevel = 0; // Base mip level
-	imageViewCreateInfo.subresourceRange.levelCount = 1; // One mip level
-	imageViewCreateInfo.subresourceRange.baseArrayLayer = 0; // Base array layer
-	imageViewCreateInfo.subresourceRange.layerCount = 1; // One layer
-	vkResult = vkCreateImageView(vkDevice, &imageViewCreateInfo, NULL, &imageData->vkImageView);
-	if (vkResult != VK_SUCCESS)
-	{
-		fprintf(gpFILE, "loadTextureData() : vkCreateImageView() failed (%d).\n", vkResult);
-		vkDestroyImage(vkDevice, imageData->vkImage, NULL); // Clean up the image
-		vkUnmapMemory(vkDevice, vkDeviceMemory_stagingBuffer); // Unmap the memory
-		vkFreeMemory(vkDevice, vkDeviceMemory_stagingBuffer, NULL); // Clean up the memory
-		vkFreeMemory(vkDevice, imageData->vkDeviceMemory, NULL); // Clean up the image memory
-		vkDestroyBuffer(vkDevice, vkBuffer_stagingBuffer, NULL); // Clean up the buffer
-		stbi_image_free(data); // Free the pixel data before returning
-		return vkResult;
-	}
-	// At this point, the texture image is ready to be used in rendering
-	fprintf(gpFILE, "loadTextureData() : Texture image loaded successfully.\n");
-    
+    );
+
+    // End command buffer recording
+    vkResult = vkEndCommandBuffer(commandBuffer);
+    if (vkResult != VK_SUCCESS)
+    {
+        fprintf(gpFILE, "loadTextureData() : vkEndCommandBuffer() failed (%d).\n", vkResult);
+        vkDestroyImage(vkDevice, imageData->vkImage, NULL); // Clean up the image
+        vkUnmapMemory(vkDevice, vkDeviceMemory_stagingBuffer); // Unmap the memory
+        vkFreeMemory(vkDevice, vkDeviceMemory_stagingBuffer, NULL); // Clean up the memory
+        vkFreeMemory(vkDevice, imageData->vkDeviceMemory, NULL); // Clean up the image memory
+        vkDestroyBuffer(vkDevice, vkBuffer_stagingBuffer, NULL); // Clean up the buffer
+        stbi_image_free(data); // Free the pixel data before returning
+        return vkResult;
+    }
+    // Submit the command buffer to the queue
+    VkSubmitInfo submitInfo;
+    memset(&submitInfo, 0, sizeof(VkSubmitInfo));
+    submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+    submitInfo.commandBufferCount = 1; // One command buffer to submit
+    submitInfo.pCommandBuffers = &commandBuffer; // Pointer to the command buffer
+    vkResult = vkQueueSubmit(vkQueue, 1, &submitInfo, VK_NULL_HANDLE);
+    if (vkResult != VK_SUCCESS)
+    {
+        fprintf(gpFILE, "loadTextureData() : vkQueueSubmit() failed (%d).\n", vkResult);
+        vkDestroyImage(vkDevice, imageData->vkImage, NULL); // Clean up the image
+        vkUnmapMemory(vkDevice, vkDeviceMemory_stagingBuffer); // Unmap the memory
+        vkFreeMemory(vkDevice, vkDeviceMemory_stagingBuffer, NULL); // Clean up the memory
+        vkFreeMemory(vkDevice, imageData->vkDeviceMemory, NULL); // Clean up the image memory
+        vkDestroyBuffer(vkDevice, vkBuffer_stagingBuffer, NULL); // Clean up the buffer
+        stbi_image_free(data); // Free the pixel data before returning
+        return vkResult;
+    }
+    // Wait for the queue to finish processing
+    vkResult = vkQueueWaitIdle(vkQueue);
+    if (vkResult != VK_SUCCESS)
+    {
+        fprintf(gpFILE, "loadTextureData() : vkQueueWaitIdle() failed (%d).\n", vkResult);
+        vkDestroyImage(vkDevice, imageData->vkImage, NULL); // Clean up the image
+        vkUnmapMemory(vkDevice, vkDeviceMemory_stagingBuffer); // Unmap the memory
+        vkFreeMemory(vkDevice, vkDeviceMemory_stagingBuffer, NULL); // Clean up the memory
+        vkFreeMemory(vkDevice, imageData->vkDeviceMemory, NULL); // Clean up the image memory
+        vkDestroyBuffer(vkDevice, vkBuffer_stagingBuffer, NULL); // Clean up the buffer
+        stbi_image_free(data); // Free the pixel data before returning
+        return vkResult;
+    }
+    // Clean up the staging buffer and memory
+    vkDestroyBuffer(vkDevice, vkBuffer_stagingBuffer, NULL); // Clean up the staging buffer
+    vkFreeMemory(vkDevice, vkDeviceMemory_stagingBuffer, NULL); // Clean up the staging buffer memory
+    // At this point, the texture image is ready to be used in rendering
+    // 5) Create an image view for the texture image
+    VkImageViewCreateInfo imageViewCreateInfo;
+    memset(&imageViewCreateInfo, 0, sizeof(VkImageViewCreateInfo));
+    imageViewCreateInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+    imageViewCreateInfo.image = imageData->vkImage; // The image to create the view for
+    imageViewCreateInfo.viewType = VK_IMAGE_VIEW_TYPE_2D; // 2D image view
+    imageViewCreateInfo.format = format; // Format of the image
+    imageViewCreateInfo.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT; // Color aspect
+    imageViewCreateInfo.subresourceRange.baseMipLevel = 0; // Base mip level
+    imageViewCreateInfo.subresourceRange.levelCount = 1; // One mip level
+    imageViewCreateInfo.subresourceRange.baseArrayLayer = 0; // Base array layer
+    imageViewCreateInfo.subresourceRange.layerCount = 1; // One layer
+    vkResult = vkCreateImageView(vkDevice, &imageViewCreateInfo, NULL, &imageData->vkImageView);
+    if (vkResult != VK_SUCCESS)
+    {
+        fprintf(gpFILE, "loadTextureData() : vkCreateImageView() failed (%d).\n", vkResult);
+        vkDestroyImage(vkDevice, imageData->vkImage, NULL); // Clean up the image
+        vkUnmapMemory(vkDevice, vkDeviceMemory_stagingBuffer); // Unmap the memory
+        vkFreeMemory(vkDevice, vkDeviceMemory_stagingBuffer, NULL); // Clean up the memory
+        vkFreeMemory(vkDevice, imageData->vkDeviceMemory, NULL); // Clean up the image memory
+        vkDestroyBuffer(vkDevice, vkBuffer_stagingBuffer, NULL); // Clean up the buffer
+        stbi_image_free(data); // Free the pixel data before returning
+        return vkResult;
+    }
+    // At this point, the texture image is ready to be used in rendering
+    fprintf(gpFILE, "loadTextureData() : Texture image loaded successfully.\n");
+
     // 13) Free the pixel data when done
-	stbi_image_free(data);
+    stbi_image_free(data);
 
     // 14) Return success
     return vkResult;
 }
 
-void destroyTextureData(ImageData *imageData)
+VkResult loadTextureData_dds(ImageData* imageData, const char* filename)
+{
+
+    DDSFile dds;
+    const auto res = dds.Load(filename); // tinyddsloader accepts const char*
+    if (res != Result::Success)
+    {
+        fprintf(gpFILE, "loadTextureData_dds() : Failed to load DDS file '%s'\n", filename);
+        return VK_ERROR_INITIALIZATION_FAILED;
+    }
+
+    const uint32_t arrayCount = dds.GetArraySize();
+    const uint32_t mipCount = dds.GetMipCount();
+
+    const uint32_t width = dds.GetWidth();
+    const uint32_t height = dds.GetHeight();
+    const uint32_t depth = dds.GetDepth();
+
+    for (uint32_t arrayIdx = 0; arrayIdx < arrayCount; ++arrayIdx) {
+        for (uint32_t mipIdx = 0; mipIdx < mipCount; ++mipIdx) {
+            const DDSFile::ImageData* img = dds.GetImageData(mipIdx, arrayIdx);
+            if (!img) {
+                std::cerr << "  ImageData null for array " << arrayIdx << " mip " << mipIdx << "\n";
+                continue;
+            }
+
+            //whats next?
+
+        }
+    }
+
+    return VK_SUCCESS;
+}
+
+static inline uint64_t bc7_subresource_size(uint32_t width, uint32_t height)
+{
+    uint32_t blocksX = (width + 3) / 4; // ceil(width/4)
+    uint32_t blocksY = (height + 3) / 4; // ceil(height/4)
+    return (uint64_t)blocksX * (uint64_t)blocksY * 16ULL;
+}
+
+VkResult loadTextureData_dds_c_bc7(ImageData* imageData, const char* filename, VkFormat format)
+{
+    if (!imageData || !filename) return VK_ERROR_INITIALIZATION_FAILED;
+
+    // Validate that caller passed a BC7 format
+    if (!(format == VK_FORMAT_BC7_UNORM_BLOCK || format == VK_FORMAT_BC7_SRGB_BLOCK)) {
+        fprintf(gpFILE, "loadTextureData_dds_c_bc7(): format is not BC7 (format=%d)\n", (int)format);
+        return VK_ERROR_FORMAT_NOT_SUPPORTED;
+    }
+
+    DDSFile dds;
+    const auto res = dds.Load(filename);
+    if (res != Result::Success) {
+        fprintf(gpFILE, "loadTextureData_dds_c_bc7(): tinyddsloader failed to load '%s' (res=%d)\n", filename, static_cast<int>(res));
+        return VK_ERROR_INITIALIZATION_FAILED;
+    }
+
+    const uint32_t arrayCount = dds.GetArraySize();
+    const uint32_t mipCount = dds.GetMipCount();
+    const uint32_t baseWidth = dds.GetWidth();
+    const uint32_t baseHeight = dds.GetHeight();
+    const uint32_t depth = dds.GetDepth();
+
+    if (arrayCount == 0 || mipCount == 0) {
+        fprintf(gpFILE, "loadTextureData_dds_c_bc7(): empty DDS '%s'\n", filename);
+        return VK_ERROR_INITIALIZATION_FAILED;
+    }
+
+    const size_t subCount = (size_t)arrayCount * (size_t)mipCount;
+
+    // Subresource bookkeeping (C-style)
+    typedef struct { uint32_t mip; uint32_t layer; uint64_t rawSize; uint64_t paddedSize; } SubInfo;
+    SubInfo* subs = (SubInfo*)malloc(sizeof(SubInfo) * subCount);
+    if (!subs) {
+        fprintf(gpFILE, "loadTextureData_dds_c_bc7(): malloc subs failed\n");
+        return VK_ERROR_OUT_OF_HOST_MEMORY;
+    }
+
+    // Compute raw and padded sizes using bc7_subresource_size()
+    uint64_t totalSize = 0;
+    size_t idx = 0;
+    for (uint32_t layer = 0; layer < arrayCount; ++layer) {
+        for (uint32_t mip = 0; mip < mipCount; ++mip) {
+            const DDSFile::ImageData* img = dds.GetImageData(mip, layer);
+            if (!img) {
+                fprintf(gpFILE, "loadTextureData_dds_c_bc7(): missing ImageData layer=%u mip=%u\n", layer, mip);
+                free(subs);
+                return VK_ERROR_INITIALIZATION_FAILED;
+            }
+
+            // Use loader's reported mip dims if present; fallback to base >> mip with min 1
+            uint32_t mipW = img->m_width ? img->m_width : (baseWidth >> mip ? (baseWidth >> mip) : 1u);
+            uint32_t mipH = img->m_height ? img->m_height : (baseHeight >> mip ? (baseHeight >> mip) : 1u);
+
+            uint64_t raw = bc7_subresource_size(mipW, mipH);
+            uint64_t padded = (raw + 3ull) & ~3ull; // pad to 4 byte boundary for bufferOffset
+
+            subs[idx].mip = mip;
+            subs[idx].layer = layer;
+            subs[idx].rawSize = raw;
+            subs[idx].paddedSize = padded;
+            totalSize += padded;
+            ++idx;
+        }
+    }
+
+    if (totalSize == 0) {
+        fprintf(gpFILE, "loadTextureData_dds_c_bc7(): totalSize == 0 for '%s'\n", filename);
+        free(subs);
+        return VK_ERROR_INITIALIZATION_FAILED;
+    }
+
+    // Create staging buffer
+    VkBuffer stagingBuffer = VK_NULL_HANDLE;
+    VkDeviceMemory stagingMemory = VK_NULL_HANDLE;
+
+    VkBufferCreateInfo bufInfo = {};
+    bufInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
+    bufInfo.size = totalSize;
+    bufInfo.usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
+    bufInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+
+    VkResult vkRes = vkCreateBuffer(vkDevice, &bufInfo, nullptr, &stagingBuffer);
+    if (vkRes != VK_SUCCESS) {
+        fprintf(gpFILE, "loadTextureData_dds_c_bc7(): vkCreateBuffer failed (%d)\n", vkRes);
+        free(subs);
+        return vkRes;
+    }
+
+    VkMemoryRequirements memReq = {};
+    vkGetBufferMemoryRequirements(vkDevice, stagingBuffer, &memReq);
+
+    VkMemoryAllocateInfo allocInfo = {};
+    allocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
+    allocInfo.allocationSize = memReq.size;
+    allocInfo.memoryTypeIndex = findMemoryType(memReq.memoryTypeBits,
+        VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+    if (allocInfo.memoryTypeIndex == UINT32_MAX) {
+        fprintf(gpFILE, "loadTextureData_dds_c_bc7(): findMemoryType failed for staging\n");
+        vkDestroyBuffer(vkDevice, stagingBuffer, nullptr);
+        free(subs);
+        return VK_ERROR_MEMORY_MAP_FAILED;
+    }
+
+    vkRes = vkAllocateMemory(vkDevice, &allocInfo, nullptr, &stagingMemory);
+    if (vkRes != VK_SUCCESS) {
+        fprintf(gpFILE, "loadTextureData_dds_c_bc7(): vkAllocateMemory failed (%d)\n", vkRes);
+        vkDestroyBuffer(vkDevice, stagingBuffer, nullptr);
+        free(subs);
+        return vkRes;
+    }
+
+    vkRes = vkBindBufferMemory(vkDevice, stagingBuffer, stagingMemory, 0);
+    if (vkRes != VK_SUCCESS) {
+        fprintf(gpFILE, "loadTextureData_dds_c_bc7(): vkBindBufferMemory failed (%d)\n", vkRes);
+        vkFreeMemory(vkDevice, stagingMemory, nullptr);
+        vkDestroyBuffer(vkDevice, stagingBuffer, nullptr);
+        free(subs);
+        return vkRes;
+    }
+
+    // Map and copy BC7 subresources into staging (use bc7_subresource_size)
+    void* mapped = NULL;
+    vkRes = vkMapMemory(vkDevice, stagingMemory, 0, totalSize, 0, &mapped);
+    if (vkRes != VK_SUCCESS) {
+        fprintf(gpFILE, "loadTextureData_dds_c_bc7(): vkMapMemory failed (%d)\n", vkRes);
+        vkFreeMemory(vkDevice, stagingMemory, nullptr);
+        vkDestroyBuffer(vkDevice, stagingBuffer, nullptr);
+        free(subs);
+        return vkRes;
+    }
+
+    uint64_t offset = 0;
+    idx = 0;
+    for (uint32_t layer = 0; layer < arrayCount; ++layer) {
+        for (uint32_t mip = 0; mip < mipCount; ++mip) {
+            const DDSFile::ImageData* img = dds.GetImageData(mip, layer);
+            // compute size (should match earlier)
+            uint32_t mipW = img->m_width ? img->m_width : (baseWidth >> mip ? (baseWidth >> mip) : 1u);
+            uint32_t mipH = img->m_height ? img->m_height : (baseHeight >> mip ? (baseHeight >> mip) : 1u);
+            uint64_t size = bc7_subresource_size(mipW, mipH);
+
+            if (!img->m_mem) {
+                fprintf(gpFILE, "loadTextureData_dds_c_bc7(): null m_mem for layer=%u mip=%u\n", layer, mip);
+                vkUnmapMemory(vkDevice, stagingMemory);
+                vkFreeMemory(vkDevice, stagingMemory, nullptr);
+                vkDestroyBuffer(vkDevice, stagingBuffer, nullptr);
+                free(subs);
+                return VK_ERROR_INITIALIZATION_FAILED;
+            }
+
+            // copy computed number of bytes from loader pointer
+            memcpy((uint8_t*)mapped + offset, img->m_mem, (size_t)size);
+
+            // pad to paddedSize if required
+            if (subs[idx].paddedSize > size) {
+                memset((uint8_t*)mapped + offset + size, 0, (size_t)(subs[idx].paddedSize - size));
+            }
+
+            offset += subs[idx].paddedSize;
+            ++idx;
+        }
+    }
+
+    vkUnmapMemory(vkDevice, stagingMemory);
+
+    // Create VkImage with the DDS mipCount / arrayCount
+    VkImageCreateInfo imageInfo = {};
+    imageInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
+    imageInfo.imageType = VK_IMAGE_TYPE_2D;
+    imageInfo.format = format; // BC7_UNORM or BC7_SRGB as validated earlier
+    imageInfo.extent.width = baseWidth;
+    imageInfo.extent.height = baseHeight;
+    imageInfo.extent.depth = 1;
+    imageInfo.mipLevels = mipCount;
+    imageInfo.arrayLayers = arrayCount;
+    imageInfo.samples = VK_SAMPLE_COUNT_1_BIT;
+    imageInfo.tiling = VK_IMAGE_TILING_OPTIMAL;
+    imageInfo.usage = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
+    imageInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+    imageInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+    imageInfo.flags = (arrayCount == 6) ? VK_IMAGE_CREATE_CUBE_COMPATIBLE_BIT : 0;
+
+    VkImage image = VK_NULL_HANDLE;
+    vkRes = vkCreateImage(vkDevice, &imageInfo, nullptr, &image);
+    if (vkRes != VK_SUCCESS) {
+        fprintf(gpFILE, "loadTextureData_dds_c_bc7(): vkCreateImage failed (%d)\n", vkRes);
+        vkFreeMemory(vkDevice, stagingMemory, nullptr);
+        vkDestroyBuffer(vkDevice, stagingBuffer, nullptr);
+        free(subs);
+        return vkRes;
+    }
+
+    VkMemoryRequirements imageMemReq = {};
+    vkGetImageMemoryRequirements(vkDevice, image, &imageMemReq);
+
+    VkMemoryAllocateInfo imageAlloc = {};
+    imageAlloc.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
+    imageAlloc.allocationSize = imageMemReq.size;
+    imageAlloc.memoryTypeIndex = findMemoryType(imageMemReq.memoryTypeBits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+    if (imageAlloc.memoryTypeIndex == UINT32_MAX) {
+        fprintf(gpFILE, "loadTextureData_dds_c_bc7(): findMemoryType failed for image\n");
+        vkDestroyImage(vkDevice, image, nullptr);
+        vkFreeMemory(vkDevice, stagingMemory, nullptr);
+        vkDestroyBuffer(vkDevice, stagingBuffer, nullptr);
+        free(subs);
+        return VK_ERROR_MEMORY_MAP_FAILED;
+    }
+
+    VkDeviceMemory imageMemory = VK_NULL_HANDLE;
+    vkRes = vkAllocateMemory(vkDevice, &imageAlloc, nullptr, &imageMemory);
+    if (vkRes != VK_SUCCESS) {
+        fprintf(gpFILE, "loadTextureData_dds_c_bc7(): vkAllocateMemory(image) failed (%d)\n", vkRes);
+        vkDestroyImage(vkDevice, image, nullptr);
+        vkFreeMemory(vkDevice, stagingMemory, nullptr);
+        vkDestroyBuffer(vkDevice, stagingBuffer, nullptr);
+        free(subs);
+        return vkRes;
+    }
+
+    vkRes = vkBindImageMemory(vkDevice, image, imageMemory, 0);
+    if (vkRes != VK_SUCCESS) {
+        fprintf(gpFILE, "loadTextureData_dds_c_bc7(): vkBindImageMemory failed (%d)\n", vkRes);
+        vkFreeMemory(vkDevice, imageMemory, nullptr);
+        vkDestroyImage(vkDevice, image, nullptr);
+        vkFreeMemory(vkDevice, stagingMemory, nullptr);
+        vkDestroyBuffer(vkDevice, stagingBuffer, nullptr);
+        free(subs);
+        return vkRes;
+    }
+
+    // Command buffer: transition, copy, transition
+    VkCommandBufferAllocateInfo cmdAlloc = {};
+    cmdAlloc.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+    cmdAlloc.commandPool = vkCommandPool;
+    cmdAlloc.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+    cmdAlloc.commandBufferCount = 1;
+
+    VkCommandBuffer cmd = VK_NULL_HANDLE;
+    vkRes = vkAllocateCommandBuffers(vkDevice, &cmdAlloc, &cmd);
+    if (vkRes != VK_SUCCESS) {
+        fprintf(gpFILE, "loadTextureData_dds_c_bc7(): vkAllocateCommandBuffers failed (%d)\n", vkRes);
+        vkFreeMemory(vkDevice, imageMemory, nullptr);
+        vkDestroyImage(vkDevice, image, nullptr);
+        vkFreeMemory(vkDevice, stagingMemory, nullptr);
+        vkDestroyBuffer(vkDevice, stagingBuffer, nullptr);
+        free(subs);
+        return vkRes;
+    }
+
+    VkCommandBufferBeginInfo beginInfo = {};
+    beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+    beginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
+    vkRes = vkBeginCommandBuffer(cmd, &beginInfo);
+    if (vkRes != VK_SUCCESS) {
+        fprintf(gpFILE, "loadTextureData_dds_c_bc7(): vkBeginCommandBuffer failed (%d)\n", vkRes);
+        vkFreeCommandBuffers(vkDevice, vkCommandPool, 1, &cmd);
+        vkFreeMemory(vkDevice, imageMemory, nullptr);
+        vkDestroyImage(vkDevice, image, nullptr);
+        vkFreeMemory(vkDevice, stagingMemory, nullptr);
+        vkDestroyBuffer(vkDevice, stagingBuffer, nullptr);
+        free(subs);
+        return vkRes;
+    }
+
+    VkImageMemoryBarrier barrierToTransfer = {};
+    barrierToTransfer.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+    barrierToTransfer.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+    barrierToTransfer.newLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+    barrierToTransfer.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+    barrierToTransfer.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+    barrierToTransfer.image = image;
+    barrierToTransfer.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+    barrierToTransfer.subresourceRange.baseMipLevel = 0;
+    barrierToTransfer.subresourceRange.levelCount = mipCount;
+    barrierToTransfer.subresourceRange.baseArrayLayer = 0;
+    barrierToTransfer.subresourceRange.layerCount = arrayCount;
+    barrierToTransfer.srcAccessMask = 0;
+    barrierToTransfer.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+
+    vkCmdPipelineBarrier(cmd,
+        VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT,
+        0, 0, nullptr, 0, nullptr, 1, &barrierToTransfer);
+
+    // Build copy regions (C array)
+    VkBufferImageCopy* copies = (VkBufferImageCopy*)malloc(sizeof(VkBufferImageCopy) * subCount);
+    if (!copies) {
+        fprintf(gpFILE, "loadTextureData_dds_c_bc7(): malloc copies failed\n");
+        vkFreeCommandBuffers(vkDevice, vkCommandPool, 1, &cmd);
+        vkFreeMemory(vkDevice, imageMemory, nullptr);
+        vkDestroyImage(vkDevice, image, nullptr);
+        vkFreeMemory(vkDevice, stagingMemory, nullptr);
+        vkDestroyBuffer(vkDevice, stagingBuffer, nullptr);
+        free(subs);
+        return VK_ERROR_OUT_OF_HOST_MEMORY;
+    }
+
+    offset = 0;
+    idx = 0;
+    for (uint32_t layer = 0; layer < arrayCount; ++layer) {
+        for (uint32_t mip = 0; mip < mipCount; ++mip) {
+            const DDSFile::ImageData* img = dds.GetImageData(mip, layer);
+            VkBufferImageCopy region = {};
+            region.bufferOffset = offset;
+            region.bufferRowLength = 0;
+            region.bufferImageHeight = 0;
+            region.imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+            region.imageSubresource.mipLevel = mip;
+            region.imageSubresource.baseArrayLayer = layer;
+            region.imageSubresource.layerCount = 1;
+            region.imageOffset = { 0,0,0 };
+            region.imageExtent = { img->m_width ? img->m_width : (baseWidth >> mip ? (baseWidth >> mip) : 1u),
+                                   img->m_height ? img->m_height : (baseHeight >> mip ? (baseHeight >> mip) : 1u),
+                                   img->m_depth ? img->m_depth : 1u };
+            copies[idx] = region;
+            offset += subs[idx].paddedSize;
+            ++idx;
+        }
+    }
+
+    vkCmdCopyBufferToImage(cmd, stagingBuffer, image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+        (uint32_t)subCount, copies);
+
+    VkImageMemoryBarrier barrierToReadable = barrierToTransfer;
+    barrierToReadable.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+    barrierToReadable.newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+    barrierToReadable.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+    barrierToReadable.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+
+    vkCmdPipelineBarrier(cmd,
+        VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
+        0, 0, nullptr, 0, nullptr, 1, &barrierToReadable);
+
+    // Finish & submit
+    vkRes = vkEndCommandBuffer(cmd);
+    if (vkRes != VK_SUCCESS) {
+        fprintf(gpFILE, "loadTextureData_dds_c_bc7(): vkEndCommandBuffer failed (%d)\n", vkRes);
+        free(copies);
+        free(subs);
+        vkFreeCommandBuffers(vkDevice, vkCommandPool, 1, &cmd);
+        vkFreeMemory(vkDevice, imageMemory, nullptr);
+        vkDestroyImage(vkDevice, image, nullptr);
+        vkFreeMemory(vkDevice, stagingMemory, nullptr);
+        vkDestroyBuffer(vkDevice, stagingBuffer, nullptr);
+        return vkRes;
+    }
+
+    VkSubmitInfo submit = {};
+    submit.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+    submit.commandBufferCount = 1;
+    submit.pCommandBuffers = &cmd;
+
+    vkRes = vkQueueSubmit(vkQueue, 1, &submit, VK_NULL_HANDLE);
+    if (vkRes != VK_SUCCESS) {
+        fprintf(gpFILE, "loadTextureData_dds_c_bc7(): vkQueueSubmit failed (%d)\n", vkRes);
+        free(copies);
+        free(subs);
+        vkFreeCommandBuffers(vkDevice, vkCommandPool, 1, &cmd);
+        vkFreeMemory(vkDevice, imageMemory, nullptr);
+        vkDestroyImage(vkDevice, image, nullptr);
+        vkFreeMemory(vkDevice, stagingMemory, nullptr);
+        vkDestroyBuffer(vkDevice, stagingBuffer, nullptr);
+        return vkRes;
+    }
+
+    vkRes = vkQueueWaitIdle(vkQueue);
+    if (vkRes != VK_SUCCESS) {
+        fprintf(gpFILE, "loadTextureData_dds_c_bc7(): vkQueueWaitIdle failed (%d)\n", vkRes);
+        free(copies);
+        free(subs);
+        vkFreeCommandBuffers(vkDevice, vkCommandPool, 1, &cmd);
+        vkFreeMemory(vkDevice, imageMemory, nullptr);
+        vkDestroyImage(vkDevice, image, nullptr);
+        vkFreeMemory(vkDevice, stagingMemory, nullptr);
+        vkDestroyBuffer(vkDevice, stagingBuffer, nullptr);
+        return vkRes;
+    }
+
+    // free command buffer
+    vkFreeCommandBuffers(vkDevice, vkCommandPool, 1, &cmd);
+
+    // Create image view
+    VkImageViewCreateInfo viewInfo = {};
+    viewInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+    viewInfo.image = image;
+    if (arrayCount == 1) viewInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
+    else if (arrayCount == 6 && (imageInfo.flags & VK_IMAGE_CREATE_CUBE_COMPATIBLE_BIT)) viewInfo.viewType = VK_IMAGE_VIEW_TYPE_CUBE;
+    else viewInfo.viewType = VK_IMAGE_VIEW_TYPE_2D_ARRAY;
+    viewInfo.format = format;
+    viewInfo.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+    viewInfo.subresourceRange.baseMipLevel = 0;
+    viewInfo.subresourceRange.levelCount = mipCount;
+    viewInfo.subresourceRange.baseArrayLayer = 0;
+    viewInfo.subresourceRange.layerCount = arrayCount;
+
+    VkImageView imageView = VK_NULL_HANDLE;
+    vkRes = vkCreateImageView(vkDevice, &viewInfo, nullptr, &imageView);
+    if (vkRes != VK_SUCCESS) {
+        fprintf(gpFILE, "loadTextureData_dds_c_bc7(): vkCreateImageView failed (%d)\n", vkRes);
+        free(copies);
+        free(subs);
+        vkFreeMemory(vkDevice, imageMemory, nullptr);
+        vkDestroyImage(vkDevice, image, nullptr);
+        vkFreeMemory(vkDevice, stagingMemory, nullptr);
+        vkDestroyBuffer(vkDevice, stagingBuffer, nullptr);
+        return vkRes;
+    }
+
+    // cleanup staging
+    vkDestroyBuffer(vkDevice, stagingBuffer, nullptr);
+    vkFreeMemory(vkDevice, stagingMemory, nullptr);
+
+    // fill output
+    imageData->vkImage = image;
+    imageData->vkDeviceMemory = imageMemory;
+    imageData->vkImageView = imageView;
+    // imageData->width = baseWidth;
+    // imageData->height = baseHeight;
+    // imageData->mipLevels = mipCount;
+    // imageData->arrayLayers = arrayCount;
+
+    fprintf(gpFILE, "loadTextureData_dds_c_bc7(): Loaded '%s' w=%u h=%u mips=%u layers=%u (BC7)\n",
+        filename, baseWidth, baseHeight, mipCount, arrayCount);
+
+    // free temporaries
+    free(copies);
+    free(subs);
+
+    return VK_SUCCESS;
+}
+
+void destroyTextureData(ImageData* imageData)
 {
     if (imageData->vkImageView)
     {
@@ -3517,10 +4019,10 @@ VkResult createVulkanDevice(void)
 
     //ZzNeO features
     VkPhysicalDeviceFeatures enabledFeatures;
-	memset((void*)&enabledFeatures, 0, sizeof(VkPhysicalDeviceFeatures));
-	enabledFeatures.samplerAnisotropy = VK_TRUE; // enable anisotropic filtering
-	enabledFeatures.tessellationShader = VK_TRUE; // enable tessellation shader
-	//enabledFeatures.geometryShader = VK_TRUE; // enable geometry shader
+    memset((void*)&enabledFeatures, 0, sizeof(VkPhysicalDeviceFeatures));
+    enabledFeatures.samplerAnisotropy = VK_TRUE; // enable anisotropic filtering
+    enabledFeatures.tessellationShader = VK_TRUE; // enable tessellation shader
+    //enabledFeatures.geometryShader = VK_TRUE; // enable geometry shader
 
     VkDeviceCreateInfo vkDeviceCreateInfo;
     memset((void*)&vkDeviceCreateInfo, 0, sizeof(VkDeviceCreateInfo));
@@ -3650,6 +4152,9 @@ VkResult getPhysicalDeviceSurfaceFormatAndColorSpace(void)
     // now decide the surface color space
     vkColorSpaceKHR = vkSurfaceFormatKHR_Array[0].colorSpace;
 
+    vkFormat_Color = VK_FORMAT_B8G8R8A8_SRGB;
+    vkColorSpaceKHR = VK_COLOR_SPACE_SRGB_NONLINEAR_KHR;
+
     /*
      *  Free the above created array
      */
@@ -3745,7 +4250,7 @@ VkResult getPhysicalDevicePresentMode(void)
 
 VkResult createSamplers(void)
 {
-	VkResult vkResult = VK_SUCCESS;
+    VkResult vkResult = VK_SUCCESS;
 
     VkSamplerCreateInfo samplerCreateInfo;
     memset(&samplerCreateInfo, 0, sizeof(VkSamplerCreateInfo));
@@ -3764,32 +4269,32 @@ VkResult createSamplers(void)
     samplerCreateInfo.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR; // Mipmap mode
     samplerCreateInfo.mipLodBias = 0.0f; // Mipmap level of detail bias
     samplerCreateInfo.minLod = 0.0f; // Minimum LOD
-    samplerCreateInfo.maxLod = 0.0f; // Maximum LOD (0 means no mipmaps)
+    samplerCreateInfo.maxLod = 14.0f; // Maximum LOD (0 means no mipmaps)
     vkResult = vkCreateSampler(vkDevice, &samplerCreateInfo, NULL, &vkSampler_LinearClampAniso);
     if (vkResult != VK_SUCCESS)
     {
-		fprintf(gpFILE, "createSamplers() : vkCreateSampler() for vkSampler_LinearClampAniso failed (%d).\n", vkResult);
+        fprintf(gpFILE, "createSamplers() : vkCreateSampler() for vkSampler_LinearClampAniso failed (%d).\n", vkResult);
         return vkResult;
     }
 
     //vkSampler_LinearClamp
     memset(&samplerCreateInfo, 0, sizeof(VkSamplerCreateInfo));
-	samplerCreateInfo.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
-	samplerCreateInfo.magFilter = VK_FILTER_LINEAR; // Magnification filter
-	samplerCreateInfo.minFilter = VK_FILTER_LINEAR; // Minification filter
-	samplerCreateInfo.addressModeU = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE; // U coordinate addressing mode
-	samplerCreateInfo.addressModeV = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE; // V coordinate addressing mode
-	samplerCreateInfo.addressModeW = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE; // W coordinate addressing mode
-	samplerCreateInfo.anisotropyEnable = VK_FALSE; // Disable anisotropic filtering
-	samplerCreateInfo.maxAnisotropy = 1.0f; // Maximum anisotropy level (1.0 means no anisotropic filtering)
-	samplerCreateInfo.borderColor = VK_BORDER_COLOR_INT_OPAQUE_BLACK; // Border color
-	samplerCreateInfo.unnormalizedCoordinates = VK_FALSE; // Use normalized coordinates
-	samplerCreateInfo.compareEnable = VK_FALSE; // No comparison
-	samplerCreateInfo.compareOp = VK_COMPARE_OP_ALWAYS; // Comparison operation (not used here)
-	samplerCreateInfo.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR; // Mipmap mode
-	samplerCreateInfo.mipLodBias = 0.0f; // Mipmap level of detail bias
-	samplerCreateInfo.minLod = 0.0f; // Minimum LOD
-	samplerCreateInfo.maxLod = 0.0f; // Maximum LOD (0 means no mipmaps)
+    samplerCreateInfo.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
+    samplerCreateInfo.magFilter = VK_FILTER_LINEAR; // Magnification filter
+    samplerCreateInfo.minFilter = VK_FILTER_LINEAR; // Minification filter
+    samplerCreateInfo.addressModeU = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE; // U coordinate addressing mode
+    samplerCreateInfo.addressModeV = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE; // V coordinate addressing mode
+    samplerCreateInfo.addressModeW = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE; // W coordinate addressing mode
+    samplerCreateInfo.anisotropyEnable = VK_FALSE; // Disable anisotropic filtering
+    samplerCreateInfo.maxAnisotropy = 1.0f; // Maximum anisotropy level (1.0 means no anisotropic filtering)
+    samplerCreateInfo.borderColor = VK_BORDER_COLOR_INT_OPAQUE_BLACK; // Border color
+    samplerCreateInfo.unnormalizedCoordinates = VK_FALSE; // Use normalized coordinates
+    samplerCreateInfo.compareEnable = VK_FALSE; // No comparison
+    samplerCreateInfo.compareOp = VK_COMPARE_OP_ALWAYS; // Comparison operation (not used here)
+    samplerCreateInfo.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR; // Mipmap mode
+    samplerCreateInfo.mipLodBias = 0.0f; // Mipmap level of detail bias
+    samplerCreateInfo.minLod = 0.0f; // Minimum LOD
+    samplerCreateInfo.maxLod = 0.0f; // Maximum LOD (0 means no mipmaps)
     vkResult = vkCreateSampler(vkDevice, &samplerCreateInfo, NULL, &vkSampler_LinearClamp);
     if (vkResult != VK_SUCCESS)
     {
@@ -3798,10 +4303,10 @@ VkResult createSamplers(void)
     }
     //vkSampler_LinearClampAniso = VK_NULL_HANDLE; // Initialize to null handle
     //vkSampler_LinearClamp = VK_NULL_HANDLE; // Initialize to null handle
-	fprintf(gpFILE, "createSamplers() : Samplers created successfully.\n");
+    fprintf(gpFILE, "createSamplers() : Samplers created successfully.\n");
 
 
-	return VK_SUCCESS;
+    return VK_SUCCESS;
 }
 
 void destroySamplers(void)
@@ -3816,7 +4321,7 @@ void destroySamplers(void)
     {
         vkDestroySampler(vkDevice, vkSampler_LinearClamp, NULL);
         vkSampler_LinearClamp = VK_NULL_HANDLE;
-	}
+    }
 
 }
 
@@ -4263,7 +4768,7 @@ VkResult createVertexBuffer_(void)
 }
 */
 
-VkResult ZzCreateVertexBuffer(const float *vertices, VkDeviceSize vertexBufferSize,VulkanData *vulkanData)
+VkResult ZzCreateVertexBuffer(const float* vertices, VkDeviceSize vertexBufferSize, VulkanData* vulkanData)
 {
     // local variables
     VkResult vkResult = VK_SUCCESS;
@@ -4640,11 +5145,11 @@ VkResult ZzCreateIndex16Buffer(const uint16_t* indices, VkDeviceSize indexBuffer
 }
 
 VkResult ZzCreateVertexAndIndexBuffer(
-    const float *vertices, 
-    VkDeviceSize vertexBufferSize, 
-    const uint16_t *indices, 
-    VkDeviceSize indexBufferSize, 
-    VulkanComboData *vulkanComboData)
+    const float* vertices,
+    VkDeviceSize vertexBufferSize,
+    const uint16_t* indices,
+    VkDeviceSize indexBufferSize,
+    VulkanComboData* vulkanComboData)
 {
     // Create vertex buffer
     VkResult vkResult = ZzCreateVertexBuffer(vertices, vertexBufferSize, &vulkanComboData->vertexData);
@@ -4663,7 +5168,7 @@ VkResult ZzCreateVertexAndIndexBuffer(
     return vkResult;
 }
 
-void ZzDestroyVertexBuffer(VulkanData *vulkanData)
+void ZzDestroyVertexBuffer(VulkanData* vulkanData)
 {
 
     // Destroy the vertex buffer
@@ -4680,7 +5185,7 @@ void ZzDestroyVertexBuffer(VulkanData *vulkanData)
     }
 }
 
-void ZzDestroyIndexBuffer(VulkanData *vulkanData)
+void ZzDestroyIndexBuffer(VulkanData* vulkanData)
 {
     // Destroy the index buffer
     if (vulkanData->vkBuffer)
@@ -4696,7 +5201,7 @@ void ZzDestroyIndexBuffer(VulkanData *vulkanData)
     }
 }
 
-void ZzDestroyVertexAndIndexBuffer(VulkanComboData *vulkanComboData)
+void ZzDestroyVertexAndIndexBuffer(VulkanComboData* vulkanComboData)
 {
     // Destroy vertex buffer
     ZzDestroyVertexBuffer(&vulkanComboData->vertexData);
@@ -5009,9 +5514,9 @@ VkResult createVertexBuffer_uvQuad(void)
   //  // 3 vertices, each with 3D position and RGB color
   //  const VertexData_PositionTexCoord verticesUv[] = {
   //      {{ 1.0f, 1.0f, 0.0f}, {1.0f, 1.0f}},  // TR
-		//{{ -1.0f,  1.0f, 0.0f}, {0.0f,1.0f}},  // TL
+        //{{ -1.0f,  1.0f, 0.0f}, {0.0f,1.0f}},  // TL
   //      {{ -1.0f,  -1.0f, 0.0f}, {0.0f,0.0f}}, // BL
-		//{{ 1.0f,  -1.0f, 0.0f}, {1.0f,0.0f}},  // BR
+        //{{ 1.0f,  -1.0f, 0.0f}, {1.0f,0.0f}},  // BR
   //  };
 
     //const VertexData_PositionTexCoord Vertices_Uv[] = {
@@ -5091,7 +5596,7 @@ VkResult createVertexBuffer_uvQuad(void)
         vkMemoryRequirements_stagingBuffer.memoryTypeBits >>= 1;
     }
 
-    //--------------  
+    //--------------
     // Allocate memory for the staging buffer
     vkResult = vkAllocateMemory(vkDevice, &vkMemoryAllocateInfo_stagingBuffer, NULL, &vertexData_stagingBffer.vkDeviceMemory);
     if (vkResult != VK_SUCCESS)
@@ -5431,12 +5936,12 @@ VkResult createVertexBuffer_uvQuad(void)
 
 VkResult createUniformBuffer(void)
 {
-	//VkResult updateUniformBuffer_camera(uint32_t frameIndex);   
-	VkResult updateUniformBuffer_frameData(uint32_t frameIndex);
+    //VkResult updateUniformBuffer_camera(uint32_t frameIndex);   
+    VkResult updateUniformBuffer_frameData(uint32_t frameIndex);
 
     VkResult vkResult = VK_SUCCESS;
 
-	////UniformBufferObject_camera 
+    ////UniformBufferObject_camera 
  //   for (uint32_t k = 0; k < MAX_FRAMES; k++)
  //   {
  //       //code
@@ -5479,9 +5984,9 @@ VkResult createUniformBuffer(void)
  //       {
  //           if ((vkMemoryRequirements.memoryTypeBits & 1) == 1)
  //           {
-	//			if (vkPhysicalDeviceMemoryProperties.memoryTypes[i].propertyFlags & (VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT | VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT)) // host visible and coherent memory (no need to manage vulkan cache for flushing or mapping)
-	//			{
-	//				// If the memory type is suitable, set the memoryTypeIndex and break the loop
+    //			if (vkPhysicalDeviceMemoryProperties.memoryTypes[i].propertyFlags & (VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT | VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT)) // host visible and coherent memory (no need to manage vulkan cache for flushing or mapping)
+    //			{
+    //				// If the memory type is suitable, set the memoryTypeIndex and break the loop
  //                   vkMemoryAllocateInfo.memoryTypeIndex = i;
  //                   break;
  //               }
@@ -5525,7 +6030,7 @@ VkResult createUniformBuffer(void)
  //       }
  //   }
 
-	//UniformBufferObject_frameData
+    //UniformBufferObject_frameData
     for (uint32_t k = 0; k < MAX_FRAMES; k++)
     {
         //code
@@ -5665,9 +6170,9 @@ VkResult updateUniformBuffer_frameData(uint32_t curIndex)
     // Initialize the uniform buffer object with some data
     uniformTransformBufferObject_frameData.fTime = 0.0f; // time in seconds
     uniformTransformBufferObject_frameData.frameID = 1; // current frame index
-	uniformTransformBufferObject_frameData.view = camera.GetViewMatrix(); // view matrix
-	uniformTransformBufferObject_frameData.proj = MyWin32::gProjectionMatrix; // projection matrix
-	uniformTransformBufferObject_frameData.cameraPos = camera.GetCameraPos(); // camera position
+    uniformTransformBufferObject_frameData.view = camera.GetViewMatrix(); // view matrix
+    uniformTransformBufferObject_frameData.proj = MyWin32::gProjectionMatrix; // projection matrix
+    uniformTransformBufferObject_frameData.cameraPos = camera.GetCameraPos(); // camera position
 
     // Copy the data to the uniform buffer
     memcpy(uniformBufferData_frameData[curIndex].pData, &uniformTransformBufferObject_frameData, sizeof(UniformBufferObject_FrameData));
@@ -5769,57 +6274,57 @@ VkResult createShaders(void)
     }
 
     //vkShaderModule_whiteVertex_vs
-	vkResult = createShaderModule(&vkShaderModule_whiteVertex_vs, "whiteVertex.vert.spv");   
-	if (vkResult != VK_SUCCESS)
-	{
-		fprintf(gpFILE, "createShaders() -> createShaderModule() for white vertex shader failed.\n");
-		return vkResult;
-	}
+    vkResult = createShaderModule(&vkShaderModule_whiteVertex_vs, "whiteVertex.vert.spv");
+    if (vkResult != VK_SUCCESS)
+    {
+        fprintf(gpFILE, "createShaders() -> createShaderModule() for white vertex shader failed.\n");
+        return vkResult;
+    }
 
-	//vkShaderModule_whiteFragment_fs
-	vkResult = createShaderModule(&vkShaderModule_whiteVertex_fs, "whiteVertex.frag.spv");
+    //vkShaderModule_whiteFragment_fs
+    vkResult = createShaderModule(&vkShaderModule_whiteVertex_fs, "whiteVertex.frag.spv");
     if (vkResult != VK_SUCCESS)
     {
         fprintf(gpFILE, "createShaders() -> createShaderModule() for white fragment shader failed.\n");
-		return vkResult;
+        return vkResult;
     }
 
     //----------
 
-	//vkShaderModule_previewImage_vs
-	vkResult = createShaderModule(&vkShaderModule_previewImage_vs, "PreviewImage.vert.spv");
-	if (vkResult != VK_SUCCESS)
-	{
-		fprintf(gpFILE, "createShaders() -> createShaderModule() for preview image vertex shader failed.\n");
-		return vkResult;
-	}
+    //vkShaderModule_previewImage_vs
+    vkResult = createShaderModule(&vkShaderModule_previewImage_vs, "PreviewImage.vert.spv");
+    if (vkResult != VK_SUCCESS)
+    {
+        fprintf(gpFILE, "createShaders() -> createShaderModule() for preview image vertex shader failed.\n");
+        return vkResult;
+    }
 
-	//vkShaderModule_previewImage_fs
-	vkResult = createShaderModule(&vkShaderModule_previewImage_fs, "PreviewImage.frag.spv");
-	if (vkResult != VK_SUCCESS)
-	{
-		fprintf(gpFILE, "createShaders() -> createShaderModule() for preview image fragment shader failed.\n");
-		return vkResult;
-	}
+    //vkShaderModule_previewImage_fs
+    vkResult = createShaderModule(&vkShaderModule_previewImage_fs, "PreviewImage.frag.spv");
+    if (vkResult != VK_SUCCESS)
+    {
+        fprintf(gpFILE, "createShaders() -> createShaderModule() for preview image fragment shader failed.\n");
+        return vkResult;
+    }
 
-	//----------
+    //----------
 
-	//vkShaderModule_impostor_vs
-	vkResult = createShaderModule(&vkShaderModule_impostor_vs, "Impostor.vert.spv");
-	if (vkResult != VK_SUCCESS)
-	{
-		fprintf(gpFILE, "createShaders() -> createShaderModule() for impostor vertex shader failed.\n");
-		return vkResult;
-	}
+    //vkShaderModule_impostor_vs
+    vkResult = createShaderModule(&vkShaderModule_impostor_vs, "Impostor.vert.spv");
+    if (vkResult != VK_SUCCESS)
+    {
+        fprintf(gpFILE, "createShaders() -> createShaderModule() for impostor vertex shader failed.\n");
+        return vkResult;
+    }
 
-	//vkShaderModule_impostor_fs
-	vkResult = createShaderModule(&vkShaderModule_impostor_fs, "Impostor.frag.spv");
+    //vkShaderModule_impostor_fs
+    vkResult = createShaderModule(&vkShaderModule_impostor_fs, "Impostor.frag.spv");
     if (vkResult != VK_SUCCESS)
     {
         fprintf(gpFILE, "createShaders() -> createShaderModule() for impostor fragment shader failed.\n");
-		return vkResult;
+        return vkResult;
     }
-	     
+
     return vkResult;
 }
 
@@ -5972,13 +6477,13 @@ VkResult createDescriptorSetLayout_FrameData(void)
 
     // Declare and initialize VkDescriptorSetLayoutBinding structure which will have information about the descriptor set layout binding.
     VkDescriptorSetLayoutBinding vkDescriptorSetLayoutBinding_Array[1];
-	memset((void*)&vkDescriptorSetLayoutBinding_Array, 0, sizeof(vkDescriptorSetLayoutBinding_Array));
+    memset((void*)&vkDescriptorSetLayoutBinding_Array, 0, sizeof(vkDescriptorSetLayoutBinding_Array));
 
-	vkDescriptorSetLayoutBinding_Array[0].binding = 0; // binding index
-	vkDescriptorSetLayoutBinding_Array[0].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER; // descriptor type
-	vkDescriptorSetLayoutBinding_Array[0].descriptorCount = 1; // number of descriptors
-	vkDescriptorSetLayoutBinding_Array[0].stageFlags = VK_SHADER_STAGE_VERTEX_BIT; // stage flags for the descriptor set layout binding
-	vkDescriptorSetLayoutBinding_Array[0].pImmutableSamplers = NULL; // no immutable samplers
+    vkDescriptorSetLayoutBinding_Array[0].binding = 0; // binding index
+    vkDescriptorSetLayoutBinding_Array[0].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER; // descriptor type
+    vkDescriptorSetLayoutBinding_Array[0].descriptorCount = 1; // number of descriptors
+    vkDescriptorSetLayoutBinding_Array[0].stageFlags = VK_SHADER_STAGE_VERTEX_BIT; // stage flags for the descriptor set layout binding
+    vkDescriptorSetLayoutBinding_Array[0].pImmutableSamplers = NULL; // no immutable samplers
 
     // code
     VkDescriptorSetLayoutCreateInfo vkDescriptorSetLayoutCreateInfo;
@@ -5988,7 +6493,7 @@ VkResult createDescriptorSetLayout_FrameData(void)
     vkDescriptorSetLayoutCreateInfo.pNext = NULL;
     vkDescriptorSetLayoutCreateInfo.flags = 0;
     vkDescriptorSetLayoutCreateInfo.bindingCount = 1;
-	vkDescriptorSetLayoutCreateInfo.pBindings = vkDescriptorSetLayoutBinding_Array; // pointer to the descriptor set layout binding array
+    vkDescriptorSetLayoutCreateInfo.pBindings = vkDescriptorSetLayoutBinding_Array; // pointer to the descriptor set layout binding array
 
 
     vkResult = vkCreateDescriptorSetLayout(vkDevice, &vkDescriptorSetLayoutCreateInfo, NULL, &vkDescriptorSetLayout_frameData);
@@ -6007,12 +6512,12 @@ VkResult createDescriptorSetLayout_CamImage(void)
     VkResult vkResult = VK_SUCCESS;
 
     VkDescriptorSetLayoutBinding vkDescriptorSetLayoutBinding_Array[1];
-	memset((void*)&vkDescriptorSetLayoutBinding_Array, 0, sizeof(vkDescriptorSetLayoutBinding_Array));
+    memset((void*)&vkDescriptorSetLayoutBinding_Array, 0, sizeof(vkDescriptorSetLayoutBinding_Array));
 
     vkDescriptorSetLayoutBinding_Array[0].binding = 0; // binding index
     vkDescriptorSetLayoutBinding_Array[0].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER; // descriptor type
     vkDescriptorSetLayoutBinding_Array[0].descriptorCount = 1; // number of descriptors
-    vkDescriptorSetLayoutBinding_Array[0].stageFlags =  VK_SHADER_STAGE_FRAGMENT_BIT; // stage flags for the descriptor set layout binding
+    vkDescriptorSetLayoutBinding_Array[0].stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT; // stage flags for the descriptor set layout binding
     vkDescriptorSetLayoutBinding_Array[0].pImmutableSamplers = NULL; // no immutable samplers
     // code
     VkDescriptorSetLayoutCreateInfo vkDescriptorSetLayoutCreateInfo;
@@ -6020,17 +6525,17 @@ VkResult createDescriptorSetLayout_CamImage(void)
     vkDescriptorSetLayoutCreateInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
     vkDescriptorSetLayoutCreateInfo.pNext = NULL;
     vkDescriptorSetLayoutCreateInfo.flags = 0;
-	vkDescriptorSetLayoutCreateInfo.bindingCount = 1;
+    vkDescriptorSetLayoutCreateInfo.bindingCount = 1;
     vkDescriptorSetLayoutCreateInfo.pBindings = vkDescriptorSetLayoutBinding_Array; // pointer to the descriptor set layout binding array
     vkResult = vkCreateDescriptorSetLayout(vkDevice, &vkDescriptorSetLayoutCreateInfo, NULL, &vkDescriptorSetLayout_SingleImage);
     if (vkResult != VK_SUCCESS)
     {
         fprintf(gpFILE, "createDiscriptorSetLayout_Impostor() -> vkCreateDescriptorSetLayout() :  failed: %d.\n", vkResult);
         return(vkResult);
-	}
+    }
 
 
-	return vkResult;
+    return vkResult;
 }
 
 VkResult createDescriptorSetLayout_AlbedoNormal(void)
@@ -6064,7 +6569,7 @@ VkResult createDescriptorSetLayout_AlbedoNormal(void)
         fprintf(gpFILE, "createDiscriptorSetLayout_AlbedoNormal() -> vkCreateDescriptorSetLayout() :  failed: %d.\n", vkResult);
         return(vkResult);
     }
-	return vkResult;
+    return vkResult;
 }
 
 VkResult createPipelineLayout(void)
@@ -6074,15 +6579,15 @@ VkResult createPipelineLayout(void)
 
 
     //push constant
-	// Declare and initialize VkPushConstantRange structure which will have information about the push constant range.
-	VkPushConstantRange vkPushConstantRange;
-	memset((void*)&vkPushConstantRange, 0, sizeof(VkPushConstantRange));
-	vkPushConstantRange.stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT; // stage flags for the push constant range
-	vkPushConstantRange.offset = 0; // offset in the push constant range
-	vkPushConstantRange.size = sizeof(PushConstants); // size of the push constant range
+    // Declare and initialize VkPushConstantRange structure which will have information about the push constant range.
+    VkPushConstantRange vkPushConstantRange;
+    memset((void*)&vkPushConstantRange, 0, sizeof(VkPushConstantRange));
+    vkPushConstantRange.stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT; // stage flags for the push constant range
+    vkPushConstantRange.offset = 0; // offset in the push constant range
+    vkPushConstantRange.size = sizeof(PushConstants); // size of the push constant range
 
 
-	// Declare and initialize VkPipelineLayoutCreateInfo structure which will have information about the pipeline layout.
+    // Declare and initialize VkPipelineLayoutCreateInfo structure which will have information about the pipeline layout.
     VkPipelineLayoutCreateInfo vkPipelineLayoutCreateInfo;
     memset((void*)&vkPipelineLayoutCreateInfo, 0, sizeof(VkPipelineLayoutCreateInfo));
 
@@ -6117,10 +6622,10 @@ VkResult createPipelineLayout_previewImage(void)
     vkPipelineLayoutCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
     vkPipelineLayoutCreateInfo.pNext = NULL;
     vkPipelineLayoutCreateInfo.flags = 0;
-	vkPipelineLayoutCreateInfo.setLayoutCount = 1; 
-	vkPipelineLayoutCreateInfo.pSetLayouts = &vkDescriptorSetLayout_SingleImage; // pointer to the descriptor set layout for preview image
-	vkPipelineLayoutCreateInfo.pushConstantRangeCount = 0; // no push constant ranges for preview image pipeline layout
-	vkPipelineLayoutCreateInfo.pPushConstantRanges = NULL; // no push constant ranges for preview image pipeline layout
+    vkPipelineLayoutCreateInfo.setLayoutCount = 1;
+    vkPipelineLayoutCreateInfo.pSetLayouts = &vkDescriptorSetLayout_SingleImage; // pointer to the descriptor set layout for preview image
+    vkPipelineLayoutCreateInfo.pushConstantRangeCount = 0; // no push constant ranges for preview image pipeline layout
+    vkPipelineLayoutCreateInfo.pPushConstantRanges = NULL; // no push constant ranges for preview image pipeline layout
 
     vkResult = vkCreatePipelineLayout(vkDevice, &vkPipelineLayoutCreateInfo, NULL, &vkPipelineLayout_previewImage);
     if (vkResult != VK_SUCCESS)
@@ -6149,15 +6654,15 @@ VkResult createPipelineLayout_Impostor(void)
     VkPipelineLayoutCreateInfo vkPipelineLayoutCreateInfo;
     memset((void*)&vkPipelineLayoutCreateInfo, 0, sizeof(VkPipelineLayoutCreateInfo));
 
-	VkDescriptorSetLayout vkDescriptorSetLayouts[] = { vkDescriptorSetLayout_frameData, vkDescriptorSetLayout_AlbedoNormal };
+    VkDescriptorSetLayout vkDescriptorSetLayouts[] = { vkDescriptorSetLayout_frameData, vkDescriptorSetLayout_AlbedoNormal };
 
     vkPipelineLayoutCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
     vkPipelineLayoutCreateInfo.pNext = NULL;
     vkPipelineLayoutCreateInfo.flags = 0;
-	vkPipelineLayoutCreateInfo.setLayoutCount = 2;// two descriptor set layout for imposter pipeline layout
-	vkPipelineLayoutCreateInfo.pSetLayouts = vkDescriptorSetLayouts; // pointer to the descriptor set layout
-	vkPipelineLayoutCreateInfo.pushConstantRangeCount = 1; // one push constant range for imposter pipeline layout
-	vkPipelineLayoutCreateInfo.pPushConstantRanges = &vkPushConstantRange; // pointer to the push constant range
+    vkPipelineLayoutCreateInfo.setLayoutCount = 2;// two descriptor set layout for imposter pipeline layout
+    vkPipelineLayoutCreateInfo.pSetLayouts = vkDescriptorSetLayouts; // pointer to the descriptor set layout
+    vkPipelineLayoutCreateInfo.pushConstantRangeCount = 1; // one push constant range for imposter pipeline layout
+    vkPipelineLayoutCreateInfo.pPushConstantRanges = &vkPushConstantRange; // pointer to the push constant range
 
     vkResult = vkCreatePipelineLayout(vkDevice, &vkPipelineLayoutCreateInfo, NULL, &vkPipelineLayout_Impostor);
     if (vkResult != VK_SUCCESS)
@@ -6178,8 +6683,8 @@ VkResult createDescriptorPool(void)
     // Declare and initialize VkDescriptorPoolSize structure which will have information about the descriptor pool size.
     VkDescriptorPoolSize vkDescriptorPoolSizes[] =
     {
-		{VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 2 * MAX_FRAMES}, // descriptor type and descriptor count
-		{VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1 * MAX_FRAMES} // descriptor type and descriptor count for combined image sampler
+        {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 2 * MAX_FRAMES}, // descriptor type and descriptor count
+        {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1 * MAX_FRAMES} // descriptor type and descriptor count for combined image sampler
     };
 
     // Declare and initialize VkDescriptorPoolCreateInfo structure and refer above VkDescriptorPoolSize into it.
@@ -6189,8 +6694,8 @@ VkResult createDescriptorPool(void)
     vkDescriptorPoolCreateInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
     vkDescriptorPoolCreateInfo.pNext = NULL;
     vkDescriptorPoolCreateInfo.flags = 0; // no flags
-	vkDescriptorPoolCreateInfo.maxSets = 2 * MAX_FRAMES; // maximum number of descriptor sets that can be allocated from this pool
-	vkDescriptorPoolCreateInfo.poolSizeCount = _ARRAYSIZE(vkDescriptorPoolSizes); // number of descriptor pool sizes
+    vkDescriptorPoolCreateInfo.maxSets = 2 * MAX_FRAMES; // maximum number of descriptor sets that can be allocated from this pool
+    vkDescriptorPoolCreateInfo.poolSizeCount = _ARRAYSIZE(vkDescriptorPoolSizes); // number of descriptor pool sizes
     vkDescriptorPoolCreateInfo.pPoolSizes = vkDescriptorPoolSizes;
 
     // Call vkCreateDescriptorPool() to create the actual descriptor pool.
@@ -6237,10 +6742,10 @@ VkResult createDescriptorSet_FrameData(void)
         return(vkResult);
     }
 
-	//UniformBufferObject_camera
+    //UniformBufferObject_camera
     for (size_t i = 0; i < MAX_FRAMES; i++)
     {
-		// Declare and initialize VkDescriptorBufferInfo structure which will have information about the uniform buffer.
+        // Declare and initialize VkDescriptorBufferInfo structure which will have information about the uniform buffer.
         //VkDescriptorBufferInfo vkDescriptorBufferInfo_camera;
         //memset((void*)&vkDescriptorBufferInfo_camera, 0, sizeof(VkDescriptorBufferInfo));
         //vkDescriptorBufferInfo_camera.buffer = uniformBufferData_camera[i].vkBuffer; // uniform buffer
@@ -6256,33 +6761,33 @@ VkResult createDescriptorSet_FrameData(void)
         //write or copy the descriptor set with the uniform buffer information
         // Declare and initialize VkWriteDescriptorSet structure which will have information about the descriptor set.
         VkWriteDescriptorSet vkWriteDescriptorSet_array[1];
-		memset((void*)vkWriteDescriptorSet_array, 0, sizeof(VkWriteDescriptorSet) * _ARRAYSIZE(vkWriteDescriptorSet_array));
+        memset((void*)vkWriteDescriptorSet_array, 0, sizeof(VkWriteDescriptorSet) * _ARRAYSIZE(vkWriteDescriptorSet_array));
 
         vkWriteDescriptorSet_array[0].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
         vkWriteDescriptorSet_array[0].pNext = NULL;
         vkWriteDescriptorSet_array[0].dstSet = vkDescriptorSets_frameData[i]; // descriptor set
         vkWriteDescriptorSet_array[0].dstBinding = 0; // 0 means the index number of the binding
         vkWriteDescriptorSet_array[0].dstArrayElement = 0; // 0 means the index number of the array element
-		vkWriteDescriptorSet_array[0].descriptorCount = 1; // we are using only one descriptor, more incase of array
+        vkWriteDescriptorSet_array[0].descriptorCount = 1; // we are using only one descriptor, more incase of array
         vkWriteDescriptorSet_array[0].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER; // type of the descriptor
         vkWriteDescriptorSet_array[0].pImageInfo = NULL; // no image info
         vkWriteDescriptorSet_array[0].pBufferInfo = &vkDescriptorBufferInfo_frameData; // pointer to the buffer info
         vkWriteDescriptorSet_array[0].pTexelBufferView = NULL; // no texel buffer view
 
-		//vkWriteDescriptorSet_array[1].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-		//vkWriteDescriptorSet_array[1].pNext = NULL;
-		//vkWriteDescriptorSet_array[1].dstSet = vkDescriptorSets[i]; // descriptor set
-		//vkWriteDescriptorSet_array[1].dstBinding = 1; // 1 means the index number of the binding
-		//vkWriteDescriptorSet_array[1].dstArrayElement = 0; // 0 means the index number of the array element
-		//vkWriteDescriptorSet_array[1].descriptorCount = 1; // we are using only one descriptor
-		//vkWriteDescriptorSet_array[1].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER; // type of the descriptor
-		//vkWriteDescriptorSet_array[1].pImageInfo = NULL; // no image info
-		//vkWriteDescriptorSet_array[1].pBufferInfo = &vkDescriptorBufferInfo_frameData; // pointer to the buffer info
-		//vkWriteDescriptorSet_array[1].pTexelBufferView = NULL; // no texel buffer view
+        //vkWriteDescriptorSet_array[1].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+        //vkWriteDescriptorSet_array[1].pNext = NULL;
+        //vkWriteDescriptorSet_array[1].dstSet = vkDescriptorSets[i]; // descriptor set
+        //vkWriteDescriptorSet_array[1].dstBinding = 1; // 1 means the index number of the binding
+        //vkWriteDescriptorSet_array[1].dstArrayElement = 0; // 0 means the index number of the array element
+        //vkWriteDescriptorSet_array[1].descriptorCount = 1; // we are using only one descriptor
+        //vkWriteDescriptorSet_array[1].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER; // type of the descriptor
+        //vkWriteDescriptorSet_array[1].pImageInfo = NULL; // no image info
+        //vkWriteDescriptorSet_array[1].pBufferInfo = &vkDescriptorBufferInfo_frameData; // pointer to the buffer info
+        //vkWriteDescriptorSet_array[1].pTexelBufferView = NULL; // no texel buffer view
 
 
         // Call vkUpdateDescriptorSets() to update the descriptor set with the uniform buffer information.
-		vkUpdateDescriptorSets(vkDevice, _ARRAYSIZE(vkWriteDescriptorSet_array), vkWriteDescriptorSet_array, 0, NULL);
+        vkUpdateDescriptorSets(vkDevice, _ARRAYSIZE(vkWriteDescriptorSet_array), vkWriteDescriptorSet_array, 0, NULL);
 
     }
 
@@ -6331,12 +6836,12 @@ VkResult createDescriptorSet_SingleImage(void)
         //vkDescriptorBufferInfo_FrameData.offset = 0; // offset in the buffer
         //vkDescriptorBufferInfo_FrameData.range = sizeof(UniformBufferObject_FrameData); // size of the buffer
 
-		//Declare and initialize VkDescriptorImageInfo structure which will have information about the image.
-		VkDescriptorImageInfo vkDescriptorImageInfo;
-		memset((void*)&vkDescriptorImageInfo, 0, sizeof(VkDescriptorImageInfo));
-		vkDescriptorImageInfo.sampler = vkSampler_LinearClampAniso; // sampler for the image
-		vkDescriptorImageInfo.imageView = imposterTextureData.vkImageView; // image view for the image
-		vkDescriptorImageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL; // image layout for the image
+        //Declare and initialize VkDescriptorImageInfo structure which will have information about the image.
+        VkDescriptorImageInfo vkDescriptorImageInfo;
+        memset((void*)&vkDescriptorImageInfo, 0, sizeof(VkDescriptorImageInfo));
+        vkDescriptorImageInfo.sampler = vkSampler_LinearClamp; // sampler for the image
+        vkDescriptorImageInfo.imageView = imposterTextureData.vkImageView; // image view for the image
+        vkDescriptorImageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL; // image layout for the image
 
         //write or copy the descriptor set with the uniform buffer information
         // Declare and initialize VkWriteDescriptorSet structure which will have information about the descriptor set.
@@ -6357,13 +6862,13 @@ VkResult createDescriptorSet_SingleImage(void)
         //vkWriteDescriptorSet_array[1].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
         //vkWriteDescriptorSet_array[1].pNext = NULL;
         //vkWriteDescriptorSet_array[1].dstSet = vkDescriptorSets_camImage[i]; // descriptor set
-		//vkWriteDescriptorSet_array[1].dstBinding = 1; // 1 means the index number of the binding
-		//vkWriteDescriptorSet_array[1].dstArrayElement = 0; // 0 means the index number of the array element
-		//vkWriteDescriptorSet_array[1].descriptorCount = 1; // we are using only one descriptor
-		//vkWriteDescriptorSet_array[1].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER; // type of the descriptor
-		//vkWriteDescriptorSet_array[1].pImageInfo = &vkDescriptorImageInfo; // pointer to the image info
-		//vkWriteDescriptorSet_array[1].pBufferInfo = NULL; // no buffer info
-		//vkWriteDescriptorSet_array[1].pTexelBufferView = NULL; // no texel buffer view
+        //vkWriteDescriptorSet_array[1].dstBinding = 1; // 1 means the index number of the binding
+        //vkWriteDescriptorSet_array[1].dstArrayElement = 0; // 0 means the index number of the array element
+        //vkWriteDescriptorSet_array[1].descriptorCount = 1; // we are using only one descriptor
+        //vkWriteDescriptorSet_array[1].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER; // type of the descriptor
+        //vkWriteDescriptorSet_array[1].pImageInfo = &vkDescriptorImageInfo; // pointer to the image info
+        //vkWriteDescriptorSet_array[1].pBufferInfo = NULL; // no buffer info
+        //vkWriteDescriptorSet_array[1].pTexelBufferView = NULL; // no texel buffer view
 
 
         // Call vkUpdateDescriptorSets() to update the descriptor set with the uniform buffer information.
@@ -6377,7 +6882,7 @@ VkResult createDescriptorSet_SingleImage(void)
 
 VkResult createDescriptorSet_AlbedoNormal(void)
 {
- // local variables
+    // local variables
     VkResult vkResult = VK_SUCCESS;
 
     // code
@@ -6391,13 +6896,13 @@ VkResult createDescriptorSet_AlbedoNormal(void)
     vkDescriptorSetAllocateInfo.descriptorSetCount = 1;//
     vkDescriptorSetAllocateInfo.pSetLayouts = &vkDescriptorSetLayout_AlbedoNormal; // pointer to the descriptor set layout
 
-	// Call vkAllocateDescriptorSets() to allocate the descriptor set
+    // Call vkAllocateDescriptorSets() to allocate the descriptor set
     vkResult = vkAllocateDescriptorSets(vkDevice, &vkDescriptorSetAllocateInfo, &vkDescriptorSet_AlbedoNormal);
     if (vkResult != VK_SUCCESS)
     {
         fprintf(gpFILE, "createDiscriptorSet() : vkAllocateDescriptorSets() failed.\n");
         return(vkResult);
-	}
+    }
     // Declare and initialize VkDescriptorImageInfo structure which will have information about the albedo image.
     VkDescriptorImageInfo vkDescriptorImageInfo_Albedo;
     memset((void*)&vkDescriptorImageInfo_Albedo, 0, sizeof(VkDescriptorImageInfo));
@@ -6409,11 +6914,11 @@ VkResult createDescriptorSet_AlbedoNormal(void)
     memset((void*)&vkDescriptorImageInfo_Normal, 0, sizeof(VkDescriptorImageInfo));
     vkDescriptorImageInfo_Normal.sampler = vkSampler_LinearClamp; // sampler for the normal image
     vkDescriptorImageInfo_Normal.imageView = imposterTextureData_blackAlder_Field_02_Normal.vkImageView; // image view for the normal image
-	vkDescriptorImageInfo_Normal.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL; // image layout for the normal image
+    vkDescriptorImageInfo_Normal.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL; // image layout for the normal image
 
     //write or copy the descriptor set with the albedo and normal image information
     // Declare and initialize VkWriteDescriptorSet structure which will have information about the descriptor set.
-	VkWriteDescriptorSet vkWriteDescriptorSet_array[2];
+    VkWriteDescriptorSet vkWriteDescriptorSet_array[2];
     memset((void*)vkWriteDescriptorSet_array, 0, sizeof(VkWriteDescriptorSet) * _ARRAYSIZE(vkWriteDescriptorSet_array));
     vkWriteDescriptorSet_array[0].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
     vkWriteDescriptorSet_array[0].pNext = NULL;
@@ -6435,28 +6940,28 @@ VkResult createDescriptorSet_AlbedoNormal(void)
     vkWriteDescriptorSet_array[1].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER; // type of the descriptor
     vkWriteDescriptorSet_array[1].pImageInfo = &vkDescriptorImageInfo_Normal; // pointer to the normal image info
     vkWriteDescriptorSet_array[1].pBufferInfo = NULL; // no buffer info
-	vkWriteDescriptorSet_array[1].pTexelBufferView = NULL; // no tex
+    vkWriteDescriptorSet_array[1].pTexelBufferView = NULL; // no tex
 
 
     // Call vkUpdateDescriptorSets() to update the descriptor set with the albedo and normal image information.
-	vkUpdateDescriptorSets(vkDevice, _ARRAYSIZE(vkWriteDescriptorSet_array), vkWriteDescriptorSet_array, 0, NULL);
+    vkUpdateDescriptorSets(vkDevice, _ARRAYSIZE(vkWriteDescriptorSet_array), vkWriteDescriptorSet_array, 0, NULL);
 
-	return vkResult;
+    return vkResult;
 }
 
 VkResult getSupportedDepthFormat(VkFormat* pVkFormat)
 {
     // local variables
-	VkResult vkResult = VK_SUCCESS;
+    VkResult vkResult = VK_SUCCESS;
 
-    VkFormat formats[] = { 
+    VkFormat formats[] = {
             VK_FORMAT_D32_SFLOAT,
-            VK_FORMAT_D32_SFLOAT_S8_UINT, 
-            VK_FORMAT_D24_UNORM_S8_UINT, 
-            VK_FORMAT_D16_UNORM_S8_UINT, 
-        };
+            VK_FORMAT_D32_SFLOAT_S8_UINT,
+            VK_FORMAT_D24_UNORM_S8_UINT,
+            VK_FORMAT_D16_UNORM_S8_UINT,
+    };
 
-    for(uint32_t i = 0; i < sizeof(formats) / sizeof(formats[0]); i++)
+    for (uint32_t i = 0; i < sizeof(formats) / sizeof(formats[0]); i++)
     {
         VkFormatProperties formatProperties;
         vkGetPhysicalDeviceFormatProperties(vkPhysicalDevice_Selected, formats[i], &formatProperties);
@@ -6465,15 +6970,15 @@ VkResult getSupportedDepthFormat(VkFormat* pVkFormat)
             *pVkFormat = formats[i];
             return VK_SUCCESS;
         }
-	}
+    }
 
 
-	return vkResult;
+    return vkResult;
 }
 
-VkResult createDepthResources(void) 
+VkResult createDepthResources(void)
 {
-	VkResult vkResult = VK_SUCCESS;
+    VkResult vkResult = VK_SUCCESS;
 
     // Find the depth format supported by the device
     VkFormat depthFormat = VK_FORMAT_UNDEFINED;
@@ -6482,14 +6987,14 @@ VkResult createDepthResources(void)
     {
         fprintf(gpFILE, "Failed to get supported depth format.\n");
         return vkResult;
-	}
+    }
 
-    VkImageCreateInfo imageInfo ;
-	memset(&imageInfo, 0, sizeof(VkImageCreateInfo));
+    VkImageCreateInfo imageInfo;
+    memset(&imageInfo, 0, sizeof(VkImageCreateInfo));
 
     imageInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
-	imageInfo.pNext = NULL;
-	imageInfo.flags = 0;
+    imageInfo.pNext = NULL;
+    imageInfo.flags = 0;
     imageInfo.imageType = VK_IMAGE_TYPE_2D;
     imageInfo.extent.width = vkExtent2D_Swapchain.width;
     imageInfo.extent.height = vkExtent2D_Swapchain.height;
@@ -6505,7 +7010,7 @@ VkResult createDepthResources(void)
 
     gSwapChainResourceData.imageData_depthBuffer = (ImageData*)malloc(sizeof(ImageData) * MAX_FRAMES);
 
-    for(uint32_t i = 0; i < MAX_FRAMES; i++)
+    for (uint32_t i = 0; i < MAX_FRAMES; i++)
     {
         vkResult = vkCreateImage(vkDevice, &imageInfo, NULL, &gSwapChainResourceData.imageData_depthBuffer[i].vkImage);
         if (vkResult != VK_SUCCESS)
@@ -6538,7 +7043,7 @@ VkResult createDepthResources(void)
         vkBindImageMemory(vkDevice, gSwapChainResourceData.imageData_depthBuffer[i].vkImage, gSwapChainResourceData.imageData_depthBuffer[i].vkDeviceMemory, 0);
 
 
-		//Image View 
+        //Image View 
         VkImageViewCreateInfo viewInfo = {};
         viewInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
         viewInfo.image = gSwapChainResourceData.imageData_depthBuffer[i].vkImage;
@@ -6555,32 +7060,32 @@ VkResult createDepthResources(void)
             fprintf(gpFILE, "Failed to create depth image view.\n");
             return vkResult;
         }
-	}
+    }
 
 
-	return vkResult;
+    return vkResult;
 }
 
 VkResult createSwapchainResources(void)
 {
-	VkResult vkResult = VK_SUCCESS;
-	//image and image view
-	vkResult = createImagesAndImageViews();
+    VkResult vkResult = VK_SUCCESS;
+    //image and image view
+    vkResult = createImagesAndImageViews();
     if (vkResult != VK_SUCCESS)
     {
         fprintf(gpFILE, "createSwapchainResources() -> createImagesAndImageViews() failed.\n");
         return vkResult;
-	}
+    }
 
-	//depth resources
-	vkResult = createDepthResources();
+    //depth resources
+    vkResult = createDepthResources();
     if (vkResult != VK_SUCCESS)
     {
         fprintf(gpFILE, "createSwapchainResources() -> createDepthResources() failed.\n");
         return vkResult;
-	}
+    }
 
-	return vkResult;
+    return vkResult;
 }
 
 void destroySwapchainResources(void)
@@ -6633,13 +7138,13 @@ void destroySwapchainResources(void)
             vkFreeMemory(vkDevice, gSwapChainResourceData.imageData_depthBuffer[i].vkDeviceMemory, NULL);
             gSwapChainResourceData.imageData_depthBuffer[i].vkDeviceMemory = VK_NULL_HANDLE;
         }
-	}
+    }
 
-    if(gSwapChainResourceData.imageData_depthBuffer)
+    if (gSwapChainResourceData.imageData_depthBuffer)
     {
         free(gSwapChainResourceData.imageData_depthBuffer);
         gSwapChainResourceData.imageData_depthBuffer = NULL;
-	}
+    }
 
     //---------------------------------------------------------------------
 }
@@ -6651,9 +7156,9 @@ VkResult createRenderPass(void)
 
     // code
     VkAttachmentDescription colorAttachment[1];
-	memset((void*)&colorAttachment, 0, sizeof(VkAttachmentDescription) * _ARRAYSIZE(colorAttachment));
+    memset((void*)&colorAttachment, 0, sizeof(VkAttachmentDescription) * _ARRAYSIZE(colorAttachment));
     colorAttachment[0].format = vkFormat_Color;
-    colorAttachment[0] .samples = VK_SAMPLE_COUNT_1_BIT;
+    colorAttachment[0].samples = VK_SAMPLE_COUNT_1_BIT;
     colorAttachment[0].loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
     colorAttachment[0].storeOp = VK_ATTACHMENT_STORE_OP_STORE;
     colorAttachment[0].stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
@@ -6674,12 +7179,12 @@ VkResult createRenderPass(void)
 
 
     VkAttachmentReference colorRef;
-	memset((void*)&colorRef, 0, sizeof(VkAttachmentReference));
+    memset((void*)&colorRef, 0, sizeof(VkAttachmentReference));
     colorRef.attachment = 0;
     colorRef.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
 
     VkAttachmentReference depthRef;
-	memset((void*)&depthRef, 0, sizeof(VkAttachmentReference));
+    memset((void*)&depthRef, 0, sizeof(VkAttachmentReference));
     depthRef.attachment = 1;
     depthRef.layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
 
@@ -6691,10 +7196,10 @@ VkResult createRenderPass(void)
     vkSubpassDescription.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
     vkSubpassDescription.inputAttachmentCount = 0;
     vkSubpassDescription.pInputAttachments = NULL;
-	vkSubpassDescription.colorAttachmentCount = _ARRAYSIZE(colorAttachment);
-	vkSubpassDescription.pColorAttachments = &colorRef; // pointer to the color attachment reference
+    vkSubpassDescription.colorAttachmentCount = _ARRAYSIZE(colorAttachment);
+    vkSubpassDescription.pColorAttachments = &colorRef; // pointer to the color attachment reference
     vkSubpassDescription.pResolveAttachments = NULL;
-	vkSubpassDescription.pDepthStencilAttachment = &depthRef; // pointer to the depth attachment reference
+    vkSubpassDescription.pDepthStencilAttachment = &depthRef; // pointer to the depth attachment reference
     vkSubpassDescription.preserveAttachmentCount = 0;
     vkSubpassDescription.pPreserveAttachments = NULL;
 
@@ -6721,8 +7226,8 @@ VkResult createRenderPass(void)
 
     vkRenderPassCreateInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
     vkRenderPassCreateInfo.pNext = NULL;
-	vkRenderPassCreateInfo.attachmentCount = 2; // we are using two attachments: color and depth
-	vkRenderPassCreateInfo.pAttachments = vkAttachmentDescription_Array; // pointer to the attachment description array
+    vkRenderPassCreateInfo.attachmentCount = 2; // we are using two attachments: color and depth
+    vkRenderPassCreateInfo.pAttachments = vkAttachmentDescription_Array; // pointer to the attachment description array
     vkRenderPassCreateInfo.subpassCount = 1;
     vkRenderPassCreateInfo.pSubpasses = &vkSubpassDescription;
     vkRenderPassCreateInfo.dependencyCount = 0;
@@ -7080,14 +7585,14 @@ VkResult createGraphicsPipeline_Impostor(void)
     // Color blend state
     VkPipelineColorBlendAttachmentState vkPipelineColorBlendAttachmentState_array[1];
     memset((void*)vkPipelineColorBlendAttachmentState_array, 0, sizeof(VkPipelineColorBlendAttachmentState) * _ARRAYSIZE(vkPipelineColorBlendAttachmentState_array));
-	vkPipelineColorBlendAttachmentState_array[0].blendEnable = VK_FALSE; // enable blending
-	vkPipelineColorBlendAttachmentState_array[0].colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT; // all color components
-	vkPipelineColorBlendAttachmentState_array[0].srcColorBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA; // source color blend factor
-	vkPipelineColorBlendAttachmentState_array[0].dstColorBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA; // destination color blend factor
-	vkPipelineColorBlendAttachmentState_array[0].colorBlendOp = VK_BLEND_OP_ADD; // color blend operation
-	vkPipelineColorBlendAttachmentState_array[0].srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE; // source alpha blend factor
-	vkPipelineColorBlendAttachmentState_array[0].dstAlphaBlendFactor = VK_BLEND_FACTOR_ZERO; // destination alpha blend factor
-	vkPipelineColorBlendAttachmentState_array[0].alphaBlendOp = VK_BLEND_OP_ADD; // alpha blend operation
+    vkPipelineColorBlendAttachmentState_array[0].blendEnable = VK_FALSE; // enable blending
+    vkPipelineColorBlendAttachmentState_array[0].colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT; // all color components
+    vkPipelineColorBlendAttachmentState_array[0].srcColorBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA; // source color blend factor
+    vkPipelineColorBlendAttachmentState_array[0].dstColorBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA; // destination color blend factor
+    vkPipelineColorBlendAttachmentState_array[0].colorBlendOp = VK_BLEND_OP_ADD; // color blend operation
+    vkPipelineColorBlendAttachmentState_array[0].srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE; // source alpha blend factor
+    vkPipelineColorBlendAttachmentState_array[0].dstAlphaBlendFactor = VK_BLEND_FACTOR_ZERO; // destination alpha blend factor
+    vkPipelineColorBlendAttachmentState_array[0].alphaBlendOp = VK_BLEND_OP_ADD; // alpha blend operation
 
 
 
@@ -7141,16 +7646,16 @@ VkResult createGraphicsPipeline_Impostor(void)
     vkPipelineDepthStencilStateCreateInfo.flags = 0;
     vkPipelineDepthStencilStateCreateInfo.depthTestEnable = VK_TRUE; // enable depth test
     vkPipelineDepthStencilStateCreateInfo.depthWriteEnable = VK_TRUE; // enable depth write
-	vkPipelineDepthStencilStateCreateInfo.depthCompareOp = VK_COMPARE_OP_LESS; // depth compare operation
+    vkPipelineDepthStencilStateCreateInfo.depthCompareOp = VK_COMPARE_OP_LESS; // depth compare operation
     vkPipelineDepthStencilStateCreateInfo.depthBoundsTestEnable = VK_FALSE; // no depth bounds test
     vkPipelineDepthStencilStateCreateInfo.stencilTestEnable = VK_FALSE; // no stencil test
     //vkPipelineDepthStencilStateCreateInfo.front = {}; // no front stencil state
     //vkPipelineDepthStencilStateCreateInfo.back = {}; // no back stencil state
-	vkPipelineDepthStencilStateCreateInfo.back.failOp = VK_STENCIL_OP_KEEP; // no back stencil state
-	vkPipelineDepthStencilStateCreateInfo.back.passOp = VK_STENCIL_OP_KEEP; // no back stencil state
-	vkPipelineDepthStencilStateCreateInfo.back.compareOp = VK_COMPARE_OP_ALWAYS; // no back stencil state
+    vkPipelineDepthStencilStateCreateInfo.back.failOp = VK_STENCIL_OP_KEEP; // no back stencil state
+    vkPipelineDepthStencilStateCreateInfo.back.passOp = VK_STENCIL_OP_KEEP; // no back stencil state
+    vkPipelineDepthStencilStateCreateInfo.back.compareOp = VK_COMPARE_OP_ALWAYS; // no back stencil state
 
-	vkPipelineDepthStencilStateCreateInfo.front = vkPipelineDepthStencilStateCreateInfo.back; // use the same state for front and back
+    vkPipelineDepthStencilStateCreateInfo.front = vkPipelineDepthStencilStateCreateInfo.back; // use the same state for front and back
 
     vkPipelineDepthStencilStateCreateInfo.minDepthBounds = 0.0f; // min depth bounds
     vkPipelineDepthStencilStateCreateInfo.maxDepthBounds = 1.0f; // max depth bounds
@@ -7170,7 +7675,7 @@ VkResult createGraphicsPipeline_Impostor(void)
     //vkPipelineMultisampleStateCreateInfo.sampleShadingEnable = VK_FALSE; // no sample shading
     //vkPipelineMultisampleStateCreateInfo.minSampleShading = 0.0f; // no min sample shading
     //vkPipelineMultisampleStateCreateInfo.pSampleMask = NULL; // no sample mask
-    //vkPipelineMultisampleStateCreateInfo.alphaToCoverageEnable = VK_FALSE; // no alpha to coverage
+    //vkPipelineMultisampleStateCreateInfo.alphaToCoverageEnable = VK_TRUE; // no alpha to coverage
     //vkPipelineMultisampleStateCreateInfo.alphaToOneEnable = VK_FALSE; // no alpha to one
 
 
@@ -7190,7 +7695,7 @@ VkResult createGraphicsPipeline_Impostor(void)
     vkPipelineShaderStageCreateInfo[1].pNext = NULL;
     vkPipelineShaderStageCreateInfo[1].flags = 0;
     vkPipelineShaderStageCreateInfo[1].stage = VK_SHADER_STAGE_FRAGMENT_BIT; // fragment shader
-	vkPipelineShaderStageCreateInfo[1].module = vkShaderModule_impostor_fs; // fragment shader module
+    vkPipelineShaderStageCreateInfo[1].module = vkShaderModule_impostor_fs; // fragment shader module
     vkPipelineShaderStageCreateInfo[1].pName = "main"; // entry point name
     vkPipelineShaderStageCreateInfo[1].pSpecializationInfo = NULL; // no specialization info
 
@@ -7227,7 +7732,7 @@ VkResult createGraphicsPipeline_Impostor(void)
     vkGraphicsPipelineCreateInfo.pViewportState = &vkPipelineViewportStateCreateInfo;
     vkGraphicsPipelineCreateInfo.pRasterizationState = &vkPipelineRasterizationStateCreateInfo;
     vkGraphicsPipelineCreateInfo.pMultisampleState = &vkPipelineMultisampleStateCreateInfo;
-    vkGraphicsPipelineCreateInfo.pDepthStencilState = &vkPipelineDepthStencilStateCreateInfo; 
+    vkGraphicsPipelineCreateInfo.pDepthStencilState = &vkPipelineDepthStencilStateCreateInfo;
     vkGraphicsPipelineCreateInfo.pColorBlendState = &vkPipelineColorBlendStateCreateInfo;
     vkGraphicsPipelineCreateInfo.pDynamicState = NULL; // no dynamic state
     vkGraphicsPipelineCreateInfo.layout = vkPipelineLayout_Impostor; // pipeline layout
@@ -7273,10 +7778,10 @@ VkResult createGraphicsPipeline_PreviewImage(void)
     vkPipelineVertexInputStateCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
     vkPipelineVertexInputStateCreateInfo.pNext = NULL;
     vkPipelineVertexInputStateCreateInfo.flags = 0;
-	vkPipelineVertexInputStateCreateInfo.vertexBindingDescriptionCount = 0; // no vertex binding descriptions
-	vkPipelineVertexInputStateCreateInfo.pVertexBindingDescriptions = NULL; // no vertex binding descriptions
-	vkPipelineVertexInputStateCreateInfo.vertexAttributeDescriptionCount = 0; // no vertex attribute descriptions
-	vkPipelineVertexInputStateCreateInfo.pVertexAttributeDescriptions = NULL; // no vertex attribute descriptions
+    vkPipelineVertexInputStateCreateInfo.vertexBindingDescriptionCount = 0; // no vertex binding descriptions
+    vkPipelineVertexInputStateCreateInfo.pVertexBindingDescriptions = NULL; // no vertex binding descriptions
+    vkPipelineVertexInputStateCreateInfo.vertexAttributeDescriptionCount = 0; // no vertex attribute descriptions
+    vkPipelineVertexInputStateCreateInfo.pVertexAttributeDescriptions = NULL; // no vertex attribute descriptions
 
     //  Declare and initialize VkPipelineInputAssemblyStateCreateInfo structure.
     VkPipelineInputAssemblyStateCreateInfo vkPipelineInputAssemblyStateCreateInfo;
@@ -7440,7 +7945,7 @@ VkResult createGraphicsPipeline_PreviewImage(void)
     vkGraphicsPipelineCreateInfo.pViewportState = &vkPipelineViewportStateCreateInfo;
     vkGraphicsPipelineCreateInfo.pRasterizationState = &vkPipelineRasterizationStateCreateInfo;
     vkGraphicsPipelineCreateInfo.pMultisampleState = &vkPipelineMultisampleStateCreateInfo;
-	vkGraphicsPipelineCreateInfo.pDepthStencilState = &vkPipelineDepthStencilStateCreateInfo;
+    vkGraphicsPipelineCreateInfo.pDepthStencilState = &vkPipelineDepthStencilStateCreateInfo;
     vkGraphicsPipelineCreateInfo.pColorBlendState = &vkPipelineColorBlendStateCreateInfo;
     vkGraphicsPipelineCreateInfo.pDynamicState = NULL; // no dynamic state
     vkGraphicsPipelineCreateInfo.layout = vkPipelineLayout_previewImage; // pipeline layout
@@ -7700,7 +8205,7 @@ VkResult createGraphicsPipeline_WhiteVertex(void)
     vkGraphicsPipelineCreateInfo.pViewportState = &vkPipelineViewportStateCreateInfo;
     vkGraphicsPipelineCreateInfo.pRasterizationState = &vkPipelineRasterizationStateCreateInfo;
     vkGraphicsPipelineCreateInfo.pMultisampleState = &vkPipelineMultisampleStateCreateInfo;
-	vkGraphicsPipelineCreateInfo.pDepthStencilState = &vkPipelineDepthStencilStateCreateInfo; // depth stencil state
+    vkGraphicsPipelineCreateInfo.pDepthStencilState = &vkPipelineDepthStencilStateCreateInfo; // depth stencil state
     vkGraphicsPipelineCreateInfo.pColorBlendState = &vkPipelineColorBlendStateCreateInfo;
     vkGraphicsPipelineCreateInfo.pDynamicState = NULL; // no dynamic state
     vkGraphicsPipelineCreateInfo.layout = vkPipelineLayout; // pipeline layout
@@ -7739,9 +8244,9 @@ VkResult createFramebuffers(void)
     VkResult vkResult = VK_SUCCESS;
 
     VkImageView attachments[2];
-	memset((void*)attachments, 0, sizeof(VkImageView) * _ARRAYSIZE(attachments));
+    memset((void*)attachments, 0, sizeof(VkImageView) * _ARRAYSIZE(attachments));
 
-	//attachments[1] = vkImageView_Depth; // depth attachment
+    //attachments[1] = vkImageView_Depth; // depth attachment
 
     //  Declare and initialize VkFramebufferCreateInfo structure.
     VkFramebufferCreateInfo vkFramebufferCreateInfo;
@@ -7754,15 +8259,15 @@ VkResult createFramebuffers(void)
     for (uint32_t i = 0; i < gSwapchainImageCount; i++)
     {
 
-		attachments[0] = gSwapChainResourceData.swapchainImageView_Array[i]; // color attachment
+        attachments[0] = gSwapChainResourceData.swapchainImageView_Array[i]; // color attachment
         attachments[1] = gSwapChainResourceData.imageData_depthBuffer[i].vkImageView; // depth attachment
-        
+
         vkFramebufferCreateInfo.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
         vkFramebufferCreateInfo.pNext = NULL;
         vkFramebufferCreateInfo.flags = 0;
         vkFramebufferCreateInfo.renderPass = vkRenderPass;
-		vkFramebufferCreateInfo.attachmentCount = 2; // color and depth attachments
-		vkFramebufferCreateInfo.pAttachments = attachments; // array of attachments 
+        vkFramebufferCreateInfo.attachmentCount = 2; // color and depth attachments
+        vkFramebufferCreateInfo.pAttachments = attachments; // array of attachments 
         vkFramebufferCreateInfo.width = vkExtent2D_Swapchain.width;
         vkFramebufferCreateInfo.height = vkExtent2D_Swapchain.height;
         vkFramebufferCreateInfo.layers = 1;
@@ -7868,8 +8373,8 @@ VkResult createFences(void)
 
 VkResult RenderImGui(uint32_t curIndex)
 {
-	// local variables
-	VkResult vkResult = VK_SUCCESS;
+    // local variables
+    VkResult vkResult = VK_SUCCESS;
 
     // ImGui per-frame setup
     ImGui_ImplVulkan_NewFrame();
@@ -7907,29 +8412,29 @@ VkResult RenderImGui(uint32_t curIndex)
     // Render ImGui
     ImGui_ImplVulkan_RenderDrawData(draw_data, vkCommandBuffer_Array[curIndex]);
 
-	return vkResult;
+    return vkResult;
 }
 
 #endif //IMGUI_ENABLE
 void RenderFullscreenQuad(uint32_t curIndex)
 {
-	// Bind the pipeline and descriptor sets
-	vkCmdBindPipeline(vkCommandBuffer_Array[curIndex], VK_PIPELINE_BIND_POINT_GRAPHICS, vkPipeline_PreviewImage); 
-	vkCmdBindDescriptorSets(vkCommandBuffer_Array[curIndex], VK_PIPELINE_BIND_POINT_GRAPHICS, vkPipelineLayout_previewImage, 0, 1, &vkDescriptorSet_SingleImage, 0, NULL);
+    // Bind the pipeline and descriptor sets
+    vkCmdBindPipeline(vkCommandBuffer_Array[curIndex], VK_PIPELINE_BIND_POINT_GRAPHICS, vkPipeline_PreviewImage);
+    vkCmdBindDescriptorSets(vkCommandBuffer_Array[curIndex], VK_PIPELINE_BIND_POINT_GRAPHICS, vkPipelineLayout_previewImage, 0, 1, &vkDescriptorSet_SingleImage, 0, NULL);
     vkCmdDraw(vkCommandBuffer_Array[curIndex], 3, 1, 0, 0);
 }
 
 void RenderColoredTriangle(uint32_t curIndex)
 {
-	static float fAngle = 0.0f;
+    static float fAngle = 0.0f;
     fAngle += MyWin32::fDeltaTime * 300.0f; // Increment the angle for rotation
     if (fAngle >= 360.0f)
         fAngle = fAngle - 360.0f; // Reset the angle if it exceeds 360 degrees
 
     PushConstants pushConstants;
-	memset(&pushConstants, 0, sizeof(PushConstants));
+    memset(&pushConstants, 0, sizeof(PushConstants));
 
-    pushConstants.model = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, -3.0f, 0.0f))* glm::rotate(glm::mat4(1.0f), glm::radians(fAngle), glm::vec3(0.0f, 0.0f, 1.0f));
+    pushConstants.model = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, -3.0f, 0.0f)) * glm::rotate(glm::mat4(1.0f), glm::radians(fAngle), glm::vec3(0.0f, 0.0f, 1.0f));
 
 #ifdef IMGUI_ENABLE
     pushConstants.v3Color = v3Color;
@@ -7940,25 +8445,25 @@ void RenderColoredTriangle(uint32_t curIndex)
 #endif //IMGUI_ENABLE
 
 
-	// Bind the pipeline and descriptor sets
-	vkCmdBindPipeline(vkCommandBuffer_Array[curIndex], VK_PIPELINE_BIND_POINT_GRAPHICS, vkPipeline_PerVertexColor);
+    // Bind the pipeline and descriptor sets
+    vkCmdBindPipeline(vkCommandBuffer_Array[curIndex], VK_PIPELINE_BIND_POINT_GRAPHICS, vkPipeline_PerVertexColor);
     vkCmdBindDescriptorSets(vkCommandBuffer_Array[curIndex], VK_PIPELINE_BIND_POINT_GRAPHICS, vkPipelineLayout, 0, 1, &vkDescriptorSets_frameData[curIndex], 0, NULL);
 
-          // Push the model matrix
-  vkCmdPushConstants(
-      vkCommandBuffer_Array[curIndex],
-      vkPipelineLayout,
-      VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, // stages where the push constant will be used
-      0,                                      // offset
-      sizeof(PushConstants),                  // size
-      &pushConstants                          // pointer to our data
-  );
-	// Bind vertex buffer
-	VkDeviceSize offset = 0;
-	vkCmdBindVertexBuffers(vkCommandBuffer_Array[curIndex], 0, 1, &vertexData_coloredTriangle.vkBuffer, &offset);
+    // Push the model matrix
+    vkCmdPushConstants(
+        vkCommandBuffer_Array[curIndex],
+        vkPipelineLayout,
+        VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, // stages where the push constant will be used
+        0,                                      // offset
+        sizeof(PushConstants),                  // size
+        &pushConstants                          // pointer to our data
+    );
+    // Bind vertex buffer
+    VkDeviceSize offset = 0;
+    vkCmdBindVertexBuffers(vkCommandBuffer_Array[curIndex], 0, 1, &vertexData_coloredTriangle.vkBuffer, &offset);
 
-	// Draw the triangle
-	vkCmdDraw(vkCommandBuffer_Array[curIndex], 3, 1, 0, 0);
+    // Draw the triangle
+    vkCmdDraw(vkCommandBuffer_Array[curIndex], 3, 1, 0, 0);
 }
 
 void RenderAxes(uint32_t curIndex)
@@ -7991,7 +8496,7 @@ void RenderAxes(uint32_t curIndex)
     // Draw the triangle
     vkCmdDraw(vkCommandBuffer_Array[curIndex], 9, 1, 0, 0);
 
-    
+
 }
 
 void RenderImpostor(uint32_t curIndex)
@@ -7999,7 +8504,7 @@ void RenderImpostor(uint32_t curIndex)
     PushConstants pushConstants;
     pushConstants.model = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 3.0f, 0.0f));//glm::vec3(0.0f, 3.0f, 0.0f)
     //pushConstants.model = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.0f, 0.0f));
-	//ushConstants.model = glm::mat4(1.0f); // Identity matrix for no transformation
+    //ushConstants.model = glm::mat4(1.0f); // Identity matrix for no transformation
 
 #ifdef IMGUI_ENABLE
     pushConstants.v3Color = v3Color;
@@ -8013,7 +8518,7 @@ void RenderImpostor(uint32_t curIndex)
     // Bind the pipeline and descriptor sets
     vkCmdBindPipeline(vkCommandBuffer_Array[curIndex], VK_PIPELINE_BIND_POINT_GRAPHICS, vkPipeline_Impostor);
 
-	VkDescriptorSet vkLocalDescriptorSets[] = { vkDescriptorSets_frameData[curIndex], vkDescriptorSet_AlbedoNormal };
+    VkDescriptorSet vkLocalDescriptorSets[] = { vkDescriptorSets_frameData[curIndex], vkDescriptorSet_AlbedoNormal };
     vkCmdBindDescriptorSets(vkCommandBuffer_Array[curIndex], VK_PIPELINE_BIND_POINT_GRAPHICS, vkPipelineLayout_Impostor, 0, 2, vkLocalDescriptorSets, 0, NULL);
 
     // Push the model matrix
@@ -8059,14 +8564,14 @@ VkResult buildCommandBuffers(uint32_t curIndex)
         return vkResult;
     }
 
- //   VkClearValue clearValue = {};
- //   clearValue.color = vkClearColorValue;
-	//clearValue.depthStencil = vkClearDepthStencilValue;
+    //   VkClearValue clearValue = {};
+    //   clearValue.color = vkClearColorValue;
+       //clearValue.depthStencil = vkClearDepthStencilValue;
 
     VkClearValue clearValues[2];
-    clearValues[0].color.float32[0] = 0.2f;
-    clearValues[0].color.float32[1] = 0.2f;
-    clearValues[0].color.float32[2] = 0.2f;
+    clearValues[0].color.float32[0] = 0.01f;
+    clearValues[0].color.float32[1] = 0.01f;
+    clearValues[0].color.float32[2] = 0.01f;
     clearValues[0].color.float32[3] = 1.0f;
     clearValues[1].depthStencil.depth = 1.0f;
     clearValues[1].depthStencil.stencil = 0;
@@ -8081,9 +8586,9 @@ VkResult buildCommandBuffers(uint32_t curIndex)
 
     vkCmdBeginRenderPass(vkCommandBuffer_Array[curIndex], &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
 
-	//RenderFullscreenQuad(curIndex); // Render the fullscreen quad
+    //RenderFullscreenQuad(curIndex); // Render the fullscreen quad
 
-	RenderAxes(curIndex); // Render the axes
+    RenderAxes(curIndex); // Render the axes
 
     RenderColoredTriangle(curIndex); // Render the colored triangle
     // Draw the indexed triangle
@@ -8093,7 +8598,7 @@ VkResult buildCommandBuffers(uint32_t curIndex)
     RenderImpostor(curIndex); // Render the UV quad
 
 #ifdef IMGUI_ENABLE
-	RenderImGui(curIndex); // Render ImGui UI
+    RenderImGui(curIndex); // Render ImGui UI
 #endif //IMGUI_ENABLE
 
     vkCmdEndRenderPass(vkCommandBuffer_Array[curIndex]);
@@ -8110,72 +8615,72 @@ VkResult buildCommandBuffers(uint32_t curIndex)
 
 VkResult createGraphicsPipelines(void)
 {
-	// local variables
-	VkResult vkResult = VK_SUCCESS;
-	// code
+    // local variables
+    VkResult vkResult = VK_SUCCESS;
+    // code
 
     vkResult = createGraphicsPipeline_PerVertexColor();
-	if (vkResult != VK_SUCCESS)
-	{
-		fprintf(gpFILE, "createGraphicsPipelines() : createGraphicsPipeline_PerVertexColor() failed: %d.\n", vkResult);
-		return vkResult;
-	}
+    if (vkResult != VK_SUCCESS)
+    {
+        fprintf(gpFILE, "createGraphicsPipelines() : createGraphicsPipeline_PerVertexColor() failed: %d.\n", vkResult);
+        return vkResult;
+    }
 
-	vkResult = createGraphicsPipeline_WhiteVertex();
+    vkResult = createGraphicsPipeline_WhiteVertex();
     if (vkResult != VK_SUCCESS)
     {
         fprintf(gpFILE, "createGraphicsPipelines() : createGraphicsPipeline_WhiteVertex() failed: %d.\n", vkResult);
-		return vkResult;
+        return vkResult;
     }
 
-	vkResult = createGraphicsPipeline_PreviewImage();
-	if (vkResult != VK_SUCCESS)
-	{
-		fprintf(gpFILE, "createGraphicsPipelines() : createGraphicsPipeline_PreviewImage() failed: %d.\n", vkResult);
-		return vkResult;
-	}
+    vkResult = createGraphicsPipeline_PreviewImage();
+    if (vkResult != VK_SUCCESS)
+    {
+        fprintf(gpFILE, "createGraphicsPipelines() : createGraphicsPipeline_PreviewImage() failed: %d.\n", vkResult);
+        return vkResult;
+    }
 
-	vkResult = createGraphicsPipeline_Impostor();
-	if (vkResult != VK_SUCCESS)
-	{
-		fprintf(gpFILE, "createGraphicsPipelines() : createGraphicsPipeline_Impostor() failed: %d.\n", vkResult);
-		return vkResult;
-	}
+    vkResult = createGraphicsPipeline_Impostor();
+    if (vkResult != VK_SUCCESS)
+    {
+        fprintf(gpFILE, "createGraphicsPipelines() : createGraphicsPipeline_Impostor() failed: %d.\n", vkResult);
+        return vkResult;
+    }
 
     return vkResult;
 }
 
 void destroyGraphicsPipelines(void)
 {
-	//if (vkPipeline != VK_NULL_HANDLE)
-	//{
-	//	vkDestroyPipeline(vkDevice, vkPipeline, NULL);
-	//	vkPipeline = VK_NULL_HANDLE;
-	//}
+    //if (vkPipeline != VK_NULL_HANDLE)
+    //{
+    //	vkDestroyPipeline(vkDevice, vkPipeline, NULL);
+    //	vkPipeline = VK_NULL_HANDLE;
+    //}
 
-	if (vkPipeline_WhiteVertex != VK_NULL_HANDLE)
-	{
-		vkDestroyPipeline(vkDevice, vkPipeline_WhiteVertex, NULL);
-		vkPipeline_WhiteVertex = VK_NULL_HANDLE;
-	}
-
-	if (vkPipeline_PerVertexColor != VK_NULL_HANDLE)
+    if (vkPipeline_WhiteVertex != VK_NULL_HANDLE)
     {
-		vkDestroyPipeline(vkDevice, vkPipeline_PerVertexColor, NULL);
-		vkPipeline_PerVertexColor = VK_NULL_HANDLE;
-	}
+        vkDestroyPipeline(vkDevice, vkPipeline_WhiteVertex, NULL);
+        vkPipeline_WhiteVertex = VK_NULL_HANDLE;
+    }
 
-	if (vkPipeline_PreviewImage != VK_NULL_HANDLE)
-	{
-		vkDestroyPipeline(vkDevice, vkPipeline_PreviewImage, NULL);
-		vkPipeline_PreviewImage = VK_NULL_HANDLE;
-	}
+    if (vkPipeline_PerVertexColor != VK_NULL_HANDLE)
+    {
+        vkDestroyPipeline(vkDevice, vkPipeline_PerVertexColor, NULL);
+        vkPipeline_PerVertexColor = VK_NULL_HANDLE;
+    }
 
-	if (vkPipeline_Impostor != VK_NULL_HANDLE)
-	{
-		vkDestroyPipeline(vkDevice, vkPipeline_Impostor, NULL);
-		vkPipeline_Impostor = VK_NULL_HANDLE;
-	}
+    if (vkPipeline_PreviewImage != VK_NULL_HANDLE)
+    {
+        vkDestroyPipeline(vkDevice, vkPipeline_PreviewImage, NULL);
+        vkPipeline_PreviewImage = VK_NULL_HANDLE;
+    }
+
+    if (vkPipeline_Impostor != VK_NULL_HANDLE)
+    {
+        vkDestroyPipeline(vkDevice, vkPipeline_Impostor, NULL);
+        vkPipeline_Impostor = VK_NULL_HANDLE;
+    }
 }
 
 VKAPI_ATTR VkBool32 VKAPI_CALL debugReportCallback(VkDebugReportFlagsEXT vkDebugReportFlagsEXT, VkDebugReportObjectTypeEXT vkDebugReportObjectTypeEXT, uint64_t object, size_t location, int32_t messageCode, const char* pLayerPrefix, const char* pMessage, void* pUserData)
