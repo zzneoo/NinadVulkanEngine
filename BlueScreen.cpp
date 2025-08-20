@@ -24,6 +24,12 @@ using namespace tinyddsloader;
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 
+// Assimp related header files
+#include <assimp/Importer.hpp>
+#include <assimp/scene.h>
+#include <assimp/postprocess.h>
+
+
 #define IMGUI_ENABLE
 
 #ifdef IMGUI_ENABLE
@@ -41,6 +47,7 @@ using namespace tinyddsloader;
 
 // Vulkan related libraries
 #pragma comment(lib, "vulkan-1.lib")
+#pragma comment(lib, "assimp-vc143-mt.lib")
 
 // macros
 #define WIN_WIDTH  1920
@@ -920,7 +927,7 @@ VkResult initialize(void)
     //VK_FORMAT_R8G8B8A8_SRGB,  // SRGB format
     // 
     //load all textures
-    vkResult = loadTextureData(&grassTextureData, "Resources/StockTextures/grass.png", VK_FORMAT_R8G8B8A8_SRGB);
+    vkResult = loadTextureData(&grassTextureData, "Resources/StockTextures/lion.png", VK_FORMAT_R8G8B8A8_SRGB);
     if (vkResult != VK_SUCCESS)
     {
         fprintf(gpFILE, "initialize() : loadTextureData() failed (%d).\n", vkResult);
@@ -1299,11 +1306,18 @@ VkResult initialize(void)
     fprintf(gpFILE, "initialize() : initialize complete.\n");
 
     //---------------------------------Test-----------------------------------
-
+    Assimp::Importer importer;
+    const aiScene* scene = importer.ReadFile("Resources/Models/Test/suzanne.obj",
+        aiProcess_Triangulate | aiProcess_JoinIdenticalVertices);
+    if (!scene || scene->mFlags & AI_SCENE_FLAGS_INCOMPLETE) {
+        std::cerr << "Assimp Error: " << importer.GetErrorString() << std::endl;
+    }
+    //std::cout << "Meshes: " << scene->mNumMeshes << std::endl;
 
 
     return(vkResult);
 }
+
 
 // Helper: find a memory type index with required properties
 uint32_t findMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties) {
@@ -6840,7 +6854,7 @@ VkResult createDescriptorSet_SingleImage(void)
         VkDescriptorImageInfo vkDescriptorImageInfo;
         memset((void*)&vkDescriptorImageInfo, 0, sizeof(VkDescriptorImageInfo));
         vkDescriptorImageInfo.sampler = vkSampler_LinearClamp; // sampler for the image
-        vkDescriptorImageInfo.imageView = imposterTextureData.vkImageView; // image view for the image
+        vkDescriptorImageInfo.imageView = grassTextureData.vkImageView; // image view for the image
         vkDescriptorImageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL; // image layout for the image
 
         //write or copy the descriptor set with the uniform buffer information
@@ -8586,7 +8600,7 @@ VkResult buildCommandBuffers(uint32_t curIndex)
 
     vkCmdBeginRenderPass(vkCommandBuffer_Array[curIndex], &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
 
-    //RenderFullscreenQuad(curIndex); // Render the fullscreen quad
+   // RenderFullscreenQuad(curIndex); // Render the fullscreen quad
 
     RenderAxes(curIndex); // Render the axes
 
