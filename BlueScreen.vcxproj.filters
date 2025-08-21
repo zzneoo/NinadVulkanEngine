@@ -143,5 +143,11 @@
     <None Include="WhiteVertex.vert">
       <Filter>Shaders</Filter>
     </None>
+    <None Include="Phong.frag">
+      <Filter>Shaders</Filter>
+    </None>
+    <None Include="Phong.vert">
+      <Filter>Shaders</Filter>
+    </None>
   </ItemGroup>
 </Project>

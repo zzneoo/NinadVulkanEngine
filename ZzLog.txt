@@ -1,0 +1,64 @@
+WinMain() : Program started successfully.
+-------------------------------------------------------------------------------------
+resize() : initialization yet not completed.
+-------------------------------------------------------------------------------------
+-------------------------------------------------------------------------------------
+fillInstanceExtensionNames() : VK_KHR_SURFACE_EXTENSION_NAME found.
+fillInstanceExtensionNames() : VK_KHR_WIN32_SURFACE_EXTENSION_NAME found.
+-------------------------------------------------------------------------------------
+fillInstanceExtensionNames() : Validation is on & VK_EXT_DEBUG_REPORT_EXTENSION_NAME found.
+fillInstanceExtensionNames() : Enabled Vulkan instance extension name = VK_KHR_surface
+fillInstanceExtensionNames() : Enabled Vulkan instance extension name = VK_KHR_win32_surface
+fillInstanceExtensionNames() : Enabled Vulkan instance extension name = VK_EXT_debug_report
+-------------------------------------------------------------------------------------
+-------------------------------------------------------------------------------------
+-------------------------------------------------------------------------------------
+fillValidaionLayerNames() : VK_LAYER_KHRONOS_validation found.
+fillValidaionLayerNames() : Enabled Vulkan instance extension name = VK_LAYER_KHRONOS_validation
+-------------------------------------------------------------------------------------
+getPhysicalDevice() : succeeded to select required physical device with graphics enabled.
+getPhysicalDevice() : Selected physical device supports tessellation shader.
+getPhysicalDevice() : Selected physical device supports geometry shader.
+--------------------------Vulkan Info--------------------------
+-------------------------------------------------------------------------------------
+printVkInfo() : API Version = 1.4.312
+printVkInfo() : Device Name = NVIDIA GeForce RTX 4090
+printVkInfo() : Device Type = Discrete GPU (dGPU)
+printVkInfo() : Vendor ID   = 0x10de
+printVkInfo() : Device ID   = 0x2684
+-------------------------------------------------------------------------------------
+-------------------------------------------------------------------------------------
+-------------------------------------------------------------------------------------
+fillDeviceExtensionNames() : Enabled Vulkan device extension name = VK_KHR_swapchain
+-------------------------------------------------------------------------------------
+createSwapchain() : minImageCount = 2, maxImageCount = 8
+createSwapchain() : (1) Swapchain Image width x height = 1884 x 977
+createImagesAndImageViews() : gives swapchain image count = 2
+createSamplers() : Samplers created successfully.
+
+Success: Loaded image 'Resources/StockTextures/lion.png' ( 1600 x 1500 ), 4 channels
+
+loadTextureData() : Texture image loaded successfully.
+
+Success: Loaded image 'Resources/StockTextures/border.png' ( 1600 x 941 ), 4 channels
+
+loadTextureData() : Texture image loaded successfully.
+loadTextureData_dds_c_bc7(): Loaded 'Resources/Impostors/BlackAlder_Field_02/T_Impostor_BaseColor_Field_02_Summer.dds' w=4096 h=4096 mips=1 layers=1 (BC7)
+loadTextureData_dds_c_bc7(): Loaded 'Resources/Impostors/BlackAlder_Field_02/T_Impostor_Normal_Field_02_Summer.dds' w=4096 h=4096 mips=13 layers=1 (BC7)
+loadTextureData_dds_c_bc7(): Loaded 'Resources/StockTextures/lion.dds' w=1600 h=1500 mips=1 layers=1 (BC7)
+initialize() : initialize complete.
+-------------------------------------------------------------------------------------
+
+
+
+
+WinMain() : initialize() succeeded.
+-------------------------------------------------------------------------------------
+-------------------------------------------------------------------------------------
+createSwapchain() : minImageCount = 2, maxImageCount = 8
+createSwapchain() : (1) Swapchain Image width x height = 3840 x 2160
+createImagesAndImageViews() : gives swapchain image count = 2
+uninitialize() : ImGui uninitialization is done.
+-------------------------------------------------------------------------------------
+-------------------------------------------------------------------------------------
+uninitialize() : Program ended successfully.

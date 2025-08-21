@@ -38,6 +38,15 @@ struct VertexData_PositionTexCoord
 	glm::vec2 texCoord;
 };
 
+struct VertexData_PositionTexCoordNormalColor
+{
+	glm::vec3 pos;
+	glm::vec2 texCoord;
+	glm::vec3 normal;
+	glm::vec3 color;
+};
+
+
 struct VertexData_Position
 {
 	glm::vec3 pos;
