@@ -11,7 +11,7 @@
 *.sln.docstates
 
 #zzneo-specific files
-[Rr]esources/
+#[Rr]esources/
 
 # User-specific files (MonoDevelop/Xamarin Studio)
 *.userprefs
