@@ -989,13 +989,13 @@ VkResult initialize(void)
         return(vkResult);
     }
 
-    //lion
-    vkResult = loadTextureData_dds_c_bc7(&imposterTextureData, "Resources/StockTextures/lion.dds", VK_FORMAT_BC7_SRGB_BLOCK);
-    if (vkResult != VK_SUCCESS)
-    {
-        fprintf(gpFILE, "initialize() : loadTextureData_dds() imposterTextureData_ failed (%d).\n", vkResult);
-        return(vkResult);
-    }
+    ////lion
+    //vkResult = loadTextureData_dds_c_bc7(&imposterTextureData, "Resources/StockTextures/lion.dds", VK_FORMAT_BC7_SRGB_BLOCK);
+    //if (vkResult != VK_SUCCESS)
+    //{
+    //    fprintf(gpFILE, "initialize() : loadTextureData_dds() imposterTextureData_ failed (%d).\n", vkResult);
+    //    return(vkResult);
+    //}
 
 
     // STEP 15 : Create command buffers

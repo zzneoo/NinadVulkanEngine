@@ -4,6 +4,8 @@ glslangValidator.exe -V -H -o shader.vert.spv "C:\Users\Ninad\source\repos\BlueS
 
 .\texconv.exe -f BC7_UNORM -o .\out\ -m 1 "C:\Users\Ninad\source\repos\BlueScreen\Resources\Impostors\BlackAlder_Field_02\T_Impostor_BaseColor_Field_02_Summer.DDS"
 
+.\texconv.exe "FilePath" -f BC7_UNORM -w 4096 -h 4096 -m 0 -y  -o .
+
 //-----------------------------------------------------------------------------------------------//
 vkDescriptorPool -->VkDescriptorSet   
 VkDescriptorSetLayout -->VkDescriptorSet  
