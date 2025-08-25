@@ -183,6 +183,7 @@ typedef struct
 {
     VulkanData vertexData;
     VulkanData indexData;
+	uint32_t indicesCount;
 } VulkanComboData;
 
 typedef struct
@@ -210,6 +211,7 @@ VulkanData vertexData_Axis;
 
 VulkanComboData  ImpostorBufferData;
 VulkanComboData  CubeBufferData;
+VulkanComboData  SuzanneBufferData;
 
 
 
@@ -795,6 +797,195 @@ void compileShaderVS_FS(const char* shaderName)
     }
 }
 
+VkResult LoadModel_Phong(const char* modelPath, VulkanComboData* vulkanComboData,bool index32)
+{
+    VkResult ZzCreateVertexAndIndex16Buffer(
+        const float* vertices, VkDeviceSize vertexBufferSize,
+        const uint16_t * indices, VkDeviceSize indexBufferSize,
+        VulkanComboData * vulkanComboData
+    );
+    VkResult ZzCreateVertexAndIndex32Buffer(
+        const float* vertices, VkDeviceSize vertexBufferSize,
+        const uint32_t * indices, VkDeviceSize indexBufferSize,
+        VulkanComboData * vulkanComboData
+    );
+
+	VkResult vkResult = VK_SUCCESS;//"Resources/Models/Test/suzanne.obj"
+
+    Assimp::Importer importer;
+    const aiScene* scene = importer.ReadFile(modelPath,
+        aiProcess_Triangulate | aiProcess_JoinIdenticalVertices | aiProcess_FlipWindingOrder);
+    if (!scene || scene->mFlags & AI_SCENE_FLAGS_INCOMPLETE) {
+        std::cerr << "Assimp Error: " << importer.GetErrorString() << std::endl;
+    }
+    //std::cout << "Meshes: " << scene->mNumMeshes << std::endl;
+
+    std::vector<VertexData_PositionTexCoordNormalColor> vkVertices;
+
+    if (index32)
+    {
+        std::vector<uint32_t> vkIndices;
+
+        if (scene && scene->mRootNode) {
+            for (unsigned int meshIndex = 0; meshIndex < scene->mNumMeshes; meshIndex++) {
+                aiMesh* mesh = scene->mMeshes[meshIndex];
+
+                // Vertices
+                for (unsigned int i = 0; i < mesh->mNumVertices; i++) {
+                    VertexData_PositionTexCoordNormalColor v{};
+
+                    // Position
+                    if (mesh->HasPositions()) {
+                        v.pos = glm::vec3(
+                            mesh->mVertices[i].x,
+                            mesh->mVertices[i].y,
+                            mesh->mVertices[i].z
+                        );
+                    }
+
+                    // Normal
+                    if (mesh->HasNormals()) {
+                        v.normal = glm::vec3(
+                            mesh->mNormals[i].x,
+                            mesh->mNormals[i].y,
+                            mesh->mNormals[i].z
+                        );
+                    }
+
+                    // TexCoords (Assimp supports 8 UV channels; we use channel 0)
+                    if (mesh->HasTextureCoords(0)) {
+                        v.texCoord = glm::vec2(
+                            mesh->mTextureCoords[0][i].x,
+                            mesh->mTextureCoords[0][i].y
+                        );
+                    }
+                    else {
+                        v.texCoord = glm::vec2(0.0f);
+                    }
+
+                    // Vertex Colors (channel 0, RGBA)
+                    if (mesh->HasVertexColors(0)) {
+                        v.color = glm::vec3(
+                            mesh->mColors[0][i].r,
+                            mesh->mColors[0][i].g,
+                            mesh->mColors[0][i].b
+                        );
+                    }
+                    else {
+                        v.color = glm::vec3(1.0f); // default white
+                    }
+
+                    vkVertices.push_back(v);
+                }
+
+                // Indices (faces are always triangles if aiProcess_Triangulate is used)
+                for (unsigned int f = 0; f < mesh->mNumFaces; f++) {
+                    const aiFace& face = mesh->mFaces[f];
+                    for (unsigned int j = 0; j < face.mNumIndices; j++) {
+                        vkIndices.push_back(face.mIndices[j]);
+                    }
+                }
+            }
+        }
+
+        vulkanComboData->indicesCount = static_cast<uint32_t>(vkIndices.size());
+
+        //Suzanne
+        vkResult = ZzCreateVertexAndIndex32Buffer(
+            (float*)vkVertices.data(), vkVertices.size() * sizeof(VertexData_PositionTexCoordNormalColor),
+            vkIndices.data(), vkIndices.size() * sizeof(uint16_t),
+            vulkanComboData
+        );
+        if (vkResult != VK_SUCCESS)
+        {
+            fprintf(gpFILE, "initialize() : ZzCreateVetexAndIndexBuffer() for Suzanne failed (%d).\n", vkResult);
+            return(vkResult);
+        }
+    }
+    else
+    {
+        std::vector<uint16_t> vkIndices;
+
+        if (scene && scene->mRootNode) {
+            for (unsigned int meshIndex = 0; meshIndex < scene->mNumMeshes; meshIndex++) {
+                aiMesh* mesh = scene->mMeshes[meshIndex];
+
+                // Vertices
+                for (unsigned int i = 0; i < mesh->mNumVertices; i++) {
+                    VertexData_PositionTexCoordNormalColor v{};
+
+                    // Position
+                    if (mesh->HasPositions()) {
+                        v.pos = glm::vec3(
+                            mesh->mVertices[i].x,
+                            mesh->mVertices[i].y,
+                            mesh->mVertices[i].z
+                        );
+                    }
+
+                    // Normal
+                    if (mesh->HasNormals()) {
+                        v.normal = glm::vec3(
+                            mesh->mNormals[i].x,
+                            mesh->mNormals[i].y,
+                            mesh->mNormals[i].z
+                        );
+                    }
+
+                    // TexCoords (Assimp supports 8 UV channels; we use channel 0)
+                    if (mesh->HasTextureCoords(0)) {
+                        v.texCoord = glm::vec2(
+                            mesh->mTextureCoords[0][i].x,
+                            mesh->mTextureCoords[0][i].y
+                        );
+                    }
+                    else {
+                        v.texCoord = glm::vec2(0.0f);
+                    }
+
+                    // Vertex Colors (channel 0, RGBA)
+                    if (mesh->HasVertexColors(0)) {
+                        v.color = glm::vec3(
+                            mesh->mColors[0][i].r,
+                            mesh->mColors[0][i].g,
+                            mesh->mColors[0][i].b
+                        );
+                    }
+                    else {
+                        v.color = glm::vec3(1.0f); // default white
+                    }
+
+                    vkVertices.push_back(v);
+                }
+
+                // Indices (faces are always triangles if aiProcess_Triangulate is used)
+                for (unsigned int f = 0; f < mesh->mNumFaces; f++) {
+                    const aiFace& face = mesh->mFaces[f];
+                    for (unsigned int j = 0; j < face.mNumIndices; j++) {
+                        vkIndices.push_back(face.mIndices[j]);
+                    }
+                }
+            }
+        }
+
+		vulkanComboData->indicesCount = static_cast<uint32_t>(vkIndices.size());
+
+        //Suzanne
+        vkResult = ZzCreateVertexAndIndex16Buffer(
+            (float*)vkVertices.data(), vkVertices.size() * sizeof(VertexData_PositionTexCoordNormalColor),
+            vkIndices.data(), vkIndices.size() * sizeof(uint16_t),
+            vulkanComboData
+        );
+        if (vkResult != VK_SUCCESS)
+        {
+            fprintf(gpFILE, "initialize() : ZzCreateVetexAndIndexBuffer() for Suzanne failed (%d).\n", vkResult);
+            return(vkResult);
+        }
+    }
+
+	return vkResult;
+}
+
 VkResult initialize(void)
 {
     // function declarations
@@ -808,14 +999,15 @@ VkResult initialize(void)
     VkResult createSwapchainResources(void);
     VkResult createCommandPool(void);
     VkResult createCommandBuffers(void);
-    //VkResult createVertexBuffer_coloredTriangle(void);
     VkResult ZzCreateVertexBuffer(const float* vertices, VkDeviceSize vertexBufferSize, VulkanData * vulkanData);
-    VkResult ZzCreateIndex16Buffer(const uint16_t * indices, VkDeviceSize indexBufferSize, VulkanData * vulkanData);
-    VkResult ZzCreateVertexAndIndexBuffer(
+    VkResult ZzCreateVertexAndIndex16Buffer(
         const float* vertices, VkDeviceSize vertexBufferSize,
         const uint16_t * indices, VkDeviceSize indexBufferSize,
         VulkanComboData * vulkanComboData
     );
+
+    VkResult LoadModel_Phong(const char* modelPath, VulkanComboData * vulkanComboData, bool index32);
+
     //VkResult createVertexBuffer_uvQuad(void);
     VkResult createUniformBuffer(void);
     VkResult createShaders(void);
@@ -1074,7 +1266,7 @@ VkResult initialize(void)
     };
 
     //vulkanComboData for Impostor
-    vkResult = ZzCreateVertexAndIndexBuffer(
+    vkResult = ZzCreateVertexAndIndex16Buffer(
         (float*)ImpostorPosUV, sizeof(ImpostorPosUV),
         impostor_indices, sizeof(impostor_indices),
         &ImpostorBufferData
@@ -1137,7 +1329,7 @@ VkResult initialize(void)
     };
 
 	//vulkanComboData for cube
-    vkResult = ZzCreateVertexAndIndexBuffer(
+    vkResult = ZzCreateVertexAndIndex16Buffer(
         (float*)cubeVertices, sizeof(cubeVertices),
         cubeIndices, sizeof(cubeIndices),
         &CubeBufferData
@@ -1147,6 +1339,14 @@ VkResult initialize(void)
         fprintf(gpFILE, "initialize() : ZzCreateVetexAndIndexBuffer() for cube failed (%d).\n", vkResult);
         return(vkResult);
 	}
+
+	//--------------------------------------Assimp Load Model----------------------------------------------------
+    vkResult = LoadModel_Phong("Resources/Models/Test/suzanne.obj", &SuzanneBufferData, false);
+    if (vkResult != VK_SUCCESS)
+    {
+        fprintf(gpFILE, "initialize() : LoadModel_Phong() failed (%d).\n", vkResult);
+        return(vkResult);
+    }
 
     //--------------------------------------------------------------------------------------------------
 
@@ -1385,14 +1585,9 @@ VkResult initialize(void)
     fprintf(gpFILE, "initialize() : initialize complete.\n");
 
     //---------------------------------Test-----------------------------------
-    Assimp::Importer importer;
-    const aiScene* scene = importer.ReadFile("Resources/Models/Test/suzanne.obj",
-        aiProcess_Triangulate | aiProcess_JoinIdenticalVertices);
-    if (!scene || scene->mFlags & AI_SCENE_FLAGS_INCOMPLETE) {
-        std::cerr << "Assimp Error: " << importer.GetErrorString() << std::endl;
-    }
-    //std::cout << "Meshes: " << scene->mNumMeshes << std::endl;
 
+
+	//-----------------------------------------------------------------------------
 
     return(vkResult);
 }
@@ -2116,6 +2311,7 @@ void uninitialize(void)
     //Impostor CombinedData
     ZzDestroyVertexAndIndexBuffer(&ImpostorBufferData);
 	ZzDestroyVertexAndIndexBuffer(&CubeBufferData);
+	ZzDestroyVertexAndIndexBuffer(&SuzanneBufferData);
 
 
     //uniform buffer
@@ -5257,7 +5453,100 @@ VkResult ZzCreateIndex16Buffer(const uint16_t* indices, VkDeviceSize indexBuffer
     return vkResult;
 }
 
-VkResult ZzCreateVertexAndIndexBuffer(
+VkResult ZzCreateIndex32Buffer(const uint32_t* indices, VkDeviceSize indexBufferSize, VulkanData* vulkanData)
+{
+    // local variables
+    VkResult vkResult = VK_SUCCESS;
+
+    //position index buffer
+//----------------------------------------------------------------------------------------------------
+    memset((void*)vulkanData, 0, sizeof(VulkanData));
+
+    VkBufferCreateInfo vkBufferCreateInfo;
+    memset((void*)&vkBufferCreateInfo, 0, sizeof(VkBufferCreateInfo));
+
+    vkBufferCreateInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
+    vkBufferCreateInfo.pNext = NULL;
+    vkBufferCreateInfo.flags = 0;
+    vkBufferCreateInfo.size = indexBufferSize;
+    vkBufferCreateInfo.usage = VK_BUFFER_USAGE_INDEX_BUFFER_BIT;
+
+    vkResult = vkCreateBuffer(vkDevice, &vkBufferCreateInfo, NULL, &vulkanData->vkBuffer);
+
+    if (vkResult != VK_SUCCESS)
+    {
+        fprintf(gpFILE, "createVertexBuffer() -> vkCreateBuffer() (index):  failed.\n");
+        return(vkResult);
+    }
+
+    //------------
+    VkMemoryRequirements vkMemoryRequirements;
+    memset((void*)&vkMemoryRequirements, 0, sizeof(vkMemoryRequirements));
+
+    vkGetBufferMemoryRequirements(vkDevice, vulkanData->vkBuffer, &vkMemoryRequirements);
+
+    //------------
+    VkMemoryAllocateInfo vkMemoryAllocateInfo;
+    memset((void*)&vkMemoryAllocateInfo, 0, sizeof(vkMemoryAllocateInfo));
+
+    vkMemoryAllocateInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
+    vkMemoryAllocateInfo.pNext = NULL;
+    vkMemoryAllocateInfo.allocationSize = vkMemoryRequirements.size;
+    vkMemoryAllocateInfo.memoryTypeIndex = 0;
+
+    //-------------
+    for (uint32_t i = 0; i < vkPhysicalDeviceMemoryProperties.memoryTypeCount; i++)
+    {
+        if ((vkMemoryRequirements.memoryTypeBits & 1) == 1)
+        {
+            if (vkPhysicalDeviceMemoryProperties.memoryTypes[i].propertyFlags & VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT)
+            {
+                vkMemoryAllocateInfo.memoryTypeIndex = i;
+                break;
+            }
+        }
+
+        vkMemoryRequirements.memoryTypeBits >>= 1;
+    }
+
+    //--------------
+    vkResult = vkAllocateMemory(vkDevice, &vkMemoryAllocateInfo, NULL, &vulkanData->vkDeviceMemory);
+    if (vkResult != VK_SUCCESS)
+    {
+        fprintf(gpFILE, "createVertexBuffer() -> vkAllocateMemory() :  failed.\n");
+        return(vkResult);
+    }
+
+
+    //---------------
+    vkResult = vkBindBufferMemory(vkDevice, vulkanData->vkBuffer, vulkanData->vkDeviceMemory, 0);
+    if (vkResult != VK_SUCCESS)
+    {
+        fprintf(gpFILE, "createVertexBuffer() -> vkBindBufferMemory() :  failed.\n");
+        return(vkResult);
+    }
+
+
+    //----------------
+    void* dataIndex = NULL;
+    vkResult = vkMapMemory(vkDevice, vulkanData->vkDeviceMemory, 0, vkMemoryAllocateInfo.allocationSize, 0, &dataIndex);
+    if (vkResult != VK_SUCCESS)
+    {
+        fprintf(gpFILE, "createVertexBuffer() -> vkMapMemory() :  failed.\n");
+        return(vkResult);
+    }
+
+
+    //-------actual memory mapped io
+    memcpy(dataIndex, indices, indexBufferSize);
+
+    //-------unmap memory
+    vkUnmapMemory(vkDevice, vulkanData->vkDeviceMemory);
+
+    return vkResult;
+}
+
+VkResult ZzCreateVertexAndIndex16Buffer(
     const float* vertices,
     VkDeviceSize vertexBufferSize,
     const uint16_t* indices,
@@ -5273,6 +5562,30 @@ VkResult ZzCreateVertexAndIndexBuffer(
     }
     // Create index buffer
     vkResult = ZzCreateIndex16Buffer(indices, indexBufferSize, &vulkanComboData->indexData);
+    if (vkResult != VK_SUCCESS)
+    {
+        fprintf(gpFILE, "ZzCreateVertexAndIndexBuffer() -> ZzCreateIndex16Buffer() failed.\n");
+        return vkResult;
+    }
+    return vkResult;
+}
+
+VkResult ZzCreateVertexAndIndex32Buffer(
+    const float* vertices,
+    VkDeviceSize vertexBufferSize,
+    const uint32_t* indices,
+    VkDeviceSize indexBufferSize,
+    VulkanComboData* vulkanComboData)
+{
+    // Create vertex buffer
+    VkResult vkResult = ZzCreateVertexBuffer(vertices, vertexBufferSize, &vulkanComboData->vertexData);
+    if (vkResult != VK_SUCCESS)
+    {
+        fprintf(gpFILE, "ZzCreateVertexAndIndexBuffer() -> ZzCreateVertexBuffer() failed.\n");
+        return vkResult;
+    }
+    // Create index buffer
+    vkResult = ZzCreateIndex32Buffer(indices, indexBufferSize, &vulkanComboData->indexData);
     if (vkResult != VK_SUCCESS)
     {
         fprintf(gpFILE, "ZzCreateVertexAndIndexBuffer() -> ZzCreateIndex16Buffer() failed.\n");
@@ -8987,12 +9300,12 @@ void RenderCube(uint32_t curIndex)
     vkCmdBindPipeline(vkCommandBuffer_Array[curIndex], VK_PIPELINE_BIND_POINT_GRAPHICS, vkPipeline_Phong);
 
     VkDescriptorSet vkLocalDescriptorSets[] = { vkDescriptorSets_frameData[curIndex] };
-    vkCmdBindDescriptorSets(vkCommandBuffer_Array[curIndex], VK_PIPELINE_BIND_POINT_GRAPHICS, vkPipelineLayout_Impostor, 0, 1, vkLocalDescriptorSets, 0, NULL);
+    vkCmdBindDescriptorSets(vkCommandBuffer_Array[curIndex], VK_PIPELINE_BIND_POINT_GRAPHICS, vkPipelineLayout_Phong, 0, 1, vkLocalDescriptorSets, 0, NULL);
 
     // Push the model matrix
     vkCmdPushConstants(
         vkCommandBuffer_Array[curIndex],
-        vkPipelineLayout_Impostor,
+        vkPipelineLayout_Phong,
         VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, // stages where the push constant will be used
         0,                                      // offset
         sizeof(PushConstants),                  // size
@@ -9003,6 +9316,50 @@ void RenderCube(uint32_t curIndex)
     vkCmdBindVertexBuffers(vkCommandBuffer_Array[curIndex], 0, 1, &CubeBufferData.vertexData.vkBuffer, &offset);
     vkCmdBindIndexBuffer(vkCommandBuffer_Array[curIndex], CubeBufferData.indexData.vkBuffer, 0, VK_INDEX_TYPE_UINT16);
     vkCmdDrawIndexed(vkCommandBuffer_Array[curIndex], (uint32_t)36, 1, 0, 0, 0);
+
+}
+
+void RenderSuzanne(uint32_t curIndex)
+{
+    static float fAngle = 0.0f;
+    fAngle += MyWin32::fDeltaTime * 100.0f; // Increment the angle for rotation
+    if (fAngle >= 360.0f)
+        fAngle = fAngle - 360.0f; // Reset the angle if it exceeds 360 degrees
+
+    PushConstants pushConstants;
+    pushConstants.model = glm::translate(glm::mat4(1.0f), glm::vec3(-3.0f, -10.0f, 2.0f)) * glm::rotate(glm::mat4(1.0f), glm::radians(fAngle), glm::vec3(0.0f, 0.0f, 1.0f));
+    //pushConstants.model = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.0f, 0.0f));
+    //ushConstants.model = glm::mat4(1.0f); // Identity matrix for no transformation
+
+#ifdef IMGUI_ENABLE
+    pushConstants.v3Color = v3Color;
+    pushConstants.fFactor = fFactor;
+#else
+    pushConstants.v3Color = glm::vec3(1.0);
+    pushConstants.fFactor = 1.0f;
+#endif //IMGUI_ENABLE
+
+
+    // Bind the pipeline and descriptor sets
+    vkCmdBindPipeline(vkCommandBuffer_Array[curIndex], VK_PIPELINE_BIND_POINT_GRAPHICS, vkPipeline_Phong);
+
+    VkDescriptorSet vkLocalDescriptorSets[] = { vkDescriptorSets_frameData[curIndex] };
+    vkCmdBindDescriptorSets(vkCommandBuffer_Array[curIndex], VK_PIPELINE_BIND_POINT_GRAPHICS, vkPipelineLayout_Phong, 0, 1, vkLocalDescriptorSets, 0, NULL);
+
+    // Push the model matrix
+    vkCmdPushConstants(
+        vkCommandBuffer_Array[curIndex],
+        vkPipelineLayout_Phong,
+        VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, // stages where the push constant will be used
+        0,                                      // offset
+        sizeof(PushConstants),                  // size
+        &pushConstants                          // pointer to our data
+    );
+    // Bind vertex buffer
+    VkDeviceSize offset = 0;
+    vkCmdBindVertexBuffers(vkCommandBuffer_Array[curIndex], 0, 1, &SuzanneBufferData.vertexData.vkBuffer, &offset);
+    vkCmdBindIndexBuffer(vkCommandBuffer_Array[curIndex], SuzanneBufferData.indexData.vkBuffer, 0, VK_INDEX_TYPE_UINT16);
+    vkCmdDrawIndexed(vkCommandBuffer_Array[curIndex], SuzanneBufferData.indicesCount, 1, 0, 0, 0);
 
 }
 
@@ -9066,6 +9423,7 @@ VkResult buildCommandBuffers(uint32_t curIndex)
     RenderImpostor(curIndex); // Render the UV quad
 
 	RenderCube(curIndex); // Render the cube
+	RenderSuzanne(curIndex); // Render the suzanne
 
 #ifdef IMGUI_ENABLE
     RenderImGui(curIndex); // Render ImGui UI

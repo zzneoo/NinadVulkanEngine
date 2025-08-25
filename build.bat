@@ -1,5 +1,9 @@
-cd C:\Users\Ninad\source\repos\BlueScreen\
+REM cd C:\Users\Ninad\source\repos\BlueScreen\
 del %1.vert.spv 
 del %1.frag.spv
-glslangValidator.exe -V -o %1.vert.spv "C:\Users\Ninad\source\repos\BlueScreen\%1.vert" > vsCompileLog.txt
-glslangValidator.exe -V -o %1.frag.spv "C:\Users\Ninad\source\repos\BlueScreen\%1.frag" > fsCompileLog.txt
+set vertexShader=%~dp0%1.vert
+set fragmentShader=%~dp0%1.frag
+set shaderCompiler=C:\VulkanSDK\Vulkan\Bin\glslangValidator.exe
+
+%shaderCompiler% -V -o %vertexShader%.spv %vertexShader% > vsCompileLog.txt
+%shaderCompiler% -V -o %fragmentShader%.spv %fragmentShader% > fsCompileLog.txt
