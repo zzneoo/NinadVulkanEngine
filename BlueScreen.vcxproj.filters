@@ -149,5 +149,11 @@
     <None Include="Phong.vert">
       <Filter>Shaders</Filter>
     </None>
+    <None Include="PBR.frag">
+      <Filter>Shaders</Filter>
+    </None>
+    <None Include="PBR.vert">
+      <Filter>Shaders</Filter>
+    </None>
   </ItemGroup>
 </Project>

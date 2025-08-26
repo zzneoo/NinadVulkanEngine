@@ -178,6 +178,8 @@
     <None Include="build.bat" />
     <None Include="Impostor.frag" />
     <None Include="Impostor.vert" />
+    <None Include="PBR.frag" />
+    <None Include="PBR.vert" />
     <None Include="Phong.frag" />
     <None Include="Phong.vert" />
     <None Include="PreviewImage.frag" />
