@@ -6,6 +6,8 @@ layout(location = 0) in vec2 outTexCoord;
 layout(location = 1) in vec3 outNormal;
 layout(location = 2) in vec3 outColor;
 
+layout(set = 1, binding = 0) uniform sampler2D tSampler_albedo;
+
 layout(push_constant) uniform PushConstants 
 {
     mat4 model;
@@ -19,5 +21,5 @@ void main(void)
 	vec3 normal = normalize(outNormal);
 	float nDotL = max(dot(normal, lightDir), 0.02);
 
-	fragColor = vec4(vec3(outColor),1.0);
+	fragColor = vec4(texture(tSampler_albedo,outTexCoord).xyz,1.0);
 }

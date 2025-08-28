@@ -1,5 +1,8 @@
 #pragma once
 //#include"vmath.h"
+#include <vulkan/vulkan.h>        // you must define platform before including this file (Windows / Linux / macOS / iOS / Android / <other>)
+#include <glm/glm.hpp>
+#include <glm/gtc/matrix_transform.hpp>
 
 #define MYICON 101
 
@@ -74,13 +77,50 @@ struct CamStruct
 	bool bCameraMoving_Backward;
 	bool bCameraMoving_Right;
 	bool bCameraMoving_Left;
-	USHORT mouseX;
-	USHORT mouseY;
+	uint16_t mouseX;
+	uint16_t mouseY;
 	float CameraTurboSpeed = 1.0f;
 };
 
 struct ClientSize
 {
-	USHORT ClientWidth;
-	USHORT ClientHeight;
+	uint16_t ClientWidth;
+	uint16_t ClientHeight;
 };
+
+//vertex buffer related variables
+typedef struct
+{
+	VkBuffer vkBuffer;
+	VkDeviceMemory vkDeviceMemory;
+	void* pData; // pointer to the mapped memory
+}UniformData;
+
+typedef struct
+{
+	VkBuffer vkBuffer;
+	VkDeviceMemory vkDeviceMemory;
+} VulkanData;
+
+typedef struct
+{
+	VulkanData vertexData;
+	VulkanData indexData;
+	uint32_t indicesCount;
+} VulkanComboData;
+
+typedef struct
+{
+	VkImage        vkImage;
+	VkDeviceMemory vkDeviceMemory;
+	VkImageView    vkImageView;
+}ImageData;
+
+typedef struct
+{
+	VkImage* swapchainImage_Array;
+	VkImageView* swapchainImageView_Array;
+	ImageData* imageData_depthBuffer;
+}SwapChainResourceData;
+
+

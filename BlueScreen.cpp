@@ -38,9 +38,6 @@ using namespace tinyddsloader;
 #include "imgui_impl_win32.h"
 #endif // IMGUI_ENABLE
 
-#include "VK.h"
-#include "Camera.h"
-//#include "VkPipelineVertexInputState.h"
 #include <cstdint>
 #include <windowsx.h>
 #include <iostream>
@@ -48,6 +45,12 @@ using namespace tinyddsloader;
 // Vulkan related libraries
 #pragma comment(lib, "vulkan-1.lib")
 #pragma comment(lib, "assimp-vc143-mt.lib")
+
+#include "VK.h"
+#include "Camera.h"
+
+//Material BasicPBR
+#include "Material_BasicPBR.h"
 
 // macros
 #define WIN_WIDTH  1920
@@ -165,41 +168,6 @@ const char* enabledValidationLayerNames_array[1];//for VK_LAYER_KHRONOS_validati
 VkDebugReportCallbackEXT vkDebugReportCallbackEXT = VK_NULL_HANDLE;
 PFN_vkDestroyDebugReportCallbackEXT vkDestroyDebugReportCallbackEXT_fnptr = NULL;
 
-//vertex buffer related variables
-typedef struct
-{
-    VkBuffer vkBuffer;
-    VkDeviceMemory vkDeviceMemory;
-    void* pData; // pointer to the mapped memory
-}UniformData;
-
-typedef struct
-{
-    VkBuffer vkBuffer;
-    VkDeviceMemory vkDeviceMemory;
-} VulkanData;
-
-typedef struct
-{
-    VulkanData vertexData;
-    VulkanData indexData;
-	uint32_t indicesCount;
-} VulkanComboData;
-
-typedef struct
-{
-    VkImage        vkImage;
-    VkDeviceMemory vkDeviceMemory;
-    VkImageView    vkImageView;
-}ImageData;
-
-typedef struct
-{
-    VkImage* swapchainImage_Array;
-    VkImageView* swapchainImageView_Array;
-    ImageData* imageData_depthBuffer;
-}SwapChainResourceData;
-
 // Swapchain resources
 SwapChainResourceData gSwapChainResourceData;
 
@@ -212,7 +180,7 @@ VulkanData vertexData_Axis;
 VulkanComboData  ImpostorBufferData;
 VulkanComboData  CubeBufferData;
 VulkanComboData  SuzanneBufferData;
-VulkanComboData  StonePBR_BufferData;
+VulkanComboData  SphereBufferData;
 
 
 
@@ -268,11 +236,15 @@ VkSampler vkSampler_LinearClamp = VK_NULL_HANDLE;
 VkDescriptorSetLayout vkDescriptorSetLayout_frameData = VK_NULL_HANDLE;
 VkDescriptorSetLayout vkDescriptorSetLayout_SingleImage = VK_NULL_HANDLE;
 VkDescriptorSetLayout vkDescriptorSetLayout_AlbedoNormal = VK_NULL_HANDLE;
+VkDescriptorSetLayout vkDescriptorSetLayout_BasicPBR = VK_NULL_HANDLE;
 
 VkDescriptorPool vkDescriptorPool = VK_NULL_HANDLE;
 VkDescriptorSet  vkDescriptorSets_frameData[MAX_FRAMES];
 VkDescriptorSet  vkDescriptorSet_SingleImage;
 VkDescriptorSet  vkDescriptorSet_AlbedoNormal;
+VkDescriptorSet  vkDescriptorSet_BasicPBR_Stone;
+
+Material_BasicPBR* pMaterial_BasicPBR_RockyGround = NULL;
 
 //for pipeline
 VkViewport vkViewport;
@@ -804,7 +776,7 @@ void compileShaderVS_FS(const char* shaderName)
     }
 }
 
-VkResult LoadModel_Phong(const char* modelPath, VulkanComboData* vulkanComboData,bool index32)
+VkResult LoadModel_Phong(const char* modelPath, VulkanComboData* vulkanComboData, bool index32)
 {
     VkResult ZzCreateVertexAndIndex16Buffer(
         const float* vertices, VkDeviceSize vertexBufferSize,
@@ -817,16 +789,16 @@ VkResult LoadModel_Phong(const char* modelPath, VulkanComboData* vulkanComboData
         VulkanComboData * vulkanComboData
     );
 
-	VkResult vkResult = VK_SUCCESS;//"Resources/Models/Test/suzanne.obj"
+    VkResult vkResult = VK_SUCCESS;//"Resources/Models/Test/suzanne.obj"
 
     Assimp::Importer importer;
     const aiScene* scene = importer.ReadFile(modelPath,
         aiProcess_Triangulate | aiProcess_JoinIdenticalVertices | aiProcess_FlipWindingOrder);
-    if (!scene || scene->mFlags & AI_SCENE_FLAGS_INCOMPLETE) 
+    if (!scene || scene->mFlags & AI_SCENE_FLAGS_INCOMPLETE)
     {
         std::cerr << "Assimp Error: " << importer.GetErrorString() << std::endl;
-		fprintf(gpFILE, "LoadModel_Phong() : Assimp Importer::ReadFile() failed.\n");
-		return VK_ERROR_INITIALIZATION_FAILED;
+        fprintf(gpFILE, "LoadModel_Phong() : Assimp Importer::ReadFile() failed.\n");
+        return VK_ERROR_INITIALIZATION_FAILED;
     }
     //std::cout << "Meshes: " << scene->mNumMeshes << std::endl;
 
@@ -978,7 +950,7 @@ VkResult LoadModel_Phong(const char* modelPath, VulkanComboData* vulkanComboData
             }
         }
 
-		vulkanComboData->indicesCount = static_cast<uint32_t>(vkIndices.size());
+        vulkanComboData->indicesCount = static_cast<uint32_t>(vkIndices.size());
 
         //Suzanne
         vkResult = ZzCreateVertexAndIndex16Buffer(
@@ -993,12 +965,12 @@ VkResult LoadModel_Phong(const char* modelPath, VulkanComboData* vulkanComboData
         }
     }
 
-	return vkResult;
+    return vkResult;
 }
 
 VkResult LoadModel_PBR(const char* modelPath, VulkanComboData* vulkanComboData, bool index32)
 {
-	VkResult vkResult = VK_SUCCESS;
+    VkResult vkResult = VK_SUCCESS;
     // Similar implementation as LoadModel_Phong but for PBR-specific vertex structure
     // This function is a placeholder and should be implemented similarly to LoadModel_Phong
     VkResult ZzCreateVertexAndIndex16Buffer(
@@ -1016,11 +988,11 @@ VkResult LoadModel_PBR(const char* modelPath, VulkanComboData* vulkanComboData, 
     const aiScene* scene = importer.ReadFile(modelPath,
         aiProcess_Triangulate | aiProcess_JoinIdenticalVertices | aiProcess_FlipWindingOrder | aiProcess_CalcTangentSpace);
 
-    if (!scene || scene->mFlags & AI_SCENE_FLAGS_INCOMPLETE) 
+    if (!scene || scene->mFlags & AI_SCENE_FLAGS_INCOMPLETE)
     {
         std::cerr << "Assimp Error: " << importer.GetErrorString() << std::endl;
-		fprintf(gpFILE, "LoadModel_PBR() : Assimp Importer::ReadFile() failed.\n");
-		return VK_ERROR_INITIALIZATION_FAILED;
+        fprintf(gpFILE, "LoadModel_PBR() : Assimp Importer::ReadFile() failed.\n");
+        return VK_ERROR_INITIALIZATION_FAILED;
     }
     //std::cout << "Meshes: " << scene->mNumMeshes << std::endl;
 
@@ -1133,20 +1105,20 @@ VkResult LoadModel_PBR(const char* modelPath, VulkanComboData* vulkanComboData, 
                     }
 
                     // Normal
-                    if (mesh->HasNormals()) 
+                    if (mesh->HasNormals())
                     {
                         v.normal = glm::vec3(
                             mesh->mNormals[i].x,
                             mesh->mNormals[i].y,
                             mesh->mNormals[i].z
-                        );               
+                        );
                     }
                     else {
                         v.normal = glm::vec3(0.0f, 0.0f, 1.0f); // default fallback
                     }
 
                     // TexCoords (Assimp supports 8 UV channels; we use channel 0)
-                    if (mesh->HasTextureCoords(0)) 
+                    if (mesh->HasTextureCoords(0))
                     {
                         v.texCoord = glm::vec2(
                             mesh->mTextureCoords[0][i].x,
@@ -1229,12 +1201,13 @@ VkResult initialize(void)
     VkResult createDescriptorSetLayout_FrameData(void);
     VkResult createDescriptorSetLayout_CamImage(void);
     VkResult createDescriptorSetLayout_AlbedoNormal(void);
+    VkResult createDescriptorSetLayout_BasicPBR(void);
 
     VkResult createPipelineLayout(void);
     VkResult createPipelineLayout_previewImage(void);
     VkResult createPipelineLayout_Impostor(void);
-	VkResult createPipelineLayout_Phong(void);
-	VkResult createPipelineLayout_PBR(void);
+    VkResult createPipelineLayout_Phong(void);
+    VkResult createPipelineLayout_PBR(void);
     VkResult createDescriptorPool(void);
     VkResult createDescriptorSet_FrameData(void);
     VkResult createDescriptorSet_SingleImage(void);
@@ -1407,6 +1380,8 @@ VkResult initialize(void)
     //}
 
 
+
+
     // STEP 15 : Create command buffers
     vkResult = createCommandBuffers();
     if (vkResult != VK_SUCCESS)
@@ -1494,7 +1469,7 @@ VkResult initialize(void)
         return(vkResult);
     }
 
-	//vulkanComboData for cube
+    //vulkanComboData for cube
 
 // 24 unique vertices (each cube face has 4 verts with its own normal/uv)
     static const VertexData_PositionTexCoordNormalColor cubeVertices[] = {
@@ -1545,19 +1520,19 @@ VkResult initialize(void)
        20, 22, 21,  22, 20, 23   // Bottom
     };
 
-	//vulkanComboData for cube
+    //vulkanComboData for cube
     vkResult = ZzCreateVertexAndIndex16Buffer(
         (float*)cubeVertices, sizeof(cubeVertices),
         cubeIndices, sizeof(cubeIndices),
         &CubeBufferData
-	);
+    );
     if (vkResult != VK_SUCCESS)
     {
         fprintf(gpFILE, "initialize() : ZzCreateVetexAndIndexBuffer() for cube failed (%d).\n", vkResult);
         return(vkResult);
-	}
+    }
 
-	//--------------------------------------Assimp Load Model----------------------------------------------------
+    //--------------------------------------Assimp Load Model----------------------------------------------------
     vkResult = LoadModel_Phong("Resources/Models/Test/suzanne.obj", &SuzanneBufferData, false);
     if (vkResult != VK_SUCCESS)
     {
@@ -1565,12 +1540,12 @@ VkResult initialize(void)
         return(vkResult);
     }
 
-	vkResult = LoadModel_PBR("Resources/Models/Test/StoneBall.fbx", &StonePBR_BufferData, true);
+    vkResult = LoadModel_PBR("Resources/Models/Test/sphere.obj", &SphereBufferData, false);
     if (vkResult != VK_SUCCESS)
     {
-        fprintf(gpFILE, "initialize() : LoadModel_PBR() failed (%d).\n", vkResult);
+        fprintf(gpFILE, "initialize() : sphere LoadModel_PBR()  failed (%d).\n", vkResult);
         return(vkResult);
-	}
+    }
 
     //--------------------------------------------------------------------------------------------------
 
@@ -1613,6 +1588,14 @@ VkResult initialize(void)
         return(vkResult);
     }
 
+	//descriptor set layout for PBR basic
+	vkResult = createDescriptorSetLayout_BasicPBR();
+	if (vkResult != VK_SUCCESS)
+	{
+		fprintf(gpFILE, "initialize() : createDescriptorSetLayout_BasicPBR() failed (%d).\n", vkResult);
+		return(vkResult);
+	}
+
     //pipeline layout
     vkResult = createPipelineLayout();
     if (vkResult != VK_SUCCESS)
@@ -1634,21 +1617,21 @@ VkResult initialize(void)
         fprintf(gpFILE, "initialize() : createPipelineLayout_Imposter() failed (%d).\n", vkResult);
         return(vkResult);
     }
-	//pipeline layout for phong
-	vkResult = createPipelineLayout_Phong();
+    //pipeline layout for phong
+    vkResult = createPipelineLayout_Phong();
     if (vkResult != VK_SUCCESS)
     {
         fprintf(gpFILE, "initialize() : createPipelineLayout_Phong() failed (%d).\n", vkResult);
         return(vkResult);
-	}
+    }
 
-	//pipeline layout for PBR
-	vkResult = createPipelineLayout_PBR();
+    //pipeline layout for PBR
+    vkResult = createPipelineLayout_PBR();
     if (vkResult != VK_SUCCESS)
     {
         fprintf(gpFILE, "initialize() : createPipelineLayout_PBR() failed (%d).\n", vkResult);
-		return(vkResult);
-	}
+        return(vkResult);
+    }
 
 
     //Create Descriptor Pool
@@ -1681,6 +1664,13 @@ VkResult initialize(void)
         fprintf(gpFILE, "initialize() : createDescriptorSet_AlbedoNormal() failed (%d).\n", vkResult);
         return(vkResult);
     }
+
+	//-----------------------------------------------------------------------------------------------
+        //PBR model textures
+    const char* pathAlbedo = "Resources/PBR_Materials/T_omfr20_4K/Albedo.dds";
+    pMaterial_BasicPBR_RockyGround = new Material_BasicPBR(vkDescriptorSetLayout_BasicPBR, pathAlbedo, pathAlbedo, pathAlbedo);
+
+	//-----------------------------------------------------------------------------------------------
 
     // STEP 16 : Create RenderPass
     vkResult = createRenderPass();
@@ -1819,7 +1809,7 @@ VkResult initialize(void)
     //---------------------------------Test-----------------------------------
 
 
-	//-----------------------------------------------------------------------------
+    //-----------------------------------------------------------------------------
 
     return(vkResult);
 }
@@ -2419,6 +2409,12 @@ void uninitialize(void)
 
     }
 
+    //Materials
+    if (pMaterial_BasicPBR_RockyGround)
+    {
+		delete pMaterial_BasicPBR_RockyGround;
+        pMaterial_BasicPBR_RockyGround = NULL;
+    }
 
     //pipeline layout
     if (vkPipelineLayout)
@@ -2441,19 +2437,19 @@ void uninitialize(void)
         vkPipelineLayout_Impostor = VK_NULL_HANDLE;
     }
 
-	//pipeline layout for phong
-	if (vkPipelineLayout_Phong)
+    //pipeline layout for phong
+    if (vkPipelineLayout_Phong)
     {
         vkDestroyPipelineLayout(vkDevice, vkPipelineLayout_Phong, NULL);
         vkPipelineLayout_Phong = VK_NULL_HANDLE;
-	}
+    }
 
-	//pipeline layout for PBR
-	if (vkPipelineLayout_PBR)
+    //pipeline layout for PBR
+    if (vkPipelineLayout_PBR)
     {
         vkDestroyPipelineLayout(vkDevice, vkPipelineLayout_PBR, NULL);
-		vkPipelineLayout_PBR = VK_NULL_HANDLE;
-	}
+        vkPipelineLayout_PBR = VK_NULL_HANDLE;
+    }
 
 
     //descriptor set layout
@@ -2471,10 +2467,18 @@ void uninitialize(void)
         vkDescriptorSetLayout_SingleImage = VK_NULL_HANDLE;
     }
 
+    //descriptor set layout for Albedo Normal
     if (vkDescriptorSetLayout_AlbedoNormal)
     {
         vkDestroyDescriptorSetLayout(vkDevice, vkDescriptorSetLayout_AlbedoNormal, NULL);
         vkDescriptorSetLayout_AlbedoNormal = VK_NULL_HANDLE;
+    }
+
+    //descriptor set layout for PBR
+    if (vkDescriptorSetLayout_BasicPBR)
+    {
+        vkDestroyDescriptorSetLayout(vkDevice, vkDescriptorSetLayout_BasicPBR, NULL);
+        vkDescriptorSetLayout_BasicPBR = VK_NULL_HANDLE;
     }
 
     //shaderModule 
@@ -2529,29 +2533,29 @@ void uninitialize(void)
         vkShaderModule_impostor_fs = VK_NULL_HANDLE;
     }
 
-	//-- shader modules for phong shaders
+    //-- shader modules for phong shaders
     if (vkShaderModule_phong_vs)
     {
         vkDestroyShaderModule(vkDevice, vkShaderModule_phong_vs, NULL);
         vkShaderModule_phong_vs = VK_NULL_HANDLE;
-	}
+    }
     if (vkShaderModule_phong_fs)
     {
         vkDestroyShaderModule(vkDevice, vkShaderModule_phong_fs, NULL);
         vkShaderModule_phong_fs = VK_NULL_HANDLE;
-	}
+    }
 
-	//-- shader modules for PBR shaders
-	if (vkShaderModule_PBR_vs)
-	{
-		vkDestroyShaderModule(vkDevice, vkShaderModule_PBR_vs, NULL);
-		vkShaderModule_PBR_vs = VK_NULL_HANDLE;
-	}
-	if (vkShaderModule_PBR_fs)
-	{
-		vkDestroyShaderModule(vkDevice, vkShaderModule_PBR_fs, NULL);
-		vkShaderModule_PBR_fs = VK_NULL_HANDLE;
-	}
+    //-- shader modules for PBR shaders
+    if (vkShaderModule_PBR_vs)
+    {
+        vkDestroyShaderModule(vkDevice, vkShaderModule_PBR_vs, NULL);
+        vkShaderModule_PBR_vs = VK_NULL_HANDLE;
+    }
+    if (vkShaderModule_PBR_fs)
+    {
+        vkDestroyShaderModule(vkDevice, vkShaderModule_PBR_fs, NULL);
+        vkShaderModule_PBR_fs = VK_NULL_HANDLE;
+    }
 
 
 
@@ -2562,9 +2566,9 @@ void uninitialize(void)
 
     //Impostor CombinedData
     ZzDestroyVertexAndIndexBuffer(&ImpostorBufferData);
-	ZzDestroyVertexAndIndexBuffer(&CubeBufferData);
-	ZzDestroyVertexAndIndexBuffer(&SuzanneBufferData);
-	ZzDestroyVertexAndIndexBuffer(&StonePBR_BufferData);
+    ZzDestroyVertexAndIndexBuffer(&CubeBufferData);
+    ZzDestroyVertexAndIndexBuffer(&SuzanneBufferData);
+    ZzDestroyVertexAndIndexBuffer(&SphereBufferData);
 
 
     //uniform buffer
@@ -7004,34 +7008,34 @@ VkResult createShaders(void)
         return vkResult;
     }
 
-	//----------phongshader--------------
-	vkResult = createShaderModule(&vkShaderModule_phong_vs, "Phong.vert.spv");
+    //----------phongshader--------------
+    vkResult = createShaderModule(&vkShaderModule_phong_vs, "Phong.vert.spv");
     if (vkResult != VK_SUCCESS)
     {
         fprintf(gpFILE, "createShaders() -> createShaderModule() for phong vertex shader failed.\n");
-		return vkResult;        
+        return vkResult;
     }
 
-	vkResult = createShaderModule(&vkShaderModule_phong_fs, "Phong.frag.spv");
+    vkResult = createShaderModule(&vkShaderModule_phong_fs, "Phong.frag.spv");
     if (vkResult != VK_SUCCESS)
     {
         fprintf(gpFILE, "createShaders() -> createShaderModule() for phong fragment shader failed.\n");
         return vkResult;
-	}
+    }
 
-	//-----------PBR shader----------------
-	vkResult = createShaderModule(&vkShaderModule_PBR_vs, "PBR.vert.spv");
+    //-----------PBR shader----------------
+    vkResult = createShaderModule(&vkShaderModule_PBR_vs, "PBR.vert.spv");
     if (vkResult != VK_SUCCESS)
     {
         fprintf(gpFILE, "createShaders() -> createShaderModule() for pbr vertex shader failed.\n");
         return vkResult;
-	}
-	vkResult = createShaderModule(&vkShaderModule_PBR_fs, "PBR.frag.spv");
+    }
+    vkResult = createShaderModule(&vkShaderModule_PBR_fs, "PBR.frag.spv");
     if (vkResult != VK_SUCCESS)
     {
         fprintf(gpFILE, "createShaders() -> createShaderModule() for pbr fragment shader failed.\n");
-		return vkResult;
-	}
+        return vkResult;
+    }
 
     return vkResult;
 }
@@ -7280,6 +7284,48 @@ VkResult createDescriptorSetLayout_AlbedoNormal(void)
     return vkResult;
 }
 
+VkResult createDescriptorSetLayout_BasicPBR(void)
+{
+    // variable declarations
+    VkResult vkResult = VK_SUCCESS;
+
+    VkDescriptorSetLayoutBinding vkDescriptorSetLayoutBinding_Array[3];
+    memset((void*)&vkDescriptorSetLayoutBinding_Array, 0, sizeof(vkDescriptorSetLayoutBinding_Array));
+    vkDescriptorSetLayoutBinding_Array[0].binding = 0; // binding index
+    vkDescriptorSetLayoutBinding_Array[0].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER; // descriptor type
+    vkDescriptorSetLayoutBinding_Array[0].descriptorCount = 1; // number of descriptors
+    vkDescriptorSetLayoutBinding_Array[0].stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT; // stage flags for the descriptor set layout binding
+    vkDescriptorSetLayoutBinding_Array[0].pImmutableSamplers = NULL; // no immutable samplers
+
+    vkDescriptorSetLayoutBinding_Array[1].binding = 1; // binding index
+    vkDescriptorSetLayoutBinding_Array[1].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER; // descriptor type
+    vkDescriptorSetLayoutBinding_Array[1].descriptorCount = 1; // number of descriptors
+    vkDescriptorSetLayoutBinding_Array[1].stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT; // stage flags for the descriptor set layout binding
+    vkDescriptorSetLayoutBinding_Array[1].pImmutableSamplers = NULL; // no immutable samplers
+
+    vkDescriptorSetLayoutBinding_Array[2].binding = 2; // binding index
+    vkDescriptorSetLayoutBinding_Array[2].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER; // descriptor type
+    vkDescriptorSetLayoutBinding_Array[2].descriptorCount = 1; // number of descriptors
+    vkDescriptorSetLayoutBinding_Array[2].stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT; // stage flags for the descriptor set layout binding
+    vkDescriptorSetLayoutBinding_Array[2].pImmutableSamplers = NULL; // no immutable samplers
+    // code
+    VkDescriptorSetLayoutCreateInfo vkDescriptorSetLayoutCreateInfo;
+    memset((void*)&vkDescriptorSetLayoutCreateInfo, 0, sizeof(VkDescriptorSetLayoutCreateInfo));
+    vkDescriptorSetLayoutCreateInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
+    vkDescriptorSetLayoutCreateInfo.pNext = NULL;
+    vkDescriptorSetLayoutCreateInfo.flags = 0;
+    vkDescriptorSetLayoutCreateInfo.bindingCount = 3;
+    vkDescriptorSetLayoutCreateInfo.pBindings = vkDescriptorSetLayoutBinding_Array; // pointer to the descriptor set layout binding array
+    vkResult = vkCreateDescriptorSetLayout(vkDevice, &vkDescriptorSetLayoutCreateInfo, NULL, &vkDescriptorSetLayout_BasicPBR);
+    if (vkResult != VK_SUCCESS)
+    {
+        fprintf(gpFILE, "createDescriptorSetLayout_BasicPBR() -> vkCreateDescriptorSetLayout() :  failed: %d.\n", vkResult);
+        return(vkResult);
+    }
+    return vkResult;
+
+}
+
 VkResult createPipelineLayout(void)
 {
     // local variables
@@ -7412,7 +7458,7 @@ VkResult createPipelineLayout_Phong(void)
     vkResult = vkCreatePipelineLayout(vkDevice, &vkPipelineLayoutCreateInfo, NULL, &vkPipelineLayout_Phong);
     if (vkResult != VK_SUCCESS)
     {
-        fprintf(gpFILE, "createPipelinnLayout_Phong() -> vkCreatePipelineLayout() :  failed: %d.\n", vkResult);
+        fprintf(gpFILE, "createPipelineLayout_Phong() -> vkCreatePipelineLayout() :  failed: %d.\n", vkResult);
         return(vkResult);
     }
 
@@ -7436,12 +7482,12 @@ VkResult createPipelineLayout_PBR(void)
     VkPipelineLayoutCreateInfo vkPipelineLayoutCreateInfo;
     memset((void*)&vkPipelineLayoutCreateInfo, 0, sizeof(VkPipelineLayoutCreateInfo));
 
-    VkDescriptorSetLayout vkDescriptorSetLayouts[] = { vkDescriptorSetLayout_frameData };
+    VkDescriptorSetLayout vkDescriptorSetLayouts[] = { vkDescriptorSetLayout_frameData,vkDescriptorSetLayout_BasicPBR };
 
     vkPipelineLayoutCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
     vkPipelineLayoutCreateInfo.pNext = NULL;
     vkPipelineLayoutCreateInfo.flags = 0;
-    vkPipelineLayoutCreateInfo.setLayoutCount = 1;// two descriptor set layout for imposter pipeline layout
+    vkPipelineLayoutCreateInfo.setLayoutCount = 2;// two descriptor set layout for imposter pipeline layout
     vkPipelineLayoutCreateInfo.pSetLayouts = vkDescriptorSetLayouts; // pointer to the descriptor set layout
     vkPipelineLayoutCreateInfo.pushConstantRangeCount = 1; // one push constant range for imposter pipeline layout
     vkPipelineLayoutCreateInfo.pPushConstantRanges = &vkPushConstantRange; // pointer to the push constant range
@@ -7465,8 +7511,8 @@ VkResult createDescriptorPool(void)
     // Declare and initialize VkDescriptorPoolSize structure which will have information about the descriptor pool size.
     VkDescriptorPoolSize vkDescriptorPoolSizes[] =
     {
-        {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 2 * MAX_FRAMES}, // descriptor type and descriptor count
-        {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1 * MAX_FRAMES} // descriptor type and descriptor count for combined image sampler
+        {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1 * MAX_FRAMES}, // descriptor type and descriptor count
+        {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1 } // descriptor type and descriptor count for combined image sampler
     };
 
     // Declare and initialize VkDescriptorPoolCreateInfo structure and refer above VkDescriptorPoolSize into it.
@@ -7476,7 +7522,7 @@ VkResult createDescriptorPool(void)
     vkDescriptorPoolCreateInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
     vkDescriptorPoolCreateInfo.pNext = NULL;
     vkDescriptorPoolCreateInfo.flags = 0; // no flags
-    vkDescriptorPoolCreateInfo.maxSets = 2 * MAX_FRAMES; // maximum number of descriptor sets that can be allocated from this pool
+    vkDescriptorPoolCreateInfo.maxSets = (1 * MAX_FRAMES) + 3; // maximum number of descriptor sets that can be allocated from this pool
     vkDescriptorPoolCreateInfo.poolSizeCount = _ARRAYSIZE(vkDescriptorPoolSizes); // number of descriptor pool sizes
     vkDescriptorPoolCreateInfo.pPoolSizes = vkDescriptorPoolSizes;
 
@@ -8578,17 +8624,17 @@ VkResult createGraphicsPipeline_Phong(void)
     vkVertexInputAttributeDescription_array[1].format = VK_FORMAT_R32G32_SFLOAT; // format of each vertex
     vkVertexInputAttributeDescription_array[1].offset = offsetof(VertexData_PositionTexCoordNormalColor, texCoord); // offset of each vertex
 
-	//normal
-	vkVertexInputAttributeDescription_array[2].binding = 0; // binding index
-	vkVertexInputAttributeDescription_array[2].location = 2; // location index
-	vkVertexInputAttributeDescription_array[2].format = VK_FORMAT_R32G32B32_SFLOAT; // format of each vertex
-	vkVertexInputAttributeDescription_array[2].offset = offsetof(VertexData_PositionTexCoordNormalColor, normal); // offset of each vertex
+    //normal
+    vkVertexInputAttributeDescription_array[2].binding = 0; // binding index
+    vkVertexInputAttributeDescription_array[2].location = 2; // location index
+    vkVertexInputAttributeDescription_array[2].format = VK_FORMAT_R32G32B32_SFLOAT; // format of each vertex
+    vkVertexInputAttributeDescription_array[2].offset = offsetof(VertexData_PositionTexCoordNormalColor, normal); // offset of each vertex
 
-	//color
-	vkVertexInputAttributeDescription_array[3].binding = 0; // binding index
-	vkVertexInputAttributeDescription_array[3].location = 3; // location index
-	vkVertexInputAttributeDescription_array[3].format = VK_FORMAT_R32G32B32_SFLOAT; // format of each vertex
-	vkVertexInputAttributeDescription_array[3].offset = offsetof(VertexData_PositionTexCoordNormalColor, color); // offset of each vertex
+    //color
+    vkVertexInputAttributeDescription_array[3].binding = 0; // binding index
+    vkVertexInputAttributeDescription_array[3].location = 3; // location index
+    vkVertexInputAttributeDescription_array[3].format = VK_FORMAT_R32G32B32_SFLOAT; // format of each vertex
+    vkVertexInputAttributeDescription_array[3].offset = offsetof(VertexData_PositionTexCoordNormalColor, color); // offset of each vertex
 
     //  Declare and initialize VkPipelineVertexInputStateCreateInfo structure.
     VkPipelineVertexInputStateCreateInfo vkPipelineVertexInputStateCreateInfo;
@@ -8821,7 +8867,7 @@ VkResult createGraphicsPipeline_PBR(void)
     VkVertexInputBindingDescription vkVertexInputBindingDescription_array[1];
     memset((void*)vkVertexInputBindingDescription_array, 0, sizeof(VkVertexInputBindingDescription) * _ARRAYSIZE(vkVertexInputBindingDescription_array));
 
-	//VertexData_PositionTexCoordNormalTangent
+    //VertexData_PositionTexCoordNormalTangent
     vkVertexInputBindingDescription_array[0].binding = 0; // VDG's location = 0
     vkVertexInputBindingDescription_array[0].stride = sizeof(VertexData_PositionTexCoordNormalTangent); // size of each vertex
     vkVertexInputBindingDescription_array[0].inputRate = VK_VERTEX_INPUT_RATE_VERTEX; // per vertex data
@@ -8848,7 +8894,7 @@ VkResult createGraphicsPipeline_PBR(void)
     vkVertexInputAttributeDescription_array[2].format = VK_FORMAT_R32G32B32_SFLOAT; // format of each vertex
     vkVertexInputAttributeDescription_array[2].offset = offsetof(VertexData_PositionTexCoordNormalTangent, normal); // offset of each vertex
 
-	//tangent
+    //tangent
     vkVertexInputAttributeDescription_array[3].binding = 0; // binding index
     vkVertexInputAttributeDescription_array[3].location = 3; // location index
     vkVertexInputAttributeDescription_array[3].format = VK_FORMAT_R32G32B32_SFLOAT; // format of each vertex
@@ -9955,8 +10001,8 @@ void RenderPBR_Basic(uint32_t curIndex)
     // Bind the pipeline and descriptor sets
     vkCmdBindPipeline(vkCommandBuffer_Array[curIndex], VK_PIPELINE_BIND_POINT_GRAPHICS, vkPipeline_PBR);
 
-    VkDescriptorSet vkLocalDescriptorSets[] = { vkDescriptorSets_frameData[curIndex] };
-    vkCmdBindDescriptorSets(vkCommandBuffer_Array[curIndex], VK_PIPELINE_BIND_POINT_GRAPHICS, vkPipelineLayout_PBR, 0, 1, vkLocalDescriptorSets, 0, NULL);
+    VkDescriptorSet vkLocalDescriptorSets[] = { vkDescriptorSets_frameData[curIndex],pMaterial_BasicPBR_RockyGround->getDescriptorSet()};
+    vkCmdBindDescriptorSets(vkCommandBuffer_Array[curIndex], VK_PIPELINE_BIND_POINT_GRAPHICS, vkPipelineLayout_PBR, 0, _ARRAYSIZE(vkLocalDescriptorSets), vkLocalDescriptorSets, 0, NULL);
 
     // Push the model matrix
     vkCmdPushConstants(
@@ -9969,9 +10015,9 @@ void RenderPBR_Basic(uint32_t curIndex)
     );
     // Bind vertex buffer
     VkDeviceSize offset = 0;
-    vkCmdBindVertexBuffers(vkCommandBuffer_Array[curIndex], 0, 1, &StonePBR_BufferData.vertexData.vkBuffer, &offset);
-    vkCmdBindIndexBuffer(vkCommandBuffer_Array[curIndex], StonePBR_BufferData.indexData.vkBuffer, 0, VK_INDEX_TYPE_UINT32);
-    vkCmdDrawIndexed(vkCommandBuffer_Array[curIndex], StonePBR_BufferData.indicesCount, 1, 0, 0, 0);
+    vkCmdBindVertexBuffers(vkCommandBuffer_Array[curIndex], 0, 1, &SphereBufferData.vertexData.vkBuffer, &offset);
+    vkCmdBindIndexBuffer(vkCommandBuffer_Array[curIndex], SphereBufferData.indexData.vkBuffer, 0, VK_INDEX_TYPE_UINT16);
+    vkCmdDrawIndexed(vkCommandBuffer_Array[curIndex], SphereBufferData.indicesCount, 1, 0, 0, 0);
 
 }
 
@@ -10023,7 +10069,7 @@ VkResult buildCommandBuffers(uint32_t curIndex)
 
     vkCmdBeginRenderPass(vkCommandBuffer_Array[curIndex], &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
 
-   // RenderFullscreenQuad(curIndex); // Render the fullscreen quad
+    // RenderFullscreenQuad(curIndex); // Render the fullscreen quad
 
     RenderAxes(curIndex); // Render the axes
 
@@ -10034,10 +10080,10 @@ VkResult buildCommandBuffers(uint32_t curIndex)
 
     RenderImpostor(curIndex); // Render the UV quad
 
-	RenderCube(curIndex); // Render the cube
-	RenderSuzanne(curIndex); // Render the suzanne
+    RenderCube(curIndex); // Render the cube
+    RenderSuzanne(curIndex); // Render the suzanne
 
-	RenderPBR_Basic(curIndex); // Render the PBR basic model
+    RenderPBR_Basic(curIndex); // Render the PBR basic model
 
 #ifdef IMGUI_ENABLE
     RenderImGui(curIndex); // Render ImGui UI
@@ -10090,19 +10136,19 @@ VkResult createGraphicsPipelines(void)
     }
 
     //phong
-	vkResult = createGraphicsPipeline_Phong();
+    vkResult = createGraphicsPipeline_Phong();
     if (vkResult != VK_SUCCESS)
     {
         fprintf(gpFILE, "createGraphicsPipelines() : createGraphicsPipeline_Phong() failed: %d.\n", vkResult);
         return vkResult;
-	}
+    }
 
-	//PBR
-	vkResult = createGraphicsPipeline_PBR();
+    //PBR
+    vkResult = createGraphicsPipeline_PBR();
     if (vkResult != VK_SUCCESS)
     {
         fprintf(gpFILE, "createGraphicsPipelines() : createGraphicsPipeline_PBR() failed: %d.\n", vkResult);
-		return vkResult;
+        return vkResult;
     }
 
 
@@ -10145,13 +10191,13 @@ void destroyGraphicsPipelines(void)
     {
         vkDestroyPipeline(vkDevice, vkPipeline_Phong, NULL);
         vkPipeline_Phong = VK_NULL_HANDLE;
-	}
+    }
 
     if (vkPipeline_PBR != VK_NULL_HANDLE)
     {
         vkDestroyPipeline(vkDevice, vkPipeline_PBR, NULL);
         vkPipeline_PBR = VK_NULL_HANDLE;
-	}
+    }
 }
 
 VKAPI_ATTR VkBool32 VKAPI_CALL debugReportCallback(VkDebugReportFlagsEXT vkDebugReportFlagsEXT, VkDebugReportObjectTypeEXT vkDebugReportObjectTypeEXT, uint64_t object, size_t location, int32_t messageCode, const char* pLayerPrefix, const char* pMessage, void* pUserData)
