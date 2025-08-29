@@ -1,36 +1,46 @@
 #include "Material_BasicPBR.h"
 using namespace tinyddsloader;
 
-Material_BasicPBR::Material_BasicPBR(VkDescriptorSetLayout layout,const char* pathAlbedo, const char* pathNormal, const char* PathORX )
+Material_BasicPBR::Material_BasicPBR(VkDescriptorSetLayout layout,const char* path )
 {
-	vkDescriptorSetLayout = layout;
-//Resources/PBR_Materials/T_omfr20_4K/Albedo.dds
+    vkResult = VK_SUCCESS;
+    VkResult res = VK_SUCCESS;
 
-	VkResult vkResult = loadTextureData_dds_c_bc7(&Albedo, pathAlbedo, VK_FORMAT_BC7_SRGB_BLOCK);
-    if (vkResult != VK_SUCCESS)
+	vkDescriptorSetLayout = layout;
+
+    char albedoPath[512]; // make sure it's big enough
+    std::snprintf(albedoPath, sizeof(albedoPath), "%s%s", path, "Albedo.dds");
+	res = loadTextureData_dds_c_bc7(&Albedo, albedoPath, VK_FORMAT_BC7_SRGB_BLOCK);
+    if (res != VK_SUCCESS && vkResult == VK_SUCCESS)
     {
         fprintf(gpFILE, "Failed to load albedo texture\n");
-        exit(EXIT_FAILURE);
+        vkResult = res;
 	}
-    vkResult = loadTextureData_dds_c_bc7(&Normal, pathNormal, VK_FORMAT_BC7_SRGB_BLOCK);
-    if (vkResult != VK_SUCCESS)
+
+    char normalPath[512]; // make sure it's big enough
+    std::snprintf(normalPath, sizeof(normalPath), "%s%s", path, "Normal.dds");
+    res = loadTextureData_dds_c_bc7(&Normal, normalPath, VK_FORMAT_BC7_SRGB_BLOCK);
+    if (res != VK_SUCCESS && vkResult == VK_SUCCESS)
     {
         fprintf(gpFILE, "Failed to load normal texture\n");
-        exit(EXIT_FAILURE);
+        vkResult = res;
 	}
-    vkResult = loadTextureData_dds_c_bc7(&ORX, PathORX, VK_FORMAT_BC7_UNORM_BLOCK);
-    if (vkResult != VK_SUCCESS)
+
+    char PathORX[512]; // make sure it's big enough
+    std::snprintf(PathORX, sizeof(PathORX), "%s%s", path, "ORX.dds");
+    res = loadTextureData_dds_c_bc7(&ORX, PathORX, VK_FORMAT_BC7_UNORM_BLOCK);
+    if (res != VK_SUCCESS && vkResult == VK_SUCCESS)
     {
         fprintf(gpFILE, "Failed to load ORM texture\n");
-        exit(EXIT_FAILURE);
+        vkResult = res;
 	}
 
 	// create descriptor set
-	vkResult = createDescriptorSet();
-    if (vkResult != VK_SUCCESS)
+    res = createDescriptorSet();
+    if (res != VK_SUCCESS && vkResult == VK_SUCCESS)
     {
         fprintf(gpFILE, "Failed to create descriptor set for material\n");
-        exit(EXIT_FAILURE);
+        vkResult = res;
 	}
 	
 }

@@ -16,10 +16,11 @@ extern FILE* gpFILE;
 struct Material_BasicPBR
 {
 public:
-	Material_BasicPBR(VkDescriptorSetLayout layout, const char* pathAlbedo, const char* pathNormal, const char* PathORX);
+	Material_BasicPBR(VkDescriptorSetLayout layout, const char* path);
 	~Material_BasicPBR();
 
 	VkDescriptorSet getDescriptorSet(void) const { return(vkDescriptorSet); }
+	VkResult getVkResult(void) const { return (vkResult); }
 
 
 private:
@@ -34,6 +35,8 @@ private:
 	ImageData Albedo;
 	ImageData Normal;
 	ImageData ORX;
+
+	VkResult vkResult;
 
 };
 

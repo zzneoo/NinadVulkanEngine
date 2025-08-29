@@ -30,7 +30,7 @@ using namespace tinyddsloader;
 #include <assimp/postprocess.h>
 
 
-#define IMGUI_ENABLE
+//#define IMGUI_ENABLE
 
 #ifdef IMGUI_ENABLE
 #include "imgui.h"
@@ -1172,6 +1172,168 @@ VkResult LoadModel_PBR(const char* modelPath, VulkanComboData* vulkanComboData, 
     return VK_SUCCESS;
 }
 
+VkResult createPipelineLayouts(void)
+{
+    VkResult vkResult = VK_SUCCESS;
+
+    VkResult createPipelineLayout(void);
+    VkResult createPipelineLayout_previewImage(void);
+    VkResult createPipelineLayout_Impostor(void);
+    VkResult createPipelineLayout_Phong(void);
+    VkResult createPipelineLayout_PBR(void);
+
+    //pipeline layout
+    vkResult = createPipelineLayout();
+    if (vkResult != VK_SUCCESS)
+    {
+        fprintf(gpFILE, "initialize() : createPipelineLayout() failed (%d).\n", vkResult);
+        return(vkResult);
+    }
+    //pipeline layout for preview image
+    vkResult = createPipelineLayout_previewImage();
+    if (vkResult != VK_SUCCESS)
+    {
+        fprintf(gpFILE, "initialize() : createPipelineLayout_previewImage() failed (%d).\n", vkResult);
+        return(vkResult);
+    }
+    //pipeline layout for imposter
+    vkResult = createPipelineLayout_Impostor();
+    if (vkResult != VK_SUCCESS)
+    {
+        fprintf(gpFILE, "initialize() : createPipelineLayout_Imposter() failed (%d).\n", vkResult);
+        return(vkResult);
+    }
+    //pipeline layout for phong
+    vkResult = createPipelineLayout_Phong();
+    if (vkResult != VK_SUCCESS)
+    {
+        fprintf(gpFILE, "initialize() : createPipelineLayout_Phong() failed (%d).\n", vkResult);
+        return(vkResult);
+    }
+
+    //pipeline layout for PBR
+    vkResult = createPipelineLayout_PBR();
+    if (vkResult != VK_SUCCESS)
+    {
+        fprintf(gpFILE, "initialize() : createPipelineLayout_PBR() failed (%d).\n", vkResult);
+        return(vkResult);
+    }
+
+    return vkResult;
+}
+
+void destroyPipelineLayouts(void)
+{
+    //pipeline layout
+    if (vkPipelineLayout)
+    {
+        vkDestroyPipelineLayout(vkDevice, vkPipelineLayout, NULL);
+        vkPipelineLayout = VK_NULL_HANDLE;
+    }
+
+    //pipeline layout for preview image
+    if (vkPipelineLayout_previewImage)
+    {
+        vkDestroyPipelineLayout(vkDevice, vkPipelineLayout_previewImage, NULL);
+        vkPipelineLayout_previewImage = VK_NULL_HANDLE;
+    }
+
+    //pipeline layout for imposter
+    if (vkPipelineLayout_Impostor)
+    {
+        vkDestroyPipelineLayout(vkDevice, vkPipelineLayout_Impostor, NULL);
+        vkPipelineLayout_Impostor = VK_NULL_HANDLE;
+    }
+
+    //pipeline layout for phong
+    if (vkPipelineLayout_Phong)
+    {
+        vkDestroyPipelineLayout(vkDevice, vkPipelineLayout_Phong, NULL);
+        vkPipelineLayout_Phong = VK_NULL_HANDLE;
+    }
+
+    //pipeline layout for PBR
+    if (vkPipelineLayout_PBR)
+    {
+        vkDestroyPipelineLayout(vkDevice, vkPipelineLayout_PBR, NULL);
+        vkPipelineLayout_PBR = VK_NULL_HANDLE;
+    }
+}
+
+VkResult createDescriptorSetLayouts(void)
+{
+    VkResult createDescriptorSetLayout_FrameData(void);
+    VkResult createDescriptorSetLayout_CamImage(void);
+    VkResult createDescriptorSetLayout_AlbedoNormal(void);
+    VkResult createDescriptorSetLayout_BasicPBR(void);
+
+    VkResult vkResult = VK_SUCCESS;
+
+    vkResult = createDescriptorSetLayout_FrameData();
+    if (vkResult != VK_SUCCESS)
+    {
+        fprintf(gpFILE, "initialize() : createDescriptorSetLayout_FrameData() failed (%d).\n", vkResult);
+        return(vkResult);
+    }
+
+    //descriptor set layout for impostor
+    vkResult = createDescriptorSetLayout_CamImage();
+    if (vkResult != VK_SUCCESS)
+    {
+        fprintf(gpFILE, "initialize() : createDescriptorSetLayout_CamImage() failed (%d).\n", vkResult);
+        return(vkResult);
+    }
+
+    //descriptor set layout for albedo normal
+    vkResult = createDescriptorSetLayout_AlbedoNormal();
+    if (vkResult != VK_SUCCESS)
+    {
+        fprintf(gpFILE, "initialize() : createDescriptorSetLayout_AlbedoNormal() failed (%d).\n", vkResult);
+        return(vkResult);
+    }
+
+    //descriptor set layout for PBR basic
+    vkResult = createDescriptorSetLayout_BasicPBR();
+    if (vkResult != VK_SUCCESS)
+    {
+        fprintf(gpFILE, "initialize() : createDescriptorSetLayout_BasicPBR() failed (%d).\n", vkResult);
+        return(vkResult);
+    }
+
+    return vkResult;
+}
+
+void destroyDescriptorSetLayouts(void)
+{
+    //descriptorSetLayout for frameData
+    if (vkDescriptorSetLayout_frameData)
+    {
+        vkDestroyDescriptorSetLayout(vkDevice, vkDescriptorSetLayout_frameData, NULL);
+        vkDescriptorSetLayout_frameData = VK_NULL_HANDLE;
+    }
+
+    //descriptor set layout for impostor
+    if (vkDescriptorSetLayout_SingleImage)
+    {
+        vkDestroyDescriptorSetLayout(vkDevice, vkDescriptorSetLayout_SingleImage, NULL);
+        vkDescriptorSetLayout_SingleImage = VK_NULL_HANDLE;
+    }
+
+    //descriptor set layout for Albedo Normal
+    if (vkDescriptorSetLayout_AlbedoNormal)
+    {
+        vkDestroyDescriptorSetLayout(vkDevice, vkDescriptorSetLayout_AlbedoNormal, NULL);
+        vkDescriptorSetLayout_AlbedoNormal = VK_NULL_HANDLE;
+    }
+
+    //descriptor set layout for PBR
+    if (vkDescriptorSetLayout_BasicPBR)
+    {
+        vkDestroyDescriptorSetLayout(vkDevice, vkDescriptorSetLayout_BasicPBR, NULL);
+        vkDescriptorSetLayout_BasicPBR = VK_NULL_HANDLE;
+    }
+}
+
 VkResult initialize(void)
 {
     // function declarations
@@ -1198,16 +1360,11 @@ VkResult initialize(void)
     //VkResult createVertexBuffer_uvQuad(void);
     VkResult createUniformBuffer(void);
     VkResult createShaders(void);
-    VkResult createDescriptorSetLayout_FrameData(void);
-    VkResult createDescriptorSetLayout_CamImage(void);
-    VkResult createDescriptorSetLayout_AlbedoNormal(void);
-    VkResult createDescriptorSetLayout_BasicPBR(void);
 
-    VkResult createPipelineLayout(void);
-    VkResult createPipelineLayout_previewImage(void);
-    VkResult createPipelineLayout_Impostor(void);
-    VkResult createPipelineLayout_Phong(void);
-    VkResult createPipelineLayout_PBR(void);
+    VkResult createDescriptorSetLayouts(void);
+
+    VkResult createPipelineLayouts(void);
+
     VkResult createDescriptorPool(void);
     VkResult createDescriptorSet_FrameData(void);
     VkResult createDescriptorSet_SingleImage(void);
@@ -1532,22 +1689,7 @@ VkResult initialize(void)
         return(vkResult);
     }
 
-    //--------------------------------------Assimp Load Model----------------------------------------------------
-    vkResult = LoadModel_Phong("Resources/Models/Test/suzanne.obj", &SuzanneBufferData, false);
-    if (vkResult != VK_SUCCESS)
-    {
-        fprintf(gpFILE, "initialize() : LoadModel_Phong() failed (%d).\n", vkResult);
-        return(vkResult);
-    }
-
-    vkResult = LoadModel_PBR("Resources/Models/Test/sphere.obj", &SphereBufferData, false);
-    if (vkResult != VK_SUCCESS)
-    {
-        fprintf(gpFILE, "initialize() : sphere LoadModel_PBR()  failed (%d).\n", vkResult);
-        return(vkResult);
-    }
-
-    //--------------------------------------------------------------------------------------------------
+//------------------------------------------------------------------------------------------------------------------
 
     //create uniform buffer
     vkResult = createUniformBuffer();
@@ -1565,71 +1707,20 @@ VkResult initialize(void)
         return(vkResult);
     }
 
-    vkResult = createDescriptorSetLayout_FrameData();
+
+    //DescriptorSetLayouts
+    vkResult = createDescriptorSetLayouts();
     if (vkResult != VK_SUCCESS)
     {
-        fprintf(gpFILE, "initialize() : createDescriptorSetLayout_FrameData() failed (%d).\n", vkResult);
+        fprintf(gpFILE, "initialize() : createDescriptorSetLayouts() failed (%d).\n", vkResult);
         return(vkResult);
     }
 
-    //descriptor set layout for impostor
-    vkResult = createDescriptorSetLayout_CamImage();
+    //pipeline layouts
+    vkResult = createPipelineLayouts();
     if (vkResult != VK_SUCCESS)
     {
-        fprintf(gpFILE, "initialize() : createDescriptorSetLayout_CamImage() failed (%d).\n", vkResult);
-        return(vkResult);
-    }
-
-    //descriptor set layout for albedo normal
-    vkResult = createDescriptorSetLayout_AlbedoNormal();
-    if (vkResult != VK_SUCCESS)
-    {
-        fprintf(gpFILE, "initialize() : createDescriptorSetLayout_AlbedoNormal() failed (%d).\n", vkResult);
-        return(vkResult);
-    }
-
-	//descriptor set layout for PBR basic
-	vkResult = createDescriptorSetLayout_BasicPBR();
-	if (vkResult != VK_SUCCESS)
-	{
-		fprintf(gpFILE, "initialize() : createDescriptorSetLayout_BasicPBR() failed (%d).\n", vkResult);
-		return(vkResult);
-	}
-
-    //pipeline layout
-    vkResult = createPipelineLayout();
-    if (vkResult != VK_SUCCESS)
-    {
-        fprintf(gpFILE, "initialize() : createPipelineLayout() failed (%d).\n", vkResult);
-        return(vkResult);
-    }
-    //pipeline layout for preview image
-    vkResult = createPipelineLayout_previewImage();
-    if (vkResult != VK_SUCCESS)
-    {
-        fprintf(gpFILE, "initialize() : createPipelineLayout_previewImage() failed (%d).\n", vkResult);
-        return(vkResult);
-    }
-    //pipeline layout for imposter
-    vkResult = createPipelineLayout_Impostor();
-    if (vkResult != VK_SUCCESS)
-    {
-        fprintf(gpFILE, "initialize() : createPipelineLayout_Imposter() failed (%d).\n", vkResult);
-        return(vkResult);
-    }
-    //pipeline layout for phong
-    vkResult = createPipelineLayout_Phong();
-    if (vkResult != VK_SUCCESS)
-    {
-        fprintf(gpFILE, "initialize() : createPipelineLayout_Phong() failed (%d).\n", vkResult);
-        return(vkResult);
-    }
-
-    //pipeline layout for PBR
-    vkResult = createPipelineLayout_PBR();
-    if (vkResult != VK_SUCCESS)
-    {
-        fprintf(gpFILE, "initialize() : createPipelineLayout_PBR() failed (%d).\n", vkResult);
+        fprintf(gpFILE, "initialize() : createPipelineLayouts() failed (%d).\n", vkResult);
         return(vkResult);
     }
 
@@ -1665,12 +1756,7 @@ VkResult initialize(void)
         return(vkResult);
     }
 
-	//-----------------------------------------------------------------------------------------------
-        //PBR model textures
-    const char* pathAlbedo = "Resources/PBR_Materials/T_omfr20_4K/Albedo.dds";
-    pMaterial_BasicPBR_RockyGround = new Material_BasicPBR(vkDescriptorSetLayout_BasicPBR, pathAlbedo, pathAlbedo, pathAlbedo);
-
-	//-----------------------------------------------------------------------------------------------
+    //-----------------------------------------------------------------------------------------------
 
     // STEP 16 : Create RenderPass
     vkResult = createRenderPass();
@@ -1791,7 +1877,38 @@ VkResult initialize(void)
 
 #endif // IMGUI_ENABLE
 
-    //-------------------------------------------------------------------------------------
+    //-------------------------------------Resources---------------------------------------
+
+    //--------------------------------------Assimp Load Model----------------------------------------------------
+    vkResult = LoadModel_Phong("Resources/Models/Test/suzanne.obj", &SuzanneBufferData, false);
+    if (vkResult != VK_SUCCESS)
+    {
+        fprintf(gpFILE, "initialize() : LoadModel_Phong() failed (%d).\n", vkResult);
+        return(vkResult);
+    }
+
+    vkResult = LoadModel_PBR("Resources/Models/Test/sphere.obj", &SphereBufferData, false);
+    if (vkResult != VK_SUCCESS)
+    {
+        fprintf(gpFILE, "initialize() : sphere LoadModel_PBR()  failed (%d).\n", vkResult);
+        return(vkResult);
+    }
+
+    //-------------------------------------PBR model textures----------------------------------------------------------
+    
+    const char* pathRockyGround = "Resources/PBR_Materials/T_omfr20_4K/";
+    pMaterial_BasicPBR_RockyGround = new Material_BasicPBR(vkDescriptorSetLayout_BasicPBR, pathRockyGround);
+
+    vkResult = pMaterial_BasicPBR_RockyGround->getVkResult();
+    if (vkResult != VK_SUCCESS)
+    {
+        fprintf(gpFILE, "initialize() : pMaterial_BasicPBR_RockyGround failed to load (%d).\n", vkResult);
+        return(vkResult);
+    }
+
+
+    //--------------------------------------------------------------------------------------------------
+
 
     MyWin32::gProjectionMatrix = glm::perspectiveLH_ZO(
         glm::radians(MyWin32::fovY),
@@ -2299,6 +2416,10 @@ void uninitialize(void)
     void destroyGraphicsPipelines(void);
     void destroySwapchainResources(void);
     void destroySamplers(void);
+    void destroyPipelineLayouts(void);
+    void destroyDescriptorSetLayouts(void);
+    void destroyShaders(void);
+
     void destroyTextureData(ImageData * imageData);
     void ZzDestroyVertexBuffer(VulkanData * vulkanData);
     void ZzDestroyIndexBuffer(VulkanData * vulkanData);
@@ -2412,151 +2533,19 @@ void uninitialize(void)
     //Materials
     if (pMaterial_BasicPBR_RockyGround)
     {
-		delete pMaterial_BasicPBR_RockyGround;
+        delete pMaterial_BasicPBR_RockyGround;
         pMaterial_BasicPBR_RockyGround = NULL;
     }
 
-    //pipeline layout
-    if (vkPipelineLayout)
-    {
-        vkDestroyPipelineLayout(vkDevice, vkPipelineLayout, NULL);
-        vkPipelineLayout = VK_NULL_HANDLE;
-    }
-
-    //pipeline layout for preview image
-    if (vkPipelineLayout_previewImage)
-    {
-        vkDestroyPipelineLayout(vkDevice, vkPipelineLayout_previewImage, NULL);
-        vkPipelineLayout_previewImage = VK_NULL_HANDLE;
-    }
-
-    //pipeline layout for imposter
-    if (vkPipelineLayout_Impostor)
-    {
-        vkDestroyPipelineLayout(vkDevice, vkPipelineLayout_Impostor, NULL);
-        vkPipelineLayout_Impostor = VK_NULL_HANDLE;
-    }
-
-    //pipeline layout for phong
-    if (vkPipelineLayout_Phong)
-    {
-        vkDestroyPipelineLayout(vkDevice, vkPipelineLayout_Phong, NULL);
-        vkPipelineLayout_Phong = VK_NULL_HANDLE;
-    }
-
-    //pipeline layout for PBR
-    if (vkPipelineLayout_PBR)
-    {
-        vkDestroyPipelineLayout(vkDevice, vkPipelineLayout_PBR, NULL);
-        vkPipelineLayout_PBR = VK_NULL_HANDLE;
-    }
-
+    
+    //pipeline Layouts
+    destroyPipelineLayouts();
 
     //descriptor set layout
-    if (vkDescriptorSetLayout_frameData)
-    {
-        vkDestroyDescriptorSetLayout(vkDevice, vkDescriptorSetLayout_frameData, NULL);
-        vkDescriptorSetLayout_frameData = VK_NULL_HANDLE;
+    destroyDescriptorSetLayouts();
 
-    }
-
-    //descriptor set layout for impostor
-    if (vkDescriptorSetLayout_SingleImage)
-    {
-        vkDestroyDescriptorSetLayout(vkDevice, vkDescriptorSetLayout_SingleImage, NULL);
-        vkDescriptorSetLayout_SingleImage = VK_NULL_HANDLE;
-    }
-
-    //descriptor set layout for Albedo Normal
-    if (vkDescriptorSetLayout_AlbedoNormal)
-    {
-        vkDestroyDescriptorSetLayout(vkDevice, vkDescriptorSetLayout_AlbedoNormal, NULL);
-        vkDescriptorSetLayout_AlbedoNormal = VK_NULL_HANDLE;
-    }
-
-    //descriptor set layout for PBR
-    if (vkDescriptorSetLayout_BasicPBR)
-    {
-        vkDestroyDescriptorSetLayout(vkDevice, vkDescriptorSetLayout_BasicPBR, NULL);
-        vkDescriptorSetLayout_BasicPBR = VK_NULL_HANDLE;
-    }
-
-    //shaderModule 
-    if (vkShaderModule_basic_fs)
-    {
-        vkDestroyShaderModule(vkDevice, vkShaderModule_basic_fs, NULL);
-        vkShaderModule_basic_fs = VK_NULL_HANDLE;
-    }
-    if (vkShaderModule_vertex_shader)
-    {
-        vkDestroyShaderModule(vkDevice, vkShaderModule_vertex_shader, NULL);
-        vkShaderModule_vertex_shader = VK_NULL_HANDLE;
-    }
-
-    //-- shader modules for white vertex shaders
-    if (vkShaderModule_whiteVertex_vs)
-    {
-        vkDestroyShaderModule(vkDevice, vkShaderModule_whiteVertex_vs, NULL);
-        vkShaderModule_whiteVertex_vs = VK_NULL_HANDLE;
-    }
-
-    if (vkShaderModule_whiteVertex_fs)
-    {
-        vkDestroyShaderModule(vkDevice, vkShaderModule_whiteVertex_fs, NULL);
-        vkShaderModule_whiteVertex_fs = VK_NULL_HANDLE;
-    }
-
-    //-- shader modules for previewImage shaders
-
-    if (vkShaderModule_previewImage_vs)
-    {
-        vkDestroyShaderModule(vkDevice, vkShaderModule_previewImage_vs, NULL);
-        vkShaderModule_previewImage_vs = VK_NULL_HANDLE;
-    }
-
-    if (vkShaderModule_previewImage_fs)
-    {
-        vkDestroyShaderModule(vkDevice, vkShaderModule_previewImage_fs, NULL);
-        vkShaderModule_previewImage_fs = VK_NULL_HANDLE;
-    }
-
-    //-- shader modules for impostor shaders
-    if (vkShaderModule_impostor_vs)
-    {
-        vkDestroyShaderModule(vkDevice, vkShaderModule_impostor_vs, NULL);
-        vkShaderModule_impostor_vs = VK_NULL_HANDLE;
-    }
-
-    if (vkShaderModule_impostor_fs)
-    {
-        vkDestroyShaderModule(vkDevice, vkShaderModule_impostor_fs, NULL);
-        vkShaderModule_impostor_fs = VK_NULL_HANDLE;
-    }
-
-    //-- shader modules for phong shaders
-    if (vkShaderModule_phong_vs)
-    {
-        vkDestroyShaderModule(vkDevice, vkShaderModule_phong_vs, NULL);
-        vkShaderModule_phong_vs = VK_NULL_HANDLE;
-    }
-    if (vkShaderModule_phong_fs)
-    {
-        vkDestroyShaderModule(vkDevice, vkShaderModule_phong_fs, NULL);
-        vkShaderModule_phong_fs = VK_NULL_HANDLE;
-    }
-
-    //-- shader modules for PBR shaders
-    if (vkShaderModule_PBR_vs)
-    {
-        vkDestroyShaderModule(vkDevice, vkShaderModule_PBR_vs, NULL);
-        vkShaderModule_PBR_vs = VK_NULL_HANDLE;
-    }
-    if (vkShaderModule_PBR_fs)
-    {
-        vkDestroyShaderModule(vkDevice, vkShaderModule_PBR_fs, NULL);
-        vkShaderModule_PBR_fs = VK_NULL_HANDLE;
-    }
-
+    //shaderModules
+    destroyShaders();
 
 
     //Destroy vertex data for colored triangle
@@ -7040,6 +7029,84 @@ VkResult createShaders(void)
     return vkResult;
 }
 
+void destroyShaders(void)
+{
+    if (vkShaderModule_basic_fs)
+    {
+        vkDestroyShaderModule(vkDevice, vkShaderModule_basic_fs, NULL);
+        vkShaderModule_basic_fs = VK_NULL_HANDLE;
+    }
+    if (vkShaderModule_vertex_shader)
+    {
+        vkDestroyShaderModule(vkDevice, vkShaderModule_vertex_shader, NULL);
+        vkShaderModule_vertex_shader = VK_NULL_HANDLE;
+    }
+
+    //-- shader modules for white vertex shaders
+    if (vkShaderModule_whiteVertex_vs)
+    {
+        vkDestroyShaderModule(vkDevice, vkShaderModule_whiteVertex_vs, NULL);
+        vkShaderModule_whiteVertex_vs = VK_NULL_HANDLE;
+    }
+
+    if (vkShaderModule_whiteVertex_fs)
+    {
+        vkDestroyShaderModule(vkDevice, vkShaderModule_whiteVertex_fs, NULL);
+        vkShaderModule_whiteVertex_fs = VK_NULL_HANDLE;
+    }
+
+    //-- shader modules for previewImage shaders
+
+    if (vkShaderModule_previewImage_vs)
+    {
+        vkDestroyShaderModule(vkDevice, vkShaderModule_previewImage_vs, NULL);
+        vkShaderModule_previewImage_vs = VK_NULL_HANDLE;
+    }
+
+    if (vkShaderModule_previewImage_fs)
+    {
+        vkDestroyShaderModule(vkDevice, vkShaderModule_previewImage_fs, NULL);
+        vkShaderModule_previewImage_fs = VK_NULL_HANDLE;
+    }
+
+    //-- shader modules for impostor shaders
+    if (vkShaderModule_impostor_vs)
+    {
+        vkDestroyShaderModule(vkDevice, vkShaderModule_impostor_vs, NULL);
+        vkShaderModule_impostor_vs = VK_NULL_HANDLE;
+    }
+
+    if (vkShaderModule_impostor_fs)
+    {
+        vkDestroyShaderModule(vkDevice, vkShaderModule_impostor_fs, NULL);
+        vkShaderModule_impostor_fs = VK_NULL_HANDLE;
+    }
+
+    //-- shader modules for phong shaders
+    if (vkShaderModule_phong_vs)
+    {
+        vkDestroyShaderModule(vkDevice, vkShaderModule_phong_vs, NULL);
+        vkShaderModule_phong_vs = VK_NULL_HANDLE;
+    }
+    if (vkShaderModule_phong_fs)
+    {
+        vkDestroyShaderModule(vkDevice, vkShaderModule_phong_fs, NULL);
+        vkShaderModule_phong_fs = VK_NULL_HANDLE;
+    }
+
+    //-- shader modules for PBR shaders
+    if (vkShaderModule_PBR_vs)
+    {
+        vkDestroyShaderModule(vkDevice, vkShaderModule_PBR_vs, NULL);
+        vkShaderModule_PBR_vs = VK_NULL_HANDLE;
+    }
+    if (vkShaderModule_PBR_fs)
+    {
+        vkDestroyShaderModule(vkDevice, vkShaderModule_PBR_fs, NULL);
+        vkShaderModule_PBR_fs = VK_NULL_HANDLE;
+    }
+}
+
 /*
 VkResult createShaders(void)
 {
@@ -7512,7 +7579,7 @@ VkResult createDescriptorPool(void)
     VkDescriptorPoolSize vkDescriptorPoolSizes[] =
     {
         {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1 * MAX_FRAMES}, // descriptor type and descriptor count
-        {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1 } // descriptor type and descriptor count for combined image sampler
+        {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 6 } // descriptor type and descriptor count for combined image sampler
     };
 
     // Declare and initialize VkDescriptorPoolCreateInfo structure and refer above VkDescriptorPoolSize into it.
@@ -10001,7 +10068,7 @@ void RenderPBR_Basic(uint32_t curIndex)
     // Bind the pipeline and descriptor sets
     vkCmdBindPipeline(vkCommandBuffer_Array[curIndex], VK_PIPELINE_BIND_POINT_GRAPHICS, vkPipeline_PBR);
 
-    VkDescriptorSet vkLocalDescriptorSets[] = { vkDescriptorSets_frameData[curIndex],pMaterial_BasicPBR_RockyGround->getDescriptorSet()};
+    VkDescriptorSet vkLocalDescriptorSets[] = { vkDescriptorSets_frameData[curIndex],pMaterial_BasicPBR_RockyGround->getDescriptorSet() };
     vkCmdBindDescriptorSets(vkCommandBuffer_Array[curIndex], VK_PIPELINE_BIND_POINT_GRAPHICS, vkPipelineLayout_PBR, 0, _ARRAYSIZE(vkLocalDescriptorSets), vkLocalDescriptorSets, 0, NULL);
 
     // Push the model matrix
