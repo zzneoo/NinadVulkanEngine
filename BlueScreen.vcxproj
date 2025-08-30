@@ -141,7 +141,9 @@
   <ItemGroup>
     <ClInclude Include="BlueScreen.h" />
     <ClInclude Include="Camera.h" />
+    <ClInclude Include="DescriptorSetLayouts.h" />
     <ClInclude Include="framework.h" />
+    <ClInclude Include="GraphicsPipelines.h" />
     <ClInclude Include="imgui\imconfig.h" />
     <ClInclude Include="imgui\imgui.h" />
     <ClInclude Include="imgui\imgui_impl_vulkan.h" />
@@ -160,6 +162,8 @@
   <ItemGroup>
     <ClCompile Include="BlueScreen.cpp" />
     <ClCompile Include="Camera.cpp" />
+    <ClCompile Include="DescriptorSetLayouts.cpp" />
+    <ClCompile Include="GraphicsPipelines.cpp" />
     <ClCompile Include="imgui\imgui.cpp" />
     <ClCompile Include="imgui\imgui_draw.cpp" />
     <ClCompile Include="imgui\imgui_impl_vulkan.cpp" />

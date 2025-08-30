@@ -123,4 +123,10 @@ typedef struct
 	ImageData* imageData_depthBuffer;
 }SwapChainResourceData;
 
+typedef struct
+{
+	VkPipeline vkPipeline;
+	VkPipelineLayout vkPipelineLayout;
+}PipelineData;
+
 
