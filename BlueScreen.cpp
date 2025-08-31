@@ -206,7 +206,7 @@ const uint16_t quad_indices[] =
 UniformData uniformBufferData_frameData[MAX_FRAMES];
 
 //shader related variables
-VkShaderModule vkShaderModule_vertex_shader = VK_NULL_HANDLE;
+VkShaderModule vkShaderModule_basic_vs = VK_NULL_HANDLE;
 VkShaderModule vkShaderModule_basic_fs = VK_NULL_HANDLE;
 
 VkShaderModule vkShaderModule_whiteVertex_vs = VK_NULL_HANDLE;
@@ -234,9 +234,7 @@ ImageData imposterTextureData_blackAlder_Field_02_Normal;
 //Samplers
 VkSampler vkSampler_LinearClampAniso = VK_NULL_HANDLE;//need mipmaps to be generated for aniso 
 VkSampler vkSampler_LinearClamp = VK_NULL_HANDLE;
-
-
-
+VkSampler vkSampler_LinearMipmapClamp = VK_NULL_HANDLE;
 
 VkDescriptorPool vkDescriptorPool = VK_NULL_HANDLE;
 VkDescriptorSet  vkDescriptorSets_frameData[MAX_FRAMES];
@@ -254,21 +252,6 @@ VkViewport vkViewport;
 VkRect2D vkRect2D_Scissor;
 
 //All pipelines
-VkPipeline vkPipeline_WhiteVertex = VK_NULL_HANDLE;
-VkPipeline vkPipeline_PerVertexColor = VK_NULL_HANDLE;
-VkPipelineLayout vkPipelineLayout = VK_NULL_HANDLE;
-
-//VkPipeline vkPipeline_Impostor = VK_NULL_HANDLE;
-//VkPipelineLayout vkPipelineLayout_Impostor = VK_NULL_HANDLE;
-//
-//VkPipeline vkPipeline_PreviewImage = VK_NULL_HANDLE;
-//VkPipelineLayout vkPipelineLayout_previewImage = VK_NULL_HANDLE;
-//
-//VkPipeline vkPipeline_Phong = VK_NULL_HANDLE;
-//VkPipelineLayout vkPipelineLayout_Phong = VK_NULL_HANDLE;
-//
-//VkPipeline vkPipeline_PBR = VK_NULL_HANDLE;
-//VkPipelineLayout vkPipelineLayout_PBR = VK_NULL_HANDLE;
 
 GraphicsPipelines* gpGraphicsPipelines = NULL;
 
@@ -1177,26 +1160,6 @@ VkResult LoadModel_PBR(const char* modelPath, VulkanComboData* vulkanComboData, 
     return VK_SUCCESS;
 }
 
-VkResult createPipelineLayouts(void)
-{
-    VkResult vkResult = VK_SUCCESS;
-
-    VkResult createPipelineLayout(void);
-
-    //pipeline layout
-    vkResult = createPipelineLayout();
-    if (vkResult != VK_SUCCESS)
-    {
-        fprintf(gpFILE, "initialize() : createPipelineLayout() failed (%d).\n", vkResult);
-        return(vkResult);
-    }
-
-
-   
-    return vkResult;
-}
-
-
 VkResult initialize(void)
 {
     // function declarations
@@ -1225,8 +1188,6 @@ VkResult initialize(void)
     VkResult createShaders(void);
 
     VkResult createDescriptorSetLayouts(void);
-
-    VkResult createPipelineLayouts(void);
 
     VkResult createDescriptorPool(void);
     VkResult createDescriptorSet_FrameData(void);
@@ -1580,15 +1541,6 @@ VkResult initialize(void)
         return(vkResult);
 	}
         
-    //pipeline layouts
-    vkResult = createPipelineLayouts();
-    if (vkResult != VK_SUCCESS)
-    {
-        fprintf(gpFILE, "initialize() : createPipelineLayouts() failed (%d).\n", vkResult);
-        return(vkResult);
-    }
-
-
     //Create Descriptor Pool
     vkResult = createDescriptorPool();
     if (vkResult != VK_SUCCESS)
@@ -2275,7 +2227,7 @@ void uninitialize(void)
 {
     // function declarations
     void ToggleFullscreen(void);
-    void destroyGraphicsPipelines(void);
+    //void destroyGraphicsPipelines(void);
     void destroySwapchainResources(void);
     void destroySamplers(void);
     void destroyShaders(void);
@@ -2370,7 +2322,12 @@ void uninitialize(void)
     }
 
     // pipeline
-    destroyGraphicsPipelines();
+    //destroyGraphicsPipelines();
+    if(gpGraphicsPipelines)
+    {
+        delete gpGraphicsPipelines;
+		gpGraphicsPipelines = NULL;
+	}
 
     // renderpass
     if (vkRenderPass)
@@ -4670,6 +4627,7 @@ VkResult createSamplers(void)
 {
     VkResult vkResult = VK_SUCCESS;
 
+    //vkSampler_LinearClampAniso
     VkSamplerCreateInfo samplerCreateInfo;
     memset(&samplerCreateInfo, 0, sizeof(VkSamplerCreateInfo));
     samplerCreateInfo.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
@@ -4719,10 +4677,34 @@ VkResult createSamplers(void)
         fprintf(gpFILE, "createSamplers() : vkCreateSampler() for vkSampler_LinearClamp failed (%d).\n", vkResult);
         return vkResult;
     }
-    //vkSampler_LinearClampAniso = VK_NULL_HANDLE; // Initialize to null handle
-    //vkSampler_LinearClamp = VK_NULL_HANDLE; // Initialize to null handle
-    fprintf(gpFILE, "createSamplers() : Samplers created successfully.\n");
 
+    //vkSampler_LinearMipmapClamp
+    memset(&samplerCreateInfo, 0, sizeof(VkSamplerCreateInfo));
+    samplerCreateInfo.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
+    samplerCreateInfo.magFilter = VK_FILTER_LINEAR; // Magnification filter
+    samplerCreateInfo.minFilter = VK_FILTER_LINEAR; // Minification filter
+    samplerCreateInfo.addressModeU = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE; // U coordinate addressing mode
+    samplerCreateInfo.addressModeV = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE; // V coordinate addressing mode
+    samplerCreateInfo.addressModeW = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE; // W coordinate addressing mode
+    samplerCreateInfo.anisotropyEnable = VK_FALSE; // Disable anisotropic filtering
+    samplerCreateInfo.maxAnisotropy = 1.0f; // Maximum anisotropy level (1.0 means no anisotropic filtering)
+    samplerCreateInfo.borderColor = VK_BORDER_COLOR_INT_OPAQUE_BLACK; // Border color
+    samplerCreateInfo.unnormalizedCoordinates = VK_FALSE; // Use normalized coordinates
+    samplerCreateInfo.compareEnable = VK_FALSE; // No comparison
+    samplerCreateInfo.compareOp = VK_COMPARE_OP_ALWAYS; // Comparison operation (not used here)
+    samplerCreateInfo.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR; // Mipmap mode
+    samplerCreateInfo.mipLodBias = 0.0f; // Mipmap level of detail bias
+    samplerCreateInfo.minLod = 0.0f; // Minimum LOD
+    samplerCreateInfo.maxLod = 14.0f; // Maximum LOD (0 means no mipmaps)
+    vkResult = vkCreateSampler(vkDevice, &samplerCreateInfo, NULL, &vkSampler_LinearMipmapClamp);
+    if (vkResult != VK_SUCCESS)
+    {
+        fprintf(gpFILE, "createSamplers() : vkCreateSampler() for vkSampler_LinearMipmapClamp failed (%d).\n", vkResult);
+        return vkResult;
+    }
+
+
+    fprintf(gpFILE, "createSamplers() : Samplers created successfully.\n");
 
     return VK_SUCCESS;
 }
@@ -4740,6 +4722,11 @@ void destroySamplers(void)
         vkDestroySampler(vkDevice, vkSampler_LinearClamp, NULL);
         vkSampler_LinearClamp = VK_NULL_HANDLE;
     }
+    if (vkSampler_LinearMipmapClamp)
+    {
+        vkDestroySampler(vkDevice, vkSampler_LinearMipmapClamp, NULL);
+        vkSampler_LinearMipmapClamp = VK_NULL_HANDLE;
+	}
 
 }
 
@@ -6794,7 +6781,7 @@ VkResult createShaders(void)
     // local variables
     VkResult vkResult = VK_SUCCESS;
 
-    vkResult = createShaderModule(&vkShaderModule_vertex_shader, "shader.vert.spv");
+    vkResult = createShaderModule(&vkShaderModule_basic_vs, "shader.vert.spv");
     if (vkResult != VK_SUCCESS)
     {
         fprintf(gpFILE, "createShaders() -> createShaderModule() for vertex shader failed.\n");
@@ -6899,10 +6886,10 @@ void destroyShaders(void)
         vkDestroyShaderModule(vkDevice, vkShaderModule_basic_fs, NULL);
         vkShaderModule_basic_fs = VK_NULL_HANDLE;
     }
-    if (vkShaderModule_vertex_shader)
+    if (vkShaderModule_basic_vs)
     {
-        vkDestroyShaderModule(vkDevice, vkShaderModule_vertex_shader, NULL);
-        vkShaderModule_vertex_shader = VK_NULL_HANDLE;
+        vkDestroyShaderModule(vkDevice, vkShaderModule_basic_vs, NULL);
+        vkShaderModule_basic_vs = VK_NULL_HANDLE;
     }
 
     //-- shader modules for white vertex shaders
@@ -7112,43 +7099,6 @@ VkResult createShaders(void)
 }
 */
 
-
-VkResult createPipelineLayout(void)
-{
-    // local variables
-    VkResult vkResult = VK_SUCCESS;
-
-
-    //push constant
-    // Declare and initialize VkPushConstantRange structure which will have information about the push constant range.
-    VkPushConstantRange vkPushConstantRange;
-    memset((void*)&vkPushConstantRange, 0, sizeof(VkPushConstantRange));
-    vkPushConstantRange.stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT; // stage flags for the push constant range
-    vkPushConstantRange.offset = 0; // offset in the push constant range
-    vkPushConstantRange.size = sizeof(PushConstants); // size of the push constant range
-
-
-    // Declare and initialize VkPipelineLayoutCreateInfo structure which will have information about the pipeline layout.
-    VkPipelineLayoutCreateInfo vkPipelineLayoutCreateInfo;
-    memset((void*)&vkPipelineLayoutCreateInfo, 0, sizeof(VkPipelineLayoutCreateInfo));
-
-    vkPipelineLayoutCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
-    vkPipelineLayoutCreateInfo.pNext = NULL;
-    vkPipelineLayoutCreateInfo.flags = 0;
-    vkPipelineLayoutCreateInfo.setLayoutCount = 1;
-    vkPipelineLayoutCreateInfo.pSetLayouts = &gpDescriptorSetLayouts->vkDescriptorSetLayout_frameData;
-    vkPipelineLayoutCreateInfo.pushConstantRangeCount = 1;
-    vkPipelineLayoutCreateInfo.pPushConstantRanges = &vkPushConstantRange;
-
-    vkResult = vkCreatePipelineLayout(vkDevice, &vkPipelineLayoutCreateInfo, NULL, &vkPipelineLayout);
-    if (vkResult != VK_SUCCESS)
-    {
-        fprintf(gpFILE, "createPipelineLayout() -> vkCreatePipelineLayout() :  failed: %d.\n", vkResult);
-        return(vkResult);
-    }
-
-    return(vkResult);
-}
 
 VkResult createDescriptorPool(void)
 {
@@ -7388,7 +7338,7 @@ VkResult createDescriptorSet_AlbedoNormal(void)
     // Declare and initialize VkDescriptorImageInfo structure which will have information about the normal image.
     VkDescriptorImageInfo vkDescriptorImageInfo_Normal;
     memset((void*)&vkDescriptorImageInfo_Normal, 0, sizeof(VkDescriptorImageInfo));
-    vkDescriptorImageInfo_Normal.sampler = vkSampler_LinearClamp; // sampler for the normal image
+    vkDescriptorImageInfo_Normal.sampler = vkSampler_LinearMipmapClamp; // sampler for the normal image
     vkDescriptorImageInfo_Normal.imageView = imposterTextureData_blackAlder_Field_02_Normal.vkImageView; // image view for the normal image
     vkDescriptorImageInfo_Normal.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL; // image layout for the normal image
 
@@ -7723,532 +7673,6 @@ VkResult createRenderPass(void)
     return(vkResult);
 }
 
-VkResult createGraphicsPipeline_PerVertexColor(void)
-{
-    // local variables
-    VkResult vkResult = VK_SUCCESS;
-
-    // code
-    // 
-    /*
-    //vertex input state
-    VkVertexInputBindingDescription vkVertexInputBindingDescription_array[2];
-    memset((void*)vkVertexInputBindingDescription_array, 0, sizeof(VkVertexInputBindingDescription) * _ARRAYSIZE(vkVertexInputBindingDescription_array));
-
-    //position
-    vkVertexInputBindingDescription_array[0].binding = 0; // VDG's location = 0
-    vkVertexInputBindingDescription_array[0].stride = sizeof(float) * 3; // size of each vertex
-    vkVertexInputBindingDescription_array[0].inputRate = VK_VERTEX_INPUT_RATE_VERTEX; // per vertex data
-    //color
-    vkVertexInputBindingDescription_array[1].binding = 1; // VDG's location = 1
-    vkVertexInputBindingDescription_array[1].stride = sizeof(float) * 3; // size of each vertex
-    vkVertexInputBindingDescription_array[1].inputRate = VK_VERTEX_INPUT_RATE_VERTEX; // per vertex data
-    */
-
-    //vertex input state
-    VkVertexInputBindingDescription vkVertexInputBindingDescription_array[1];
-    memset((void*)vkVertexInputBindingDescription_array, 0, sizeof(VkVertexInputBindingDescription) * _ARRAYSIZE(vkVertexInputBindingDescription_array));
-
-    //position
-    vkVertexInputBindingDescription_array[0].binding = 0; // VDG's location = 0
-    vkVertexInputBindingDescription_array[0].stride = sizeof(VertexData_PositionColor); // size of each vertex
-    vkVertexInputBindingDescription_array[0].inputRate = VK_VERTEX_INPUT_RATE_VERTEX; // per vertex data
-
-    //vertex input attribute state
-    VkVertexInputAttributeDescription vkVertexInputAttributeDescription_array[2];
-    memset((void*)vkVertexInputAttributeDescription_array, 0, sizeof(VkVertexInputAttributeDescription) * _ARRAYSIZE(vkVertexInputAttributeDescription_array));
-
-    //position
-    vkVertexInputAttributeDescription_array[0].binding = 0; // binding index
-    vkVertexInputAttributeDescription_array[0].location = 0; // location index
-    vkVertexInputAttributeDescription_array[0].format = VK_FORMAT_R32G32B32_SFLOAT; // format of each vertex
-    vkVertexInputAttributeDescription_array[0].offset = offsetof(VertexData_PositionColor, pos); // offset of each vertex
-
-    //color
-    vkVertexInputAttributeDescription_array[1].binding = 0; // binding index
-    vkVertexInputAttributeDescription_array[1].location = 1; // location index
-    vkVertexInputAttributeDescription_array[1].format = VK_FORMAT_R32G32B32_SFLOAT; // format of each vertex
-    vkVertexInputAttributeDescription_array[1].offset = offsetof(VertexData_PositionColor, color); // offset of each vertex
-
-    //  Declare and initialize VkPipelineVertexInputStateCreateInfo structure.
-    VkPipelineVertexInputStateCreateInfo vkPipelineVertexInputStateCreateInfo;
-    memset((void*)&vkPipelineVertexInputStateCreateInfo, 0, sizeof(VkPipelineVertexInputStateCreateInfo));
-    vkPipelineVertexInputStateCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
-    vkPipelineVertexInputStateCreateInfo.pNext = NULL;
-    vkPipelineVertexInputStateCreateInfo.flags = 0;
-    vkPipelineVertexInputStateCreateInfo.vertexBindingDescriptionCount = _ARRAYSIZE(vkVertexInputBindingDescription_array);
-    vkPipelineVertexInputStateCreateInfo.pVertexBindingDescriptions = vkVertexInputBindingDescription_array;
-    vkPipelineVertexInputStateCreateInfo.vertexAttributeDescriptionCount = _ARRAYSIZE(vkVertexInputAttributeDescription_array);
-    vkPipelineVertexInputStateCreateInfo.pVertexAttributeDescriptions = vkVertexInputAttributeDescription_array;
-
-    //  Declare and initialize VkPipelineInputAssemblyStateCreateInfo structure.
-    VkPipelineInputAssemblyStateCreateInfo vkPipelineInputAssemblyStateCreateInfo;
-    memset((void*)&vkPipelineInputAssemblyStateCreateInfo, 0, sizeof(VkPipelineInputAssemblyStateCreateInfo));
-    vkPipelineInputAssemblyStateCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
-    vkPipelineInputAssemblyStateCreateInfo.pNext = NULL;
-    vkPipelineInputAssemblyStateCreateInfo.flags = 0;
-    vkPipelineInputAssemblyStateCreateInfo.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST; // triangle list
-    vkPipelineInputAssemblyStateCreateInfo.primitiveRestartEnable = VK_FALSE; // no primitive restart
-
-
-    //  Declare and initialize VkPipelineRasterizationStateCreateInfo structure.
-    VkPipelineRasterizationStateCreateInfo vkPipelineRasterizationStateCreateInfo;
-    memset((void*)&vkPipelineRasterizationStateCreateInfo, 0, sizeof(VkPipelineRasterizationStateCreateInfo));
-    vkPipelineRasterizationStateCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO;
-    vkPipelineRasterizationStateCreateInfo.pNext = NULL;
-    vkPipelineRasterizationStateCreateInfo.flags = 0;
-    vkPipelineRasterizationStateCreateInfo.depthClampEnable = VK_FALSE; // no depth clamp
-    vkPipelineRasterizationStateCreateInfo.depthBiasEnable = VK_FALSE; // no depth bias
-    vkPipelineRasterizationStateCreateInfo.depthBiasConstantFactor = 0.0f; // no depth bias
-    vkPipelineRasterizationStateCreateInfo.depthBiasClamp = 0.0f; // no depth bias clamp
-    vkPipelineRasterizationStateCreateInfo.depthBiasSlopeFactor = 0.0f; // no depth bias slope factor
-    vkPipelineRasterizationStateCreateInfo.rasterizerDiscardEnable = VK_FALSE; // no rasterizer discard
-    vkPipelineRasterizationStateCreateInfo.polygonMode = VK_POLYGON_MODE_FILL; // fill mode
-    vkPipelineRasterizationStateCreateInfo.cullMode = VK_CULL_MODE_NONE; // no culling
-    vkPipelineRasterizationStateCreateInfo.frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE; //  anti clockwise front face
-    vkPipelineRasterizationStateCreateInfo.lineWidth = 1.0f; // line width
-
-    // Color blend state
-    VkPipelineColorBlendAttachmentState vkPipelineColorBlendAttachmentState_array[1];
-    memset((void*)vkPipelineColorBlendAttachmentState_array, 0, sizeof(VkPipelineColorBlendAttachmentState) * _ARRAYSIZE(vkPipelineColorBlendAttachmentState_array));
-    vkPipelineColorBlendAttachmentState_array[0].blendEnable = VK_FALSE; // no blending
-    vkPipelineColorBlendAttachmentState_array[0].colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT; // all color components
-    //vkPipelineColorBlendAttachmentState_array[0].srcColorBlendFactor = VK_BLEND_FACTOR_ONE; // source color blend factor
-    //vkPipelineColorBlendAttachmentState_array[0].dstColorBlendFactor = VK_BLEND_FACTOR_ZERO; // destination color blend factor
-    //vkPipelineColorBlendAttachmentState_array[0].colorBlendOp = VK_BLEND_OP_ADD; // color blend operation
-    //vkPipelineColorBlendAttachmentState_array[0].srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE; // source alpha blend factor
-    //vkPipelineColorBlendAttachmentState_array[0].dstAlphaBlendFactor = VK_BLEND_FACTOR_ZERO; // destination alpha blend factor
-    //vkPipelineColorBlendAttachmentState_array[0].alphaBlendOp = VK_BLEND_OP_ADD; // alpha blend operation
-
-
-
-    //ColorBlendStateCreateInfo
-    VkPipelineColorBlendStateCreateInfo vkPipelineColorBlendStateCreateInfo;
-    memset((void*)&vkPipelineColorBlendStateCreateInfo, 0, sizeof(VkPipelineColorBlendStateCreateInfo));
-    vkPipelineColorBlendStateCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;
-    vkPipelineColorBlendStateCreateInfo.pNext = NULL;
-    vkPipelineColorBlendStateCreateInfo.flags = 0;
-    vkPipelineColorBlendStateCreateInfo.attachmentCount = _ARRAYSIZE(vkPipelineColorBlendAttachmentState_array);
-    vkPipelineColorBlendStateCreateInfo.pAttachments = vkPipelineColorBlendAttachmentState_array;
-    vkPipelineColorBlendStateCreateInfo.logicOpEnable = VK_FALSE; // no logic op
-
-    //viewport sciccor state
-    memset((void*)&vkViewport, 0, sizeof(VkViewport));
-    vkViewport.x = 0.0f;
-    vkViewport.y = 0.0f;
-    vkViewport.width = (float)vkExtent2D_Swapchain.width;
-    vkViewport.height = (float)vkExtent2D_Swapchain.height;
-    vkViewport.minDepth = 0.0f;
-    vkViewport.maxDepth = 1.0f;
-
-    memset((void*)&vkRect2D_Scissor, 0, sizeof(VkRect2D));
-    vkRect2D_Scissor.offset.x = 0;
-    vkRect2D_Scissor.offset.y = 0;
-    vkRect2D_Scissor.extent.width = vkExtent2D_Swapchain.width;
-    vkRect2D_Scissor.extent.height = vkExtent2D_Swapchain.height;
-
-    VkPipelineViewportStateCreateInfo vkPipelineViewportStateCreateInfo;
-    memset((void*)&vkPipelineViewportStateCreateInfo, 0, sizeof(VkPipelineViewportStateCreateInfo));
-    vkPipelineViewportStateCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO;
-    vkPipelineViewportStateCreateInfo.pNext = NULL;
-    vkPipelineViewportStateCreateInfo.flags = 0;
-    vkPipelineViewportStateCreateInfo.viewportCount = 1; // 1 viewport
-    vkPipelineViewportStateCreateInfo.pViewports = &vkViewport; // viewport
-    vkPipelineViewportStateCreateInfo.scissorCount = 1; // 1 scissor
-    vkPipelineViewportStateCreateInfo.pScissors = &vkRect2D_Scissor; // scissor
-
-    //// depth stencil state
-    //VkPipelineDepthStencilStateCreateInfo vkPipelineDepthStencilStateCreateInfo;   
-    //memset((void*)&vkPipelineDepthStencilStateCreateInfo, 0, sizeof(VkPipelineDepthStencilStateCreateInfo));
-    //vkPipelineDepthStencilStateCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
-    //vkPipelineDepthStencilStateCreateInfo.pNext = NULL;
-
-    //depth stencil state
-    VkPipelineDepthStencilStateCreateInfo vkPipelineDepthStencilStateCreateInfo;
-    memset((void*)&vkPipelineDepthStencilStateCreateInfo, 0, sizeof(VkPipelineDepthStencilStateCreateInfo));
-    vkPipelineDepthStencilStateCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
-    vkPipelineDepthStencilStateCreateInfo.pNext = NULL;
-    vkPipelineDepthStencilStateCreateInfo.flags = 0;
-    vkPipelineDepthStencilStateCreateInfo.depthTestEnable = VK_TRUE; // enable depth test
-    vkPipelineDepthStencilStateCreateInfo.depthWriteEnable = VK_TRUE; // enable depth write
-    vkPipelineDepthStencilStateCreateInfo.depthCompareOp = VK_COMPARE_OP_LESS; // depth compare operation
-    vkPipelineDepthStencilStateCreateInfo.depthBoundsTestEnable = VK_FALSE; // no depth bounds test
-    vkPipelineDepthStencilStateCreateInfo.stencilTestEnable = VK_FALSE; // no stencil test
-    //vkPipelineDepthStencilStateCreateInfo.front = {}; // no front stencil state
-    //vkPipelineDepthStencilStateCreateInfo.back = {}; // no back stencil state
-    vkPipelineDepthStencilStateCreateInfo.back.failOp = VK_STENCIL_OP_KEEP; // no back stencil state
-    vkPipelineDepthStencilStateCreateInfo.back.passOp = VK_STENCIL_OP_KEEP; // no back stencil state
-    vkPipelineDepthStencilStateCreateInfo.back.compareOp = VK_COMPARE_OP_ALWAYS; // no back stencil state
-
-    vkPipelineDepthStencilStateCreateInfo.front = vkPipelineDepthStencilStateCreateInfo.back; // use the same state for front and back
-
-    vkPipelineDepthStencilStateCreateInfo.minDepthBounds = 0.0f; // min depth bounds
-    vkPipelineDepthStencilStateCreateInfo.maxDepthBounds = 1.0f; // max depth bounds
-
-
-    //dynamic state (viewport, scissor ,depth bias ,blend constants, stensil mask,line width, etc)
-    //no dynamic state right now
-
-    //multisample state
-    VkPipelineMultisampleStateCreateInfo vkPipelineMultisampleStateCreateInfo;
-    memset((void*)&vkPipelineMultisampleStateCreateInfo, 0, sizeof(VkPipelineMultisampleStateCreateInfo));
-    vkPipelineMultisampleStateCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO;
-    vkPipelineMultisampleStateCreateInfo.pNext = NULL;
-    vkPipelineMultisampleStateCreateInfo.flags = 0;
-    vkPipelineMultisampleStateCreateInfo.rasterizationSamples = VK_SAMPLE_COUNT_1_BIT; // 1 sample
-    //vkPipelineMultisampleStateCreateInfo.sampleShadingEnable = VK_FALSE; // no sample shading
-    //vkPipelineMultisampleStateCreateInfo.minSampleShading = 0.0f; // no min sample shading
-    //vkPipelineMultisampleStateCreateInfo.pSampleMask = NULL; // no sample mask
-    //vkPipelineMultisampleStateCreateInfo.alphaToCoverageEnable = VK_FALSE; // no alpha to coverage
-    //vkPipelineMultisampleStateCreateInfo.alphaToOneEnable = VK_FALSE; // no alpha to one
-
-
-    //shader stage state
-    VkPipelineShaderStageCreateInfo vkPipelineShaderStageCreateInfo[2];
-    memset((void*)&vkPipelineShaderStageCreateInfo, 0, sizeof(VkPipelineShaderStageCreateInfo) * _ARRAYSIZE(vkPipelineShaderStageCreateInfo));
-    //vertex shader stage
-    vkPipelineShaderStageCreateInfo[0].sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
-    vkPipelineShaderStageCreateInfo[0].pNext = NULL;
-    vkPipelineShaderStageCreateInfo[0].flags = 0;
-    vkPipelineShaderStageCreateInfo[0].stage = VK_SHADER_STAGE_VERTEX_BIT; // vertex shader
-    vkPipelineShaderStageCreateInfo[0].module = vkShaderModule_vertex_shader; // vertex shader module
-    vkPipelineShaderStageCreateInfo[0].pName = "main"; // entry point name
-    vkPipelineShaderStageCreateInfo[0].pSpecializationInfo = NULL; // no specialization info
-    //fragment shader stage
-    vkPipelineShaderStageCreateInfo[1].sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
-    vkPipelineShaderStageCreateInfo[1].pNext = NULL;
-    vkPipelineShaderStageCreateInfo[1].flags = 0;
-    vkPipelineShaderStageCreateInfo[1].stage = VK_SHADER_STAGE_FRAGMENT_BIT; // fragment shader
-    vkPipelineShaderStageCreateInfo[1].module = vkShaderModule_basic_fs; // fragment shader module
-    vkPipelineShaderStageCreateInfo[1].pName = "main"; // entry point name
-    vkPipelineShaderStageCreateInfo[1].pSpecializationInfo = NULL; // no specialization info
-
-    //tesselation state
-    //no tessellation state right now
-
-
-    //pipeline cache 
-    VkPipelineCacheCreateInfo vkPipelineCacheCreateInfo;
-    memset((void*)&vkPipelineCacheCreateInfo, 0, sizeof(VkPipelineCacheCreateInfo));
-    vkPipelineCacheCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_CACHE_CREATE_INFO;
-    vkPipelineCacheCreateInfo.pNext = NULL;
-    vkPipelineCacheCreateInfo.flags = 0;
-    vkPipelineCacheCreateInfo.initialDataSize = 0;
-    vkPipelineCacheCreateInfo.pInitialData = NULL;
-
-    VkPipelineCache vkPipelineCache;
-    vkResult = vkCreatePipelineCache(vkDevice, &vkPipelineCacheCreateInfo, NULL, &vkPipelineCache);
-    if (vkResult != VK_SUCCESS)
-    {
-        fprintf(gpFILE, "createGraphicsPipeline() : vkCreatePipelineCache() failed: %d .\n", vkResult);
-        return(vkResult);
-    }
-
-    //  Declare and initialize VkGraphicsPipelineCreateInfo structure.
-    VkGraphicsPipelineCreateInfo vkGraphicsPipelineCreateInfo;
-    memset((void*)&vkGraphicsPipelineCreateInfo, 0, sizeof(VkGraphicsPipelineCreateInfo));
-    vkGraphicsPipelineCreateInfo.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
-    vkGraphicsPipelineCreateInfo.pNext = NULL;
-    vkGraphicsPipelineCreateInfo.flags = 0;
-    vkGraphicsPipelineCreateInfo.pVertexInputState = &vkPipelineVertexInputStateCreateInfo;
-    vkGraphicsPipelineCreateInfo.pInputAssemblyState = &vkPipelineInputAssemblyStateCreateInfo;
-    vkGraphicsPipelineCreateInfo.pTessellationState = NULL; // no tessellation state
-    vkGraphicsPipelineCreateInfo.pViewportState = &vkPipelineViewportStateCreateInfo;
-    vkGraphicsPipelineCreateInfo.pRasterizationState = &vkPipelineRasterizationStateCreateInfo;
-    vkGraphicsPipelineCreateInfo.pMultisampleState = &vkPipelineMultisampleStateCreateInfo;
-    vkGraphicsPipelineCreateInfo.pDepthStencilState = &vkPipelineDepthStencilStateCreateInfo; // no depth stencil state
-    vkGraphicsPipelineCreateInfo.pColorBlendState = &vkPipelineColorBlendStateCreateInfo;
-    vkGraphicsPipelineCreateInfo.pDynamicState = NULL; // no dynamic state
-    vkGraphicsPipelineCreateInfo.layout = vkPipelineLayout; // pipeline layout
-    vkGraphicsPipelineCreateInfo.renderPass = vkRenderPass; // render pass
-    vkGraphicsPipelineCreateInfo.subpass = 0; // subpass index
-    vkGraphicsPipelineCreateInfo.basePipelineHandle = VK_NULL_HANDLE; // no base pipeline
-    vkGraphicsPipelineCreateInfo.basePipelineIndex = -1; // no base pipeline index
-    vkGraphicsPipelineCreateInfo.stageCount = _ARRAYSIZE(vkPipelineShaderStageCreateInfo); // number of shader stages
-    vkGraphicsPipelineCreateInfo.pStages = vkPipelineShaderStageCreateInfo; // shader stages
-
-
-    //  Call vkCreateGraphicsPipelines() API to create the graphics pipeline.
-    vkResult = vkCreateGraphicsPipelines(vkDevice, vkPipelineCache, 1, &vkGraphicsPipelineCreateInfo, NULL, &vkPipeline_PerVertexColor);
-
-    if (vkResult != VK_SUCCESS)
-    {
-        fprintf(gpFILE, "createGraphicsPipeline() : vkCreateGraphicsPipelines() failed: %d .\n", vkResult);
-
-        //destroy pipeline cache
-        vkDestroyPipelineCache(vkDevice, vkPipelineCache, NULL);
-        vkPipelineCache = VK_NULL_HANDLE;
-
-        return(vkResult);
-    }
-
-    //destroy pipeline cache
-    vkDestroyPipelineCache(vkDevice, vkPipelineCache, NULL);
-    vkPipelineCache = VK_NULL_HANDLE;
-
-    return(vkResult);
-}
-
-VkResult createGraphicsPipeline_WhiteVertex(void)
-{
-    // local variables
-    VkResult vkResult = VK_SUCCESS;
-
-    // code
-    // 
-    /*
-    //vertex input state
-    VkVertexInputBindingDescription vkVertexInputBindingDescription_array[2];
-    memset((void*)vkVertexInputBindingDescription_array, 0, sizeof(VkVertexInputBindingDescription) * _ARRAYSIZE(vkVertexInputBindingDescription_array));
-
-    //position
-    vkVertexInputBindingDescription_array[0].binding = 0; // VDG's location = 0
-    vkVertexInputBindingDescription_array[0].stride = sizeof(float) * 3; // size of each vertex
-    vkVertexInputBindingDescription_array[0].inputRate = VK_VERTEX_INPUT_RATE_VERTEX; // per vertex data
-    //color
-    vkVertexInputBindingDescription_array[1].binding = 1; // VDG's location = 1
-    vkVertexInputBindingDescription_array[1].stride = sizeof(float) * 3; // size of each vertex
-    vkVertexInputBindingDescription_array[1].inputRate = VK_VERTEX_INPUT_RATE_VERTEX; // per vertex data
-    */
-
-    //vertex input state
-    VkVertexInputBindingDescription vkVertexInputBindingDescription_array[1];
-    memset((void*)vkVertexInputBindingDescription_array, 0, sizeof(VkVertexInputBindingDescription) * _ARRAYSIZE(vkVertexInputBindingDescription_array));
-
-    //position
-    vkVertexInputBindingDescription_array[0].binding = 0; // VDG's location = 0
-    vkVertexInputBindingDescription_array[0].stride = sizeof(VertexData_Position); // size of each vertex
-    vkVertexInputBindingDescription_array[0].inputRate = VK_VERTEX_INPUT_RATE_VERTEX; // per vertex data
-
-    //vertex input attribute state
-    VkVertexInputAttributeDescription vkVertexInputAttributeDescription_array[1];
-    memset((void*)vkVertexInputAttributeDescription_array, 0, sizeof(VkVertexInputAttributeDescription) * _ARRAYSIZE(vkVertexInputAttributeDescription_array));
-
-    //position
-    vkVertexInputAttributeDescription_array[0].binding = 0; // binding index
-    vkVertexInputAttributeDescription_array[0].location = 0; // location index
-    vkVertexInputAttributeDescription_array[0].format = VK_FORMAT_R32G32B32_SFLOAT; // format of each vertex
-    vkVertexInputAttributeDescription_array[0].offset = offsetof(VertexData_Position, pos); // offset of each vertex
-
-
-    //  Declare and initialize VkPipelineVertexInputStateCreateInfo structure.
-    VkPipelineVertexInputStateCreateInfo vkPipelineVertexInputStateCreateInfo;
-    memset((void*)&vkPipelineVertexInputStateCreateInfo, 0, sizeof(VkPipelineVertexInputStateCreateInfo));
-    vkPipelineVertexInputStateCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
-    vkPipelineVertexInputStateCreateInfo.pNext = NULL;
-    vkPipelineVertexInputStateCreateInfo.flags = 0;
-    vkPipelineVertexInputStateCreateInfo.vertexBindingDescriptionCount = _ARRAYSIZE(vkVertexInputBindingDescription_array);
-    vkPipelineVertexInputStateCreateInfo.pVertexBindingDescriptions = vkVertexInputBindingDescription_array;
-    vkPipelineVertexInputStateCreateInfo.vertexAttributeDescriptionCount = _ARRAYSIZE(vkVertexInputAttributeDescription_array);
-    vkPipelineVertexInputStateCreateInfo.pVertexAttributeDescriptions = vkVertexInputAttributeDescription_array;
-
-    //  Declare and initialize VkPipelineInputAssemblyStateCreateInfo structure.
-    VkPipelineInputAssemblyStateCreateInfo vkPipelineInputAssemblyStateCreateInfo;
-    memset((void*)&vkPipelineInputAssemblyStateCreateInfo, 0, sizeof(VkPipelineInputAssemblyStateCreateInfo));
-    vkPipelineInputAssemblyStateCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
-    vkPipelineInputAssemblyStateCreateInfo.pNext = NULL;
-    vkPipelineInputAssemblyStateCreateInfo.flags = 0;
-    vkPipelineInputAssemblyStateCreateInfo.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST; // triangle list
-    vkPipelineInputAssemblyStateCreateInfo.primitiveRestartEnable = VK_FALSE; // no primitive restart
-
-
-    //  Declare and initialize VkPipelineRasterizationStateCreateInfo structure.
-    VkPipelineRasterizationStateCreateInfo vkPipelineRasterizationStateCreateInfo;
-    memset((void*)&vkPipelineRasterizationStateCreateInfo, 0, sizeof(VkPipelineRasterizationStateCreateInfo));
-    vkPipelineRasterizationStateCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO;
-    vkPipelineRasterizationStateCreateInfo.pNext = NULL;
-    vkPipelineRasterizationStateCreateInfo.flags = 0;
-    vkPipelineRasterizationStateCreateInfo.depthClampEnable = VK_FALSE; // no depth clamp
-    vkPipelineRasterizationStateCreateInfo.depthBiasEnable = VK_FALSE; // no depth bias
-    vkPipelineRasterizationStateCreateInfo.depthBiasConstantFactor = 0.0f; // no depth bias
-    vkPipelineRasterizationStateCreateInfo.depthBiasClamp = 0.0f; // no depth bias clamp
-    vkPipelineRasterizationStateCreateInfo.depthBiasSlopeFactor = 0.0f; // no depth bias slope factor
-    vkPipelineRasterizationStateCreateInfo.rasterizerDiscardEnable = VK_FALSE; // no rasterizer discard
-    vkPipelineRasterizationStateCreateInfo.polygonMode = VK_POLYGON_MODE_FILL; // fill mode
-    vkPipelineRasterizationStateCreateInfo.cullMode = VK_CULL_MODE_BACK_BIT; // back face culling
-    vkPipelineRasterizationStateCreateInfo.frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE; //  anti clockwise front face
-    vkPipelineRasterizationStateCreateInfo.lineWidth = 1.0f; // line width
-
-    // Color blend state
-    VkPipelineColorBlendAttachmentState vkPipelineColorBlendAttachmentState_array[1];
-    memset((void*)vkPipelineColorBlendAttachmentState_array, 0, sizeof(VkPipelineColorBlendAttachmentState) * _ARRAYSIZE(vkPipelineColorBlendAttachmentState_array));
-    vkPipelineColorBlendAttachmentState_array[0].blendEnable = VK_FALSE; // no blending
-    vkPipelineColorBlendAttachmentState_array[0].colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT; // all color components
-    //vkPipelineColorBlendAttachmentState_array[0].srcColorBlendFactor = VK_BLEND_FACTOR_ONE; // source color blend factor
-    //vkPipelineColorBlendAttachmentState_array[0].dstColorBlendFactor = VK_BLEND_FACTOR_ZERO; // destination color blend factor
-    //vkPipelineColorBlendAttachmentState_array[0].colorBlendOp = VK_BLEND_OP_ADD; // color blend operation
-    //vkPipelineColorBlendAttachmentState_array[0].srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE; // source alpha blend factor
-    //vkPipelineColorBlendAttachmentState_array[0].dstAlphaBlendFactor = VK_BLEND_FACTOR_ZERO; // destination alpha blend factor
-    //vkPipelineColorBlendAttachmentState_array[0].alphaBlendOp = VK_BLEND_OP_ADD; // alpha blend operation
-
-
-
-    //ColorBlendStateCreateInfo
-    VkPipelineColorBlendStateCreateInfo vkPipelineColorBlendStateCreateInfo;
-    memset((void*)&vkPipelineColorBlendStateCreateInfo, 0, sizeof(VkPipelineColorBlendStateCreateInfo));
-    vkPipelineColorBlendStateCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;
-    vkPipelineColorBlendStateCreateInfo.pNext = NULL;
-    vkPipelineColorBlendStateCreateInfo.flags = 0;
-    vkPipelineColorBlendStateCreateInfo.attachmentCount = _ARRAYSIZE(vkPipelineColorBlendAttachmentState_array);
-    vkPipelineColorBlendStateCreateInfo.pAttachments = vkPipelineColorBlendAttachmentState_array;
-    vkPipelineColorBlendStateCreateInfo.logicOpEnable = VK_FALSE; // no logic op
-
-    //viewport sciccor state
-    memset((void*)&vkViewport, 0, sizeof(VkViewport));
-    vkViewport.x = 0.0f;
-    vkViewport.y = 0.0f;
-    vkViewport.width = (float)vkExtent2D_Swapchain.width;
-    vkViewport.height = (float)vkExtent2D_Swapchain.height;
-    vkViewport.minDepth = 0.0f;
-    vkViewport.maxDepth = 1.0f;
-
-    memset((void*)&vkRect2D_Scissor, 0, sizeof(VkRect2D));
-    vkRect2D_Scissor.offset.x = 0;
-    vkRect2D_Scissor.offset.y = 0;
-    vkRect2D_Scissor.extent.width = vkExtent2D_Swapchain.width;
-    vkRect2D_Scissor.extent.height = vkExtent2D_Swapchain.height;
-
-    VkPipelineViewportStateCreateInfo vkPipelineViewportStateCreateInfo;
-    memset((void*)&vkPipelineViewportStateCreateInfo, 0, sizeof(VkPipelineViewportStateCreateInfo));
-    vkPipelineViewportStateCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO;
-    vkPipelineViewportStateCreateInfo.pNext = NULL;
-    vkPipelineViewportStateCreateInfo.flags = 0;
-    vkPipelineViewportStateCreateInfo.viewportCount = 1; // 1 viewport
-    vkPipelineViewportStateCreateInfo.pViewports = &vkViewport; // viewport
-    vkPipelineViewportStateCreateInfo.scissorCount = 1; // 1 scissor
-    vkPipelineViewportStateCreateInfo.pScissors = &vkRect2D_Scissor; // scissor
-
-    //// depth stencil state
-    //VkPipelineDepthStencilStateCreateInfo vkPipelineDepthStencilStateCreateInfo;   
-    //memset((void*)&vkPipelineDepthStencilStateCreateInfo, 0, sizeof(VkPipelineDepthStencilStateCreateInfo));
-    //vkPipelineDepthStencilStateCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
-    //vkPipelineDepthStencilStateCreateInfo.pNext = NULL;
-
-    //depth stencil state
-    VkPipelineDepthStencilStateCreateInfo vkPipelineDepthStencilStateCreateInfo;
-    memset((void*)&vkPipelineDepthStencilStateCreateInfo, 0, sizeof(VkPipelineDepthStencilStateCreateInfo));
-    vkPipelineDepthStencilStateCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
-    vkPipelineDepthStencilStateCreateInfo.pNext = NULL;
-    vkPipelineDepthStencilStateCreateInfo.flags = 0;
-    vkPipelineDepthStencilStateCreateInfo.depthTestEnable = VK_TRUE; // enable depth test
-    vkPipelineDepthStencilStateCreateInfo.depthWriteEnable = VK_TRUE; // enable depth write
-    vkPipelineDepthStencilStateCreateInfo.depthCompareOp = VK_COMPARE_OP_LESS; // depth compare operation
-    vkPipelineDepthStencilStateCreateInfo.depthBoundsTestEnable = VK_FALSE; // no depth bounds test
-    vkPipelineDepthStencilStateCreateInfo.stencilTestEnable = VK_FALSE; // no stencil test
-    //vkPipelineDepthStencilStateCreateInfo.front = {}; // no front stencil state
-    //vkPipelineDepthStencilStateCreateInfo.back = {}; // no back stencil state
-    vkPipelineDepthStencilStateCreateInfo.back.failOp = VK_STENCIL_OP_KEEP; // no back stencil state
-    vkPipelineDepthStencilStateCreateInfo.back.passOp = VK_STENCIL_OP_KEEP; // no back stencil state
-    vkPipelineDepthStencilStateCreateInfo.back.compareOp = VK_COMPARE_OP_ALWAYS; // no back stencil state
-
-    vkPipelineDepthStencilStateCreateInfo.front = vkPipelineDepthStencilStateCreateInfo.back; // use the same state for front and back
-
-    vkPipelineDepthStencilStateCreateInfo.minDepthBounds = 0.0f; // min depth bounds
-    vkPipelineDepthStencilStateCreateInfo.maxDepthBounds = 1.0f; // max depth bounds
-
-    //dynamic state (viewport, scissor ,depth bias ,blend constants, stensil mask,line width, etc)
-    //no dynamic state right now
-
-    //multisample state
-    VkPipelineMultisampleStateCreateInfo vkPipelineMultisampleStateCreateInfo;
-    memset((void*)&vkPipelineMultisampleStateCreateInfo, 0, sizeof(VkPipelineMultisampleStateCreateInfo));
-    vkPipelineMultisampleStateCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO;
-    vkPipelineMultisampleStateCreateInfo.pNext = NULL;
-    vkPipelineMultisampleStateCreateInfo.flags = 0;
-    vkPipelineMultisampleStateCreateInfo.rasterizationSamples = VK_SAMPLE_COUNT_1_BIT; // 1 sample
-    //vkPipelineMultisampleStateCreateInfo.sampleShadingEnable = VK_FALSE; // no sample shading
-    //vkPipelineMultisampleStateCreateInfo.minSampleShading = 0.0f; // no min sample shading
-    //vkPipelineMultisampleStateCreateInfo.pSampleMask = NULL; // no sample mask
-    //vkPipelineMultisampleStateCreateInfo.alphaToCoverageEnable = VK_FALSE; // no alpha to coverage
-    //vkPipelineMultisampleStateCreateInfo.alphaToOneEnable = VK_FALSE; // no alpha to one
-
-
-    //shader stage state
-    VkPipelineShaderStageCreateInfo vkPipelineShaderStageCreateInfo[2];
-    memset((void*)&vkPipelineShaderStageCreateInfo, 0, sizeof(VkPipelineShaderStageCreateInfo) * _ARRAYSIZE(vkPipelineShaderStageCreateInfo));
-    //vertex shader stage
-    vkPipelineShaderStageCreateInfo[0].sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
-    vkPipelineShaderStageCreateInfo[0].pNext = NULL;
-    vkPipelineShaderStageCreateInfo[0].flags = 0;
-    vkPipelineShaderStageCreateInfo[0].stage = VK_SHADER_STAGE_VERTEX_BIT; // vertex shader
-    vkPipelineShaderStageCreateInfo[0].module = vkShaderModule_whiteVertex_vs; // vertex shader module
-    vkPipelineShaderStageCreateInfo[0].pName = "main"; // entry point name
-    vkPipelineShaderStageCreateInfo[0].pSpecializationInfo = NULL; // no specialization info
-    //fragment shader stage
-    vkPipelineShaderStageCreateInfo[1].sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
-    vkPipelineShaderStageCreateInfo[1].pNext = NULL;
-    vkPipelineShaderStageCreateInfo[1].flags = 0;
-    vkPipelineShaderStageCreateInfo[1].stage = VK_SHADER_STAGE_FRAGMENT_BIT; // fragment shader
-    vkPipelineShaderStageCreateInfo[1].module = vkShaderModule_whiteVertex_fs; // fragment shader module
-    vkPipelineShaderStageCreateInfo[1].pName = "main"; // entry point name
-    vkPipelineShaderStageCreateInfo[1].pSpecializationInfo = NULL; // no specialization info
-
-    //tesselation state
-    //no tessellation state right now
-
-
-    //pipeline cache 
-    VkPipelineCacheCreateInfo vkPipelineCacheCreateInfo;
-    memset((void*)&vkPipelineCacheCreateInfo, 0, sizeof(VkPipelineCacheCreateInfo));
-    vkPipelineCacheCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_CACHE_CREATE_INFO;
-    vkPipelineCacheCreateInfo.pNext = NULL;
-    vkPipelineCacheCreateInfo.flags = 0;
-    vkPipelineCacheCreateInfo.initialDataSize = 0;
-    vkPipelineCacheCreateInfo.pInitialData = NULL;
-
-    VkPipelineCache vkPipelineCache;
-    vkResult = vkCreatePipelineCache(vkDevice, &vkPipelineCacheCreateInfo, NULL, &vkPipelineCache);
-    if (vkResult != VK_SUCCESS)
-    {
-        fprintf(gpFILE, "createGraphicsPipeline() : vkCreatePipelineCache() failed: %d .\n", vkResult);
-        return(vkResult);
-    }
-
-    //  Declare and initialize VkGraphicsPipelineCreateInfo structure.
-    VkGraphicsPipelineCreateInfo vkGraphicsPipelineCreateInfo;
-    memset((void*)&vkGraphicsPipelineCreateInfo, 0, sizeof(VkGraphicsPipelineCreateInfo));
-    vkGraphicsPipelineCreateInfo.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
-    vkGraphicsPipelineCreateInfo.pNext = NULL;
-    vkGraphicsPipelineCreateInfo.flags = 0;
-    vkGraphicsPipelineCreateInfo.pVertexInputState = &vkPipelineVertexInputStateCreateInfo;
-    vkGraphicsPipelineCreateInfo.pInputAssemblyState = &vkPipelineInputAssemblyStateCreateInfo;
-    vkGraphicsPipelineCreateInfo.pTessellationState = NULL; // no tessellation state
-    vkGraphicsPipelineCreateInfo.pViewportState = &vkPipelineViewportStateCreateInfo;
-    vkGraphicsPipelineCreateInfo.pRasterizationState = &vkPipelineRasterizationStateCreateInfo;
-    vkGraphicsPipelineCreateInfo.pMultisampleState = &vkPipelineMultisampleStateCreateInfo;
-    vkGraphicsPipelineCreateInfo.pDepthStencilState = &vkPipelineDepthStencilStateCreateInfo; // depth stencil state
-    vkGraphicsPipelineCreateInfo.pColorBlendState = &vkPipelineColorBlendStateCreateInfo;
-    vkGraphicsPipelineCreateInfo.pDynamicState = NULL; // no dynamic state
-    vkGraphicsPipelineCreateInfo.layout = vkPipelineLayout; // pipeline layout
-    vkGraphicsPipelineCreateInfo.renderPass = vkRenderPass; // render pass
-    vkGraphicsPipelineCreateInfo.subpass = 0; // subpass index
-    vkGraphicsPipelineCreateInfo.basePipelineHandle = VK_NULL_HANDLE; // no base pipeline
-    vkGraphicsPipelineCreateInfo.basePipelineIndex = -1; // no base pipeline index
-    vkGraphicsPipelineCreateInfo.stageCount = _ARRAYSIZE(vkPipelineShaderStageCreateInfo); // number of shader stages
-    vkGraphicsPipelineCreateInfo.pStages = vkPipelineShaderStageCreateInfo; // shader stages
-
-
-    //  Call vkCreateGraphicsPipelines() API to create the graphics pipeline.
-    vkResult = vkCreateGraphicsPipelines(vkDevice, vkPipelineCache, 1, &vkGraphicsPipelineCreateInfo, NULL, &vkPipeline_WhiteVertex);
-
-    if (vkResult != VK_SUCCESS)
-    {
-        fprintf(gpFILE, "createGraphicsPipeline() : vkCreateGraphicsPipelines() failed: %d .\n", vkResult);
-
-        //destroy pipeline cache
-        vkDestroyPipelineCache(vkDevice, vkPipelineCache, NULL);
-        vkPipelineCache = VK_NULL_HANDLE;
-
-        return(vkResult);
-    }
-
-    //destroy pipeline cache
-    vkDestroyPipelineCache(vkDevice, vkPipelineCache, NULL);
-    vkPipelineCache = VK_NULL_HANDLE;
-
-    return(vkResult);
-}
-
 VkResult createFramebuffers(void)
 {
     // local variables
@@ -8457,13 +7881,13 @@ void RenderColoredTriangle(uint32_t curIndex)
 
 
     // Bind the pipeline and descriptor sets
-    vkCmdBindPipeline(vkCommandBuffer_Array[curIndex], VK_PIPELINE_BIND_POINT_GRAPHICS, vkPipeline_PerVertexColor);
-    vkCmdBindDescriptorSets(vkCommandBuffer_Array[curIndex], VK_PIPELINE_BIND_POINT_GRAPHICS, vkPipelineLayout, 0, 1, &vkDescriptorSets_frameData[curIndex], 0, NULL);
+    vkCmdBindPipeline(vkCommandBuffer_Array[curIndex], VK_PIPELINE_BIND_POINT_GRAPHICS, gpGraphicsPipelines->ColoredVertex.vkPipeline);
+    vkCmdBindDescriptorSets(vkCommandBuffer_Array[curIndex], VK_PIPELINE_BIND_POINT_GRAPHICS, gpGraphicsPipelines->ColoredVertex.vkPipelineLayout, 0, 1, &vkDescriptorSets_frameData[curIndex], 0, NULL);
 
     // Push the model matrix
     vkCmdPushConstants(
         vkCommandBuffer_Array[curIndex],
-        vkPipelineLayout,
+        gpGraphicsPipelines->ColoredVertex.vkPipelineLayout,
         VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, // stages where the push constant will be used
         0,                                      // offset
         sizeof(PushConstants),                  // size
@@ -8488,13 +7912,13 @@ void RenderAxes(uint32_t curIndex)
     pushConstants.fFactor = 1.0f;
 
     // Bind the pipeline and descriptor sets
-    vkCmdBindPipeline(vkCommandBuffer_Array[curIndex], VK_PIPELINE_BIND_POINT_GRAPHICS, vkPipeline_PerVertexColor);
-    vkCmdBindDescriptorSets(vkCommandBuffer_Array[curIndex], VK_PIPELINE_BIND_POINT_GRAPHICS, vkPipelineLayout, 0, 1, &vkDescriptorSets_frameData[curIndex], 0, NULL);
+    vkCmdBindPipeline(vkCommandBuffer_Array[curIndex], VK_PIPELINE_BIND_POINT_GRAPHICS, gpGraphicsPipelines->ColoredVertex.vkPipeline);
+    vkCmdBindDescriptorSets(vkCommandBuffer_Array[curIndex], VK_PIPELINE_BIND_POINT_GRAPHICS, gpGraphicsPipelines->ColoredVertex.vkPipelineLayout, 0, 1, &vkDescriptorSets_frameData[curIndex], 0, NULL);
 
     // Push the model matrix
     vkCmdPushConstants(
         vkCommandBuffer_Array[curIndex],
-        vkPipelineLayout,
+        gpGraphicsPipelines->ColoredVertex.vkPipelineLayout,
         VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, // stages where the push constant will be used
         0,                                      // offset
         sizeof(PushConstants),                  // size
@@ -8635,7 +8059,7 @@ void RenderSuzanne(uint32_t curIndex)
 void RenderPBR_Basic(uint32_t curIndex)
 {
     static float fAngle = 0.0f;
-    fAngle += MyWin32::fDeltaTime * 100.0f; // Increment the angle for rotation
+    fAngle += MyWin32::fDeltaTime * 20.0f; // Increment the angle for rotation
     if (fAngle >= 360.0f)
         fAngle = fAngle - 360.0f; // Reset the angle if it exceeds 360 degrees
 
@@ -8762,50 +8186,6 @@ VkResult createGraphicsPipelines(void)
     VkResult vkResult = VK_SUCCESS;
     // code
 
-    vkResult = createGraphicsPipeline_PerVertexColor();
-    if (vkResult != VK_SUCCESS)
-    {
-        fprintf(gpFILE, "createGraphicsPipelines() : createGraphicsPipeline_PerVertexColor() failed: %d.\n", vkResult);
-        return vkResult;
-    }
-
-    vkResult = createGraphicsPipeline_WhiteVertex();
-    if (vkResult != VK_SUCCESS)
-    {
-        fprintf(gpFILE, "createGraphicsPipelines() : createGraphicsPipeline_WhiteVertex() failed: %d.\n", vkResult);
-        return vkResult;
-    }
-
-    //vkResult = createGraphicsPipeline_PreviewImage();
-    //if (vkResult != VK_SUCCESS)
-    //{
-    //    fprintf(gpFILE, "createGraphicsPipelines() : createGraphicsPipeline_PreviewImage() failed: %d.\n", vkResult);
-    //    return vkResult;
-    //}
-
-    //vkResult = createGraphicsPipeline_Impostor();
-    //if (vkResult != VK_SUCCESS)
-    //{
-    //    fprintf(gpFILE, "createGraphicsPipelines() : createGraphicsPipeline_Impostor() failed: %d.\n", vkResult);
-    //    return vkResult;
-    //}
-
-    ////phong
-    //vkResult = createGraphicsPipeline_Phong();
-    //if (vkResult != VK_SUCCESS)
-    //{
-    //    fprintf(gpFILE, "createGraphicsPipelines() : createGraphicsPipeline_Phong() failed: %d.\n", vkResult);
-    //    return vkResult;
-    //}
-
-    ////PBR
-    //vkResult = createGraphicsPipeline_PBR();
-    //if (vkResult != VK_SUCCESS)
-    //{
-    //    fprintf(gpFILE, "createGraphicsPipelines() : createGraphicsPipeline_PBR() failed: %d.\n", vkResult);
-    //    return vkResult;
-    //}
-
     if (gpGraphicsPipelines)
     {
 		vkResult = gpGraphicsPipelines->createPipelines();
@@ -8833,23 +8213,6 @@ VkResult createGraphicsPipelines(void)
 
 void destroyGraphicsPipelines(void)
 {
-    //if (vkPipeline != VK_NULL_HANDLE)
-    //{
-    //	vkDestroyPipeline(vkDevice, vkPipeline, NULL);
-    //	vkPipeline = VK_NULL_HANDLE;
-    //}
-
-    if (vkPipeline_WhiteVertex != VK_NULL_HANDLE)
-    {
-        vkDestroyPipeline(vkDevice, vkPipeline_WhiteVertex, NULL);
-        vkPipeline_WhiteVertex = VK_NULL_HANDLE;
-    }
-
-    if (vkPipeline_PerVertexColor != VK_NULL_HANDLE)
-    {
-        vkDestroyPipeline(vkDevice, vkPipeline_PerVertexColor, NULL);
-        vkPipeline_PerVertexColor = VK_NULL_HANDLE;
-    }
 
     if(gpGraphicsPipelines)
     {

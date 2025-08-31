@@ -19,7 +19,7 @@ Material_BasicPBR::Material_BasicPBR(VkDescriptorSetLayout layout,const char* pa
 
     char normalPath[512]; // make sure it's big enough
     std::snprintf(normalPath, sizeof(normalPath), "%s%s", path, "Normal.dds");
-    res = loadTextureData_dds_c_bc7(&Normal, normalPath, VK_FORMAT_BC7_SRGB_BLOCK);
+    res = loadTextureData_dds_c_bc5_normal(&Normal, normalPath, VK_FORMAT_BC5_UNORM_BLOCK);
     if (res != VK_SUCCESS && vkResult == VK_SUCCESS)
     {
         fprintf(gpFILE, "Failed to load normal texture\n");
@@ -133,19 +133,19 @@ VkResult Material_BasicPBR::createDescriptorSet(void)
     // Declare and initialize VkDescriptorImageInfo structure which will have information about the albedo image.
     VkDescriptorImageInfo vkDescriptorImageInfo_Albedo;
     memset((void*)&vkDescriptorImageInfo_Albedo, 0, sizeof(VkDescriptorImageInfo));
-    vkDescriptorImageInfo_Albedo.sampler = vkSampler_LinearClamp; // sampler for the albedo image
+    vkDescriptorImageInfo_Albedo.sampler = vkSampler_LinearClampAniso; // sampler for the albedo image
     vkDescriptorImageInfo_Albedo.imageView = Albedo.vkImageView; // image view for the albedo image
     vkDescriptorImageInfo_Albedo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL; // image layout for the albedo image
     // Declare and initialize VkDescriptorImageInfo structure which will have information about the normal image.
     VkDescriptorImageInfo vkDescriptorImageInfo_Normal;
     memset((void*)&vkDescriptorImageInfo_Normal, 0, sizeof(VkDescriptorImageInfo));
-    vkDescriptorImageInfo_Normal.sampler = vkSampler_LinearClamp; // sampler for the normal image
+    vkDescriptorImageInfo_Normal.sampler = vkSampler_LinearClampAniso; // sampler for the normal image
     vkDescriptorImageInfo_Normal.imageView = Normal.vkImageView; // image view for the normal image
     vkDescriptorImageInfo_Normal.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL; // image layout for the normal image
 
     VkDescriptorImageInfo vkDescriptorImageInfo_ORX;
     memset((void*)&vkDescriptorImageInfo_ORX, 0, sizeof(VkDescriptorImageInfo));
-    vkDescriptorImageInfo_ORX.sampler = vkSampler_LinearClamp; // sampler for the normal image
+    vkDescriptorImageInfo_ORX.sampler = vkSampler_LinearClampAniso; // sampler for the normal image
     vkDescriptorImageInfo_ORX.imageView = ORX.vkImageView; // image view for the normal image
     vkDescriptorImageInfo_ORX.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL; // image layout for the normal image
 
@@ -213,6 +213,14 @@ static inline uint64_t bc7_subresource_size(uint32_t width, uint32_t height)
     uint32_t blocksX = (width + 3) / 4; // ceil(width/4)
     uint32_t blocksY = (height + 3) / 4; // ceil(height/4)
     return (uint64_t)blocksX * (uint64_t)blocksY * 16ULL;
+}
+
+
+static inline uint64_t bc5_subresource_size(uint32_t width, uint32_t height)
+{
+    uint32_t blocksX = (width + 3) / 4; // ceil(width/4)
+    uint32_t blocksY = (height + 3) / 4; // ceil(height/4)
+    return (uint64_t)blocksX * (uint64_t)blocksY * 16ULL; // BC5 uses 16 bytes per 4x4 block (two 8-byte channels)
 }
 
 VkResult Material_BasicPBR::loadTextureData_dds_c_bc7(ImageData* imageData, const char* filename, VkFormat format)
@@ -646,3 +654,434 @@ VkResult Material_BasicPBR::loadTextureData_dds_c_bc7(ImageData* imageData, cons
     return VK_SUCCESS;
 }
 
+
+VkResult Material_BasicPBR::loadTextureData_dds_c_bc5_normal(ImageData* imageData, const char* filename, VkFormat format)
+{
+    if (!imageData || !filename) return VK_ERROR_INITIALIZATION_FAILED;
+
+    // Validate that caller passed a BC5 format (UNORM or SNORM)
+    if (!(format == VK_FORMAT_BC5_UNORM_BLOCK || format == VK_FORMAT_BC5_SNORM_BLOCK)) {
+        fprintf(gpFILE, "loadTextureData_dds_c_bc5_normal(): format is not BC5 (format=%d)\n", (int)format);
+        return VK_ERROR_FORMAT_NOT_SUPPORTED;
+    }
+
+    DDSFile dds;
+    const auto res = dds.Load(filename);
+    if (res != Result::Success) {
+        fprintf(gpFILE, "loadTextureData_dds_c_bc5_normal(): tinyddsloader failed to load '%s' (res=%d)\n", filename, static_cast<int>(res));
+        return VK_ERROR_INITIALIZATION_FAILED;
+    }
+
+    const uint32_t arrayCount = dds.GetArraySize();
+    const uint32_t mipCount = dds.GetMipCount();
+    const uint32_t baseWidth = dds.GetWidth();
+    const uint32_t baseHeight = dds.GetHeight();
+    const uint32_t depth = dds.GetDepth();
+
+    if (arrayCount == 0 || mipCount == 0) {
+        fprintf(gpFILE, "loadTextureData_dds_c_bc5_normal(): empty DDS '%s'\n", filename);
+        return VK_ERROR_INITIALIZATION_FAILED;
+    }
+
+    const size_t subCount = (size_t)arrayCount * (size_t)mipCount;
+
+    // Subresource bookkeeping (C-style)
+    typedef struct { uint32_t mip; uint32_t layer; uint64_t rawSize; uint64_t paddedSize; } SubInfo;
+    SubInfo* subs = (SubInfo*)malloc(sizeof(SubInfo) * subCount);
+    if (!subs) {
+        fprintf(gpFILE, "loadTextureData_dds_c_bc5_normal(): malloc subs failed\n");
+        return VK_ERROR_OUT_OF_HOST_MEMORY;
+    }
+
+    // Compute raw and padded sizes using bc5_subresource_size()
+    uint64_t totalSize = 0;
+    size_t idx = 0;
+    for (uint32_t layer = 0; layer < arrayCount; ++layer) {
+        for (uint32_t mip = 0; mip < mipCount; ++mip) {
+            const DDSFile::ImageData* img = dds.GetImageData(mip, layer);
+            if (!img) {
+                fprintf(gpFILE, "loadTextureData_dds_c_bc5_normal(): missing ImageData layer=%u mip=%u\n", layer, mip);
+                free(subs);
+                return VK_ERROR_INITIALIZATION_FAILED;
+            }
+
+            // Use loader's reported mip dims if present; fallback to base >> mip with min 1
+            uint32_t mipW = img->m_width ? img->m_width : (baseWidth >> mip ? (baseWidth >> mip) : 1u);
+            uint32_t mipH = img->m_height ? img->m_height : (baseHeight >> mip ? (baseHeight >> mip) : 1u);
+
+            uint64_t raw = bc5_subresource_size(mipW, mipH);
+            uint64_t padded = (raw + 3ull) & ~3ull; // pad to 4 byte boundary for bufferOffset
+
+            subs[idx].mip = mip;
+            subs[idx].layer = layer;
+            subs[idx].rawSize = raw;
+            subs[idx].paddedSize = padded;
+            totalSize += padded;
+            ++idx;
+        }
+    }
+
+    if (totalSize == 0) {
+        fprintf(gpFILE, "loadTextureData_dds_c_bc5_normal(): totalSize == 0 for '%s'\n", filename);
+        free(subs);
+        return VK_ERROR_INITIALIZATION_FAILED;
+    }
+
+    // Create staging buffer
+    VkBuffer stagingBuffer = VK_NULL_HANDLE;
+    VkDeviceMemory stagingMemory = VK_NULL_HANDLE;
+
+    VkBufferCreateInfo bufInfo = {};
+    bufInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
+    bufInfo.size = totalSize;
+    bufInfo.usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
+    bufInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+
+    VkResult vkRes = vkCreateBuffer(vkDevice, &bufInfo, nullptr, &stagingBuffer);
+    if (vkRes != VK_SUCCESS) {
+        fprintf(gpFILE, "loadTextureData_dds_c_bc5_normal(): vkCreateBuffer failed (%d)\n", vkRes);
+        free(subs);
+        return vkRes;
+    }
+
+    VkMemoryRequirements memReq = {};
+    vkGetBufferMemoryRequirements(vkDevice, stagingBuffer, &memReq);
+
+    VkMemoryAllocateInfo allocInfo = {};
+    allocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
+    allocInfo.allocationSize = memReq.size;
+    allocInfo.memoryTypeIndex = findMemoryType(memReq.memoryTypeBits,
+        VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+    if (allocInfo.memoryTypeIndex == UINT32_MAX) {
+        fprintf(gpFILE, "loadTextureData_dds_c_bc5_normal(): findMemoryType failed for staging\n");
+        vkDestroyBuffer(vkDevice, stagingBuffer, nullptr);
+        free(subs);
+        return VK_ERROR_MEMORY_MAP_FAILED;
+    }
+
+    vkRes = vkAllocateMemory(vkDevice, &allocInfo, nullptr, &stagingMemory);
+    if (vkRes != VK_SUCCESS) {
+        fprintf(gpFILE, "loadTextureData_dds_c_bc5_normal(): vkAllocateMemory failed (%d)\n", vkRes);
+        vkDestroyBuffer(vkDevice, stagingBuffer, nullptr);
+        free(subs);
+        return vkRes;
+    }
+
+    vkRes = vkBindBufferMemory(vkDevice, stagingBuffer, stagingMemory, 0);
+    if (vkRes != VK_SUCCESS) {
+        fprintf(gpFILE, "loadTextureData_dds_c_bc5_normal(): vkBindBufferMemory failed (%d)\n", vkRes);
+        vkFreeMemory(vkDevice, stagingMemory, nullptr);
+        vkDestroyBuffer(vkDevice, stagingBuffer, nullptr);
+        free(subs);
+        return vkRes;
+    }
+
+    // Map and copy BC5 subresources into staging (use bc5_subresource_size)
+    void* mapped = NULL;
+    vkRes = vkMapMemory(vkDevice, stagingMemory, 0, totalSize, 0, &mapped);
+    if (vkRes != VK_SUCCESS) {
+        fprintf(gpFILE, "loadTextureData_dds_c_bc5_normal(): vkMapMemory failed (%d)\n", vkRes);
+        vkFreeMemory(vkDevice, stagingMemory, nullptr);
+        vkDestroyBuffer(vkDevice, stagingBuffer, nullptr);
+        free(subs);
+        return vkRes;
+    }
+
+    uint64_t offset = 0;
+    idx = 0;
+    for (uint32_t layer = 0; layer < arrayCount; ++layer) {
+        for (uint32_t mip = 0; mip < mipCount; ++mip) {
+            const DDSFile::ImageData* img = dds.GetImageData(mip, layer);
+            // compute size (should match earlier)
+            uint32_t mipW = img->m_width ? img->m_width : (baseWidth >> mip ? (baseWidth >> mip) : 1u);
+            uint32_t mipH = img->m_height ? img->m_height : (baseHeight >> mip ? (baseHeight >> mip) : 1u);
+            uint64_t size = bc5_subresource_size(mipW, mipH);
+
+            if (!img->m_mem) {
+                fprintf(gpFILE, "loadTextureData_dds_c_bc5_normal(): null m_mem for layer=%u mip=%u\n", layer, mip);
+                vkUnmapMemory(vkDevice, stagingMemory);
+                vkFreeMemory(vkDevice, stagingMemory, nullptr);
+                vkDestroyBuffer(vkDevice, stagingBuffer, nullptr);
+                free(subs);
+                return VK_ERROR_INITIALIZATION_FAILED;
+            }
+
+            // copy computed number of bytes from loader pointer
+            memcpy((uint8_t*)mapped + offset, img->m_mem, (size_t)size);
+
+            // pad to paddedSize if required
+            if (subs[idx].paddedSize > size) {
+                memset((uint8_t*)mapped + offset + size, 0, (size_t)(subs[idx].paddedSize - size));
+            }
+
+            offset += subs[idx].paddedSize;
+            ++idx;
+        }
+    }
+
+    vkUnmapMemory(vkDevice, stagingMemory);
+
+    // Create VkImage with the DDS mipCount / arrayCount
+    VkImageCreateInfo imageInfo = {};
+    imageInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
+    imageInfo.imageType = VK_IMAGE_TYPE_2D;
+    imageInfo.format = format; // BC5_UNORM or BC5_SNORM as validated earlier
+    imageInfo.extent.width = baseWidth;
+    imageInfo.extent.height = baseHeight;
+    imageInfo.extent.depth = 1;
+    imageInfo.mipLevels = mipCount;
+    imageInfo.arrayLayers = arrayCount;
+    imageInfo.samples = VK_SAMPLE_COUNT_1_BIT;
+    imageInfo.tiling = VK_IMAGE_TILING_OPTIMAL;
+    imageInfo.usage = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
+    imageInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+    imageInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+    imageInfo.flags = (arrayCount == 6) ? VK_IMAGE_CREATE_CUBE_COMPATIBLE_BIT : 0;
+
+    VkImage image = VK_NULL_HANDLE;
+    vkRes = vkCreateImage(vkDevice, &imageInfo, nullptr, &image);
+    if (vkRes != VK_SUCCESS) {
+        fprintf(gpFILE, "loadTextureData_dds_c_bc5_normal(): vkCreateImage failed (%d)\n", vkRes);
+        vkFreeMemory(vkDevice, stagingMemory, nullptr);
+        vkDestroyBuffer(vkDevice, stagingBuffer, nullptr);
+        free(subs);
+        return vkRes;
+    }
+
+    VkMemoryRequirements imageMemReq = {};
+    vkGetImageMemoryRequirements(vkDevice, image, &imageMemReq);
+
+    VkMemoryAllocateInfo imageAlloc = {};
+    imageAlloc.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
+    imageAlloc.allocationSize = imageMemReq.size;
+    imageAlloc.memoryTypeIndex = findMemoryType(imageMemReq.memoryTypeBits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+    if (imageAlloc.memoryTypeIndex == UINT32_MAX) {
+        fprintf(gpFILE, "loadTextureData_dds_c_bc5_normal(): findMemoryType failed for image\n");
+        vkDestroyImage(vkDevice, image, nullptr);
+        vkFreeMemory(vkDevice, stagingMemory, nullptr);
+        vkDestroyBuffer(vkDevice, stagingBuffer, nullptr);
+        free(subs);
+        return VK_ERROR_MEMORY_MAP_FAILED;
+    }
+
+    VkDeviceMemory imageMemory = VK_NULL_HANDLE;
+    vkRes = vkAllocateMemory(vkDevice, &imageAlloc, nullptr, &imageMemory);
+    if (vkRes != VK_SUCCESS) {
+        fprintf(gpFILE, "loadTextureData_dds_c_bc5_normal(): vkAllocateMemory(image) failed (%d)\n", vkRes);
+        vkDestroyImage(vkDevice, image, nullptr);
+        vkFreeMemory(vkDevice, stagingMemory, nullptr);
+        vkDestroyBuffer(vkDevice, stagingBuffer, nullptr);
+        free(subs);
+        return vkRes;
+    }
+
+    vkRes = vkBindImageMemory(vkDevice, image, imageMemory, 0);
+    if (vkRes != VK_SUCCESS) {
+        fprintf(gpFILE, "loadTextureData_dds_c_bc5_normal(): vkBindImageMemory failed (%d)\n", vkRes);
+        vkFreeMemory(vkDevice, imageMemory, nullptr);
+        vkDestroyImage(vkDevice, image, nullptr);
+        vkFreeMemory(vkDevice, stagingMemory, nullptr);
+        vkDestroyBuffer(vkDevice, stagingBuffer, nullptr);
+        free(subs);
+        return vkRes;
+    }
+
+    // Command buffer: transition, copy, transition
+    VkCommandBufferAllocateInfo cmdAlloc = {};
+    cmdAlloc.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+    cmdAlloc.commandPool = vkCommandPool;
+    cmdAlloc.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+    cmdAlloc.commandBufferCount = 1;
+
+    VkCommandBuffer cmd = VK_NULL_HANDLE;
+    vkRes = vkAllocateCommandBuffers(vkDevice, &cmdAlloc, &cmd);
+    if (vkRes != VK_SUCCESS) {
+        fprintf(gpFILE, "loadTextureData_dds_c_bc5_normal(): vkAllocateCommandBuffers failed (%d)\n", vkRes);
+        vkFreeMemory(vkDevice, imageMemory, nullptr);
+        vkDestroyImage(vkDevice, image, nullptr);
+        vkFreeMemory(vkDevice, stagingMemory, nullptr);
+        vkDestroyBuffer(vkDevice, stagingBuffer, nullptr);
+        free(subs);
+        return vkRes;
+    }
+
+    VkCommandBufferBeginInfo beginInfo = {};
+    beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+    beginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
+    vkRes = vkBeginCommandBuffer(cmd, &beginInfo);
+    if (vkRes != VK_SUCCESS) {
+        fprintf(gpFILE, "loadTextureData_dds_c_bc5_normal(): vkBeginCommandBuffer failed (%d)\n", vkRes);
+        vkFreeCommandBuffers(vkDevice, vkCommandPool, 1, &cmd);
+        vkFreeMemory(vkDevice, imageMemory, nullptr);
+        vkDestroyImage(vkDevice, image, nullptr);
+        vkFreeMemory(vkDevice, stagingMemory, nullptr);
+        vkDestroyBuffer(vkDevice, stagingBuffer, nullptr);
+        free(subs);
+        return vkRes;
+    }
+
+    VkImageMemoryBarrier barrierToTransfer = {};
+    barrierToTransfer.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+    barrierToTransfer.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+    barrierToTransfer.newLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+    barrierToTransfer.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+    barrierToTransfer.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+    barrierToTransfer.image = image;
+    barrierToTransfer.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+    barrierToTransfer.subresourceRange.baseMipLevel = 0;
+    barrierToTransfer.subresourceRange.levelCount = mipCount;
+    barrierToTransfer.subresourceRange.baseArrayLayer = 0;
+    barrierToTransfer.subresourceRange.layerCount = arrayCount;
+    barrierToTransfer.srcAccessMask = 0;
+    barrierToTransfer.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+
+    vkCmdPipelineBarrier(cmd,
+        VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT,
+        0, 0, nullptr, 0, nullptr, 1, &barrierToTransfer);
+
+    // Build copy regions (C array)
+    VkBufferImageCopy* copies = (VkBufferImageCopy*)malloc(sizeof(VkBufferImageCopy) * subCount);
+    if (!copies) {
+        fprintf(gpFILE, "loadTextureData_dds_c_bc5_normal(): malloc copies failed\n");
+        vkFreeCommandBuffers(vkDevice, vkCommandPool, 1, &cmd);
+        vkFreeMemory(vkDevice, imageMemory, nullptr);
+        vkDestroyImage(vkDevice, image, nullptr);
+        vkFreeMemory(vkDevice, stagingMemory, nullptr);
+        vkDestroyBuffer(vkDevice, stagingBuffer, nullptr);
+        free(subs);
+        return VK_ERROR_OUT_OF_HOST_MEMORY;
+    }
+
+    offset = 0;
+    idx = 0;
+    for (uint32_t layer = 0; layer < arrayCount; ++layer) {
+        for (uint32_t mip = 0; mip < mipCount; ++mip) {
+            const DDSFile::ImageData* img = dds.GetImageData(mip, layer);
+            VkBufferImageCopy region = {};
+            region.bufferOffset = offset;
+            region.bufferRowLength = 0;
+            region.bufferImageHeight = 0;
+            region.imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+            region.imageSubresource.mipLevel = mip;
+            region.imageSubresource.baseArrayLayer = layer;
+            region.imageSubresource.layerCount = 1;
+            region.imageOffset = { 0,0,0 };
+            region.imageExtent = { img->m_width ? img->m_width : (baseWidth >> mip ? (baseWidth >> mip) : 1u),
+                                   img->m_height ? img->m_height : (baseHeight >> mip ? (baseHeight >> mip) : 1u),
+                                   img->m_depth ? img->m_depth : 1u };
+            copies[idx] = region;
+            offset += subs[idx].paddedSize;
+            ++idx;
+        }
+    }
+
+    vkCmdCopyBufferToImage(cmd, stagingBuffer, image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+        (uint32_t)subCount, copies);
+
+    VkImageMemoryBarrier barrierToReadable = barrierToTransfer;
+    barrierToReadable.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+    barrierToReadable.newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+    barrierToReadable.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+    barrierToReadable.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+
+    vkCmdPipelineBarrier(cmd,
+        VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
+        0, 0, nullptr, 0, nullptr, 1, &barrierToReadable);
+
+    // Finish & submit
+    vkRes = vkEndCommandBuffer(cmd);
+    if (vkRes != VK_SUCCESS) {
+        fprintf(gpFILE, "loadTextureData_dds_c_bc5_normal(): vkEndCommandBuffer failed (%d)\n", vkRes);
+        free(copies);
+        free(subs);
+        vkFreeCommandBuffers(vkDevice, vkCommandPool, 1, &cmd);
+        vkFreeMemory(vkDevice, imageMemory, nullptr);
+        vkDestroyImage(vkDevice, image, nullptr);
+        vkFreeMemory(vkDevice, stagingMemory, nullptr);
+        vkDestroyBuffer(vkDevice, stagingBuffer, nullptr);
+        return vkRes;
+    }
+
+    VkSubmitInfo submit = {};
+    submit.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+    submit.commandBufferCount = 1;
+    submit.pCommandBuffers = &cmd;
+
+    vkRes = vkQueueSubmit(vkQueue, 1, &submit, VK_NULL_HANDLE);
+    if (vkRes != VK_SUCCESS) {
+        fprintf(gpFILE, "loadTextureData_dds_c_bc5_normal(): vkQueueSubmit failed (%d)\n", vkRes);
+        free(copies);
+        free(subs);
+        vkFreeCommandBuffers(vkDevice, vkCommandPool, 1, &cmd);
+        vkFreeMemory(vkDevice, imageMemory, nullptr);
+        vkDestroyImage(vkDevice, image, nullptr);
+        vkFreeMemory(vkDevice, stagingMemory, nullptr);
+        vkDestroyBuffer(vkDevice, stagingBuffer, nullptr);
+        return vkRes;
+    }
+
+    vkRes = vkQueueWaitIdle(vkQueue);
+    if (vkRes != VK_SUCCESS) {
+        fprintf(gpFILE, "loadTextureData_dds_c_bc5_normal(): vkQueueWaitIdle failed (%d)\n", vkRes);
+        free(copies);
+        free(subs);
+        vkFreeCommandBuffers(vkDevice, vkCommandPool, 1, &cmd);
+        vkFreeMemory(vkDevice, imageMemory, nullptr);
+        vkDestroyImage(vkDevice, image, nullptr);
+        vkFreeMemory(vkDevice, stagingMemory, nullptr);
+        vkDestroyBuffer(vkDevice, stagingBuffer, nullptr);
+        return vkRes;
+    }
+
+    // free command buffer
+    vkFreeCommandBuffers(vkDevice, vkCommandPool, 1, &cmd);
+
+    // Create image view
+    VkImageViewCreateInfo viewInfo = {};
+    viewInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+    viewInfo.image = image;
+    if (arrayCount == 1) viewInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
+    else if (arrayCount == 6 && (imageInfo.flags & VK_IMAGE_CREATE_CUBE_COMPATIBLE_BIT)) viewInfo.viewType = VK_IMAGE_VIEW_TYPE_CUBE;
+    else viewInfo.viewType = VK_IMAGE_VIEW_TYPE_2D_ARRAY;
+    viewInfo.format = format;
+    viewInfo.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+    viewInfo.subresourceRange.baseMipLevel = 0;
+    viewInfo.subresourceRange.levelCount = mipCount;
+    viewInfo.subresourceRange.baseArrayLayer = 0;
+    viewInfo.subresourceRange.layerCount = arrayCount;
+
+    VkImageView imageView = VK_NULL_HANDLE;
+    vkRes = vkCreateImageView(vkDevice, &viewInfo, nullptr, &imageView);
+    if (vkRes != VK_SUCCESS) {
+        fprintf(gpFILE, "loadTextureData_dds_c_bc5_normal(): vkCreateImageView failed (%d)\n", vkRes);
+        free(copies);
+        free(subs);
+        vkFreeMemory(vkDevice, imageMemory, nullptr);
+        vkDestroyImage(vkDevice, image, nullptr);
+        vkFreeMemory(vkDevice, stagingMemory, nullptr);
+        vkDestroyBuffer(vkDevice, stagingBuffer, nullptr);
+        return vkRes;
+    }
+
+    // cleanup staging
+    vkDestroyBuffer(vkDevice, stagingBuffer, nullptr);
+    vkFreeMemory(vkDevice, stagingMemory, nullptr);
+
+    // fill output
+    imageData->vkImage = image;
+    imageData->vkDeviceMemory = imageMemory;
+    imageData->vkImageView = imageView;
+    // imageData->width = baseWidth;
+    // imageData->height = baseHeight;
+    // imageData->mipLevels = mipCount;
+    // imageData->arrayLayers = arrayCount;
+
+    fprintf(gpFILE, "loadTextureData_dds_c_bc5_normal(): Loaded '%s' w=%u h=%u mips=%u layers=%u (BC5)\n",
+        filename, baseWidth, baseHeight, mipCount, arrayCount);
+
+    // free temporaries
+    free(copies);
+    free(subs);
+
+    return VK_SUCCESS;
+}

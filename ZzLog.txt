@@ -46,7 +46,7 @@ loadTextureData() : Texture image loaded successfully.
 loadTextureData_dds_c_bc7(): Loaded 'Resources/Impostors/BlackAlder_Field_02/T_Impostor_BaseColor_Field_02_Summer.dds' w=4096 h=4096 mips=1 layers=1 (BC7)
 loadTextureData_dds_c_bc7(): Loaded 'Resources/Impostors/BlackAlder_Field_02/T_Impostor_Normal_Field_02_Summer.dds' w=4096 h=4096 mips=13 layers=1 (BC7)
 loadTextureData_dds_c_bc7(): Loaded 'Resources/PBR_Materials/T_omfr20_4K/Albedo.dds' w=4096 h=4096 mips=13 layers=1 (BC7)
-loadTextureData_dds_c_bc7(): Loaded 'Resources/PBR_Materials/T_omfr20_4K/Normal.dds' w=4096 h=4096 mips=13 layers=1 (BC7)
+loadTextureData_dds_c_bc5_normal(): Loaded 'Resources/PBR_Materials/T_omfr20_4K/Normal.dds' w=4096 h=4096 mips=13 layers=1 (BC5)
 loadTextureData_dds_c_bc7(): Loaded 'Resources/PBR_Materials/T_omfr20_4K/ORX.dds' w=4096 h=4096 mips=13 layers=1 (BC7)
 initialize() : initialize complete.
 -------------------------------------------------------------------------------------
@@ -61,16 +61,6 @@ createSwapchain() : minImageCount = 2, maxImageCount = 8
 createSwapchain() : (1) Swapchain Image width x height = 3840 x 2160
 createImagesAndImageViews() : gives swapchain image count = 2
 uninitialize() : ImGui uninitialization is done.
-NDT_Validation: Validation 0 = Validation Error: [ VUID-vkDestroyDevice-device-05137 ] Object 0: handle = 0xee24d0000000059, type = VK_OBJECT_TYPE_PIPELINE_LAYOUT; | MessageID = 0x4872eaa0 | vkDestroyDevice(): OBJ ERROR : For VkDevice 0x1fc87f09d10[], VkPipelineLayout 0xee24d0000000059[] has not been destroyed.
-The Vulkan spec states: All child objects created on device must have been destroyed prior to destroying device (https://vulkan.lunarg.com/doc/view/1.4.304.0/windows/1.4-extensions/vkspec.html#VUID-vkDestroyDevice-device-05137) 
-NDT_Validation: Validation 0 = Validation Error: [ VUID-vkDestroyDevice-device-05137 ] Object 0: handle = 0x73a850000000004d, type = VK_OBJECT_TYPE_PIPELINE_LAYOUT; | MessageID = 0x4872eaa0 | vkDestroyDevice(): OBJ ERROR : For VkDevice 0x1fc87f09d10[], VkPipelineLayout 0x73a850000000004d[] has not been destroyed.
-The Vulkan spec states: All child objects created on device must have been destroyed prior to destroying device (https://vulkan.lunarg.com/doc/view/1.4.304.0/windows/1.4-extensions/vkspec.html#VUID-vkDestroyDevice-device-05137) 
-NDT_Validation: Validation 0 = Validation Error: [ VUID-vkDestroyDevice-device-05137 ] Object 0: handle = 0x4868e6000000005a, type = VK_OBJECT_TYPE_PIPELINE_LAYOUT; | MessageID = 0x4872eaa0 | vkDestroyDevice(): OBJ ERROR : For VkDevice 0x1fc87f09d10[], VkPipelineLayout 0x4868e6000000005a[] has not been destroyed.
-The Vulkan spec states: All child objects created on device must have been destroyed prior to destroying device (https://vulkan.lunarg.com/doc/view/1.4.304.0/windows/1.4-extensions/vkspec.html#VUID-vkDestroyDevice-device-05137) 
-NDT_Validation: Validation 0 = Validation Error: [ VUID-vkDestroyDevice-device-05137 ] Object 0: handle = 0x6dcc3f000000005b, type = VK_OBJECT_TYPE_PIPELINE_LAYOUT; | MessageID = 0x4872eaa0 | vkDestroyDevice(): OBJ ERROR : For VkDevice 0x1fc87f09d10[], VkPipelineLayout 0x6dcc3f000000005b[] has not been destroyed.
-The Vulkan spec states: All child objects created on device must have been destroyed prior to destroying device (https://vulkan.lunarg.com/doc/view/1.4.304.0/windows/1.4-extensions/vkspec.html#VUID-vkDestroyDevice-device-05137) 
-NDT_Validation: Validation 0 = Validation Error: [ VUID-vkDestroyDevice-device-05137 ] Object 0: handle = 0x625f640000000058, type = VK_OBJECT_TYPE_PIPELINE_LAYOUT; | MessageID = 0x4872eaa0 | vkDestroyDevice(): OBJ ERROR : For VkDevice 0x1fc87f09d10[], VkPipelineLayout 0x625f640000000058[] has not been destroyed.
-The Vulkan spec states: All child objects created on device must have been destroyed prior to destroying device (https://vulkan.lunarg.com/doc/view/1.4.304.0/windows/1.4-extensions/vkspec.html#VUID-vkDestroyDevice-device-05137) 
 -------------------------------------------------------------------------------------
 -------------------------------------------------------------------------------------
 uninitialize() : Program ended successfully.

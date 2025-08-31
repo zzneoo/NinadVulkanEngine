@@ -24,11 +24,16 @@ layout(push_constant) uniform PushConstants
 layout(location = 0) out vec2 outTexCoord;
 layout(location = 1) out vec3 outNormal;
 layout(location = 2) out vec3 outColor;
+layout(location = 3) out vec3 outTangent;
 
 void main(void)
 {
 	outTexCoord = vTexCoord;
-    outNormal = mat3(pc.model) * vNormal;
+
+    mat3 normalMatrix = transpose(inverse(mat3(pc.model)));
+
+    outNormal = normalize(normalMatrix * vNormal);
+    outTangent = normalize(normalMatrix * vTangent);
     outColor = vec3(outNormal);
 
 	gl_Position = global.projection * global.view * pc.model * vec4(vPosition.xyz,1.0);
