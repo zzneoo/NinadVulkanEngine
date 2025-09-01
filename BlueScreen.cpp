@@ -240,9 +240,9 @@ VkDescriptorPool vkDescriptorPool = VK_NULL_HANDLE;
 VkDescriptorSet  vkDescriptorSets_frameData[MAX_FRAMES];
 VkDescriptorSet  vkDescriptorSet_SingleImage;
 VkDescriptorSet  vkDescriptorSet_AlbedoNormal;
-VkDescriptorSet  vkDescriptorSet_BasicPBR_Stone;
 
 Material_BasicPBR* pMaterial_BasicPBR_RockyGround = NULL;
+Material_BasicPBR* pMaterial_BasicPBR_GrassyGround = NULL;
 
 //desccriptor set layouts 
 DescriptorSetLayouts* gpDescriptorSetLayouts = NULL; 
@@ -1712,13 +1712,23 @@ VkResult initialize(void)
     
     const char* pathRockyGround = "Resources/PBR_Materials/T_omfr20_4K/";
     pMaterial_BasicPBR_RockyGround = new Material_BasicPBR(gpDescriptorSetLayouts->vkDescriptorSetLayout_BasicPBR, pathRockyGround);
-
     vkResult = pMaterial_BasicPBR_RockyGround->getVkResult();
     if (vkResult != VK_SUCCESS)
     {
         fprintf(gpFILE, "initialize() : pMaterial_BasicPBR_RockyGround failed to load (%d).\n", vkResult);
         return(vkResult);
     }
+
+	const char* pathGrassyGround = "Resources/PBR_Materials/T_sbykqdp0_4K/";
+	pMaterial_BasicPBR_GrassyGround = new Material_BasicPBR(gpDescriptorSetLayouts->vkDescriptorSetLayout_BasicPBR, pathGrassyGround);
+	vkResult = pMaterial_BasicPBR_GrassyGround->getVkResult();
+	if (vkResult != VK_SUCCESS)
+	{
+		fprintf(gpFILE, "initialize() : pMaterial_BasicPBR_GrassyGround failed to load (%d).\n", vkResult);
+		return(vkResult);
+	}
+
+
 
 
     //--------------------------------------------------------------------------------------------------
@@ -2354,6 +2364,11 @@ void uninitialize(void)
         pMaterial_BasicPBR_RockyGround = NULL;
     }
 
+	if (pMaterial_BasicPBR_GrassyGround)
+	{
+		delete pMaterial_BasicPBR_GrassyGround;
+		pMaterial_BasicPBR_GrassyGround = NULL;
+	}
     
     //pipeline Layouts
 
@@ -7110,7 +7125,7 @@ VkResult createDescriptorPool(void)
     VkDescriptorPoolSize vkDescriptorPoolSizes[] =
     {
         {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1 * MAX_FRAMES}, // descriptor type and descriptor count
-        {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 6 } // descriptor type and descriptor count for combined image sampler
+        {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 6+3 } // descriptor type and descriptor count for combined image sampler
     };
 
     // Declare and initialize VkDescriptorPoolCreateInfo structure and refer above VkDescriptorPoolSize into it.
@@ -7120,7 +7135,7 @@ VkResult createDescriptorPool(void)
     vkDescriptorPoolCreateInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
     vkDescriptorPoolCreateInfo.pNext = NULL;
     vkDescriptorPoolCreateInfo.flags = 0; // no flags
-    vkDescriptorPoolCreateInfo.maxSets = (1 * MAX_FRAMES) + 3; // maximum number of descriptor sets that can be allocated from this pool
+    vkDescriptorPoolCreateInfo.maxSets = (1 * MAX_FRAMES) + 2 + 2; // maximum number of descriptor sets that can be allocated from this pool
     vkDescriptorPoolCreateInfo.poolSizeCount = _ARRAYSIZE(vkDescriptorPoolSizes); // number of descriptor pool sizes
     vkDescriptorPoolCreateInfo.pPoolSizes = vkDescriptorPoolSizes;
 
@@ -8080,7 +8095,7 @@ void RenderPBR_Basic(uint32_t curIndex)
     // Bind the pipeline and descriptor sets
     vkCmdBindPipeline(vkCommandBuffer_Array[curIndex], VK_PIPELINE_BIND_POINT_GRAPHICS, gpGraphicsPipelines->PBR.vkPipeline);
 
-    VkDescriptorSet vkLocalDescriptorSets[] = { vkDescriptorSets_frameData[curIndex],pMaterial_BasicPBR_RockyGround->getDescriptorSet() };
+    VkDescriptorSet vkLocalDescriptorSets[] = { vkDescriptorSets_frameData[curIndex],pMaterial_BasicPBR_GrassyGround->getDescriptorSet() };
     vkCmdBindDescriptorSets(vkCommandBuffer_Array[curIndex], VK_PIPELINE_BIND_POINT_GRAPHICS, gpGraphicsPipelines->PBR.vkPipelineLayout, 0, _ARRAYSIZE(vkLocalDescriptorSets), vkLocalDescriptorSets, 0, NULL);
 
     // Push the model matrix

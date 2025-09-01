@@ -32,7 +32,7 @@ VkResult DescriptorSetLayouts::createDescriptorSetLayout_FrameData(void)
     vkDescriptorSetLayoutBinding_Array[0].binding = 0; // binding index
     vkDescriptorSetLayoutBinding_Array[0].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER; // descriptor type
     vkDescriptorSetLayoutBinding_Array[0].descriptorCount = 1; // number of descriptors
-    vkDescriptorSetLayoutBinding_Array[0].stageFlags = VK_SHADER_STAGE_VERTEX_BIT; // stage flags for the descriptor set layout binding
+    vkDescriptorSetLayoutBinding_Array[0].stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT; // stage flags for the descriptor set layout binding
     vkDescriptorSetLayoutBinding_Array[0].pImmutableSamplers = NULL; // no immutable samplers
 
     // code

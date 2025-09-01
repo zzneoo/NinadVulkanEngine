@@ -7,11 +7,12 @@ layout(location = 3) in vec3 vTangent;
 
 layout(std140, set = 0, binding = 0) uniform FrameData 
 {
-    mat4 view;        // 64 bytes
-    mat4 projection;  // 64 bytes
-    float fTime;      // 4 bytes
-    uint frameID;     // 4 bytes
-    vec2 _pad;        // 8 bytes (padding, same as float[2] in C++)
+    mat4 view;        // offset 0    64 bytes
+    mat4 projection;  // offset 64   64 bytes
+    float fTime;      // offset 128
+    uint  frameID;    // offset 132
+    vec3 cameraPos;   // offset 144  needs to be aligned to 16 bytes
+    float _pad;       // offset 156  pad to 160 (multiple of 16)
 }global;
 
 layout(push_constant) uniform PushConstants 
@@ -25,6 +26,7 @@ layout(location = 0) out vec2 outTexCoord;
 layout(location = 1) out vec3 outNormal;
 layout(location = 2) out vec3 outColor;
 layout(location = 3) out vec3 outTangent;
+layout(location = 4) out vec3 vWorldPos;
 
 void main(void)
 {
@@ -36,5 +38,7 @@ void main(void)
     outTangent = normalize(normalMatrix * vTangent);
     outColor = vec3(outNormal);
 
-	gl_Position = global.projection * global.view * pc.model * vec4(vPosition.xyz,1.0);
+    vWorldPos =  (pc.model * vec4(vPosition.xyz,1.0)).xyz;
+
+	gl_Position = global.projection * global.view * vec4(vWorldPos,1.0);
 }

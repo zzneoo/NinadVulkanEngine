@@ -48,6 +48,9 @@ loadTextureData_dds_c_bc7(): Loaded 'Resources/Impostors/BlackAlder_Field_02/T_I
 loadTextureData_dds_c_bc7(): Loaded 'Resources/PBR_Materials/T_omfr20_4K/Albedo.dds' w=4096 h=4096 mips=13 layers=1 (BC7)
 loadTextureData_dds_c_bc5_normal(): Loaded 'Resources/PBR_Materials/T_omfr20_4K/Normal.dds' w=4096 h=4096 mips=13 layers=1 (BC5)
 loadTextureData_dds_c_bc7(): Loaded 'Resources/PBR_Materials/T_omfr20_4K/ORX.dds' w=4096 h=4096 mips=13 layers=1 (BC7)
+loadTextureData_dds_c_bc7(): Loaded 'Resources/PBR_Materials/T_sbykqdp0_4K/Albedo.dds' w=4096 h=4096 mips=13 layers=1 (BC7)
+loadTextureData_dds_c_bc5_normal(): Loaded 'Resources/PBR_Materials/T_sbykqdp0_4K/Normal.dds' w=4096 h=4096 mips=13 layers=1 (BC5)
+loadTextureData_dds_c_bc7(): Loaded 'Resources/PBR_Materials/T_sbykqdp0_4K/ORX.dds' w=4096 h=4096 mips=13 layers=1 (BC7)
 initialize() : initialize complete.
 -------------------------------------------------------------------------------------
 
