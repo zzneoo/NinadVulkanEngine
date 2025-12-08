@@ -186,6 +186,8 @@
     <None Include="Impostor.vert" />
     <None Include="PBR.frag" />
     <None Include="PBR.vert" />
+    <None Include="PBR_Skinned.frag" />
+    <None Include="PBR_Skinned.vert" />
     <None Include="Phong.frag" />
     <None Include="Phong.vert" />
     <None Include="PreviewImage.frag" />

@@ -12,20 +12,20 @@ extern VkExtent2D vkExtent2D_Swapchain;
 extern VkRect2D vkRect2D_Scissor;
 extern  VkRenderPass vkRenderPass;
 
-extern VkShaderModule vkShaderModule_impostor_vs;
-extern VkShaderModule vkShaderModule_impostor_fs;
-extern VkShaderModule vkShaderModule_previewImage_vs;
-extern VkShaderModule vkShaderModule_previewImage_fs;
-extern VkShaderModule vkShaderModule_phong_vs;
-extern VkShaderModule vkShaderModule_phong_fs;
-extern VkShaderModule vkShaderModule_PBR_vs;
-extern VkShaderModule vkShaderModule_PBR_fs;
-extern VkShaderModule vkShaderModule_whiteVertex_vs;
-extern VkShaderModule vkShaderModule_whiteVertex_fs;
-extern VkShaderModule vkShaderModule_coloredVertex_vs;
-extern VkShaderModule vkShaderModule_coloredVertex_fs;
-extern VkShaderModule vkShaderModule_basic_vs;
-extern VkShaderModule vkShaderModule_basic_fs;
+//extern VkShaderModule vkShaderModule_impostor_vs;
+//extern VkShaderModule vkShaderModule_impostor_fs;
+//extern VkShaderModule vkShaderModule_previewImage_vs;
+//extern VkShaderModule vkShaderModule_previewImage_fs;
+//extern VkShaderModule vkShaderModule_phong_vs;
+//extern VkShaderModule vkShaderModule_phong_fs;
+//extern VkShaderModule vkShaderModule_PBR_vs;
+//extern VkShaderModule vkShaderModule_PBR_fs;
+//extern VkShaderModule vkShaderModule_PBR_Skinned_vs;
+//extern VkShaderModule vkShaderModule_PBR_Skinned_fs;
+//extern VkShaderModule vkShaderModule_whiteVertex_vs;
+//extern VkShaderModule vkShaderModule_whiteVertex_fs;
+//extern VkShaderModule vkShaderModule_basic_vs;
+//extern VkShaderModule vkShaderModule_basic_fs;
 
 
 struct GraphicsPipelines
@@ -38,6 +38,7 @@ public:
 	PipelineData PreviewImage;
 	PipelineData Phong;
 	PipelineData PBR;
+	PipelineData PBR_Skinned;
 	PipelineData WhiteVertex;
 	PipelineData ColoredVertex;
 
@@ -47,15 +48,21 @@ public:
 	VkResult vkResult;
 
 private:
+	VkResult createShaderModule(VkShaderModule* shaderModule, const char* fileName);
+
 	VkResult createPipelineLayout_previewImage(void);
 	VkResult createPipelineLayout_Impostor(void);
 	VkResult createPipelineLayout_Phong(void);
 	VkResult createPipelineLayout_PBR(void);
+	VkResult createPipelineLayout_PBR_Skinned(void);
 	VkResult createPipelineLayout_WhiteVertex(void);
 	VkResult createPipelineLayout_ColoredVertex(void);
 
 	VkResult createPipelineLayouts(void);
 	void destroyPipelineLayouts(void);
+
+	VkResult createShaderModules(void);
+	void destroyShaderModules(void);
 
 	//----------------------------Pipelines-------------------------------------------------------
 
@@ -63,6 +70,7 @@ private:
 	VkResult createGraphicsPipeline_Impostor(void);
 	VkResult createGraphicsPipeline_Phong(void);
 	VkResult createGraphicsPipeline_PBR(void);
+	VkResult createGraphicsPipeline_PBR_Skinned(void);
 	VkResult createGraphicsPipeline_WhiteVertex(void);
 	VkResult createGraphicsPipeline_ColoredVertex(void);
 

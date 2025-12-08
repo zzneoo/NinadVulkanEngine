@@ -57,6 +57,22 @@ struct VertexData_PositionTexCoordNormalTangent
 	glm::vec3 tangent;
 };
 
+struct VertexData_Skinned
+{
+	glm::vec3 pos;
+	glm::vec2 texCoord;
+	glm::vec3 normal;
+	glm::vec3 tangent;
+	glm::ivec4 boneIDs;
+	glm::vec4 boneWeights;
+};
+
+struct BoneInfo 
+{
+	glm::mat4 offsetMatrix;        // aiBone->mOffsetMatrix
+	glm::mat4 finalTransformation; // computed each frame
+};
+
 
 struct VertexData_Position
 {
@@ -127,6 +143,8 @@ typedef struct
 {
 	VkPipeline vkPipeline;
 	VkPipelineLayout vkPipelineLayout;
+	VkShaderModule vkVertexShaderModule;
+	VkShaderModule vkFragmentShaderModule;
 }PipelineData;
 
 

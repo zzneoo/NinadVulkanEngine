@@ -2,6 +2,7 @@
 #include <Windows.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <unordered_map>
 
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb_image.h"
@@ -184,6 +185,7 @@ VulkanComboData  ImpostorBufferData;
 VulkanComboData  CubeBufferData;
 VulkanComboData  SuzanneBufferData;
 VulkanComboData  SphereBufferData;
+VulkanComboData  RatBufferData;
 
 
 
@@ -206,23 +208,26 @@ const uint16_t quad_indices[] =
 UniformData uniformBufferData_frameData[MAX_FRAMES];
 
 //shader related variables
-VkShaderModule vkShaderModule_basic_vs = VK_NULL_HANDLE;
-VkShaderModule vkShaderModule_basic_fs = VK_NULL_HANDLE;
+//VkShaderModule vkShaderModule_basic_vs = VK_NULL_HANDLE;
+//VkShaderModule vkShaderModule_basic_fs = VK_NULL_HANDLE;
 
-VkShaderModule vkShaderModule_whiteVertex_vs = VK_NULL_HANDLE;
-VkShaderModule vkShaderModule_whiteVertex_fs = VK_NULL_HANDLE;
-
-VkShaderModule vkShaderModule_previewImage_vs = VK_NULL_HANDLE;
-VkShaderModule vkShaderModule_previewImage_fs = VK_NULL_HANDLE;
-
-VkShaderModule vkShaderModule_impostor_vs = VK_NULL_HANDLE;
-VkShaderModule vkShaderModule_impostor_fs = VK_NULL_HANDLE;
-
-VkShaderModule vkShaderModule_phong_vs = VK_NULL_HANDLE;
-VkShaderModule vkShaderModule_phong_fs = VK_NULL_HANDLE;
-
-VkShaderModule vkShaderModule_PBR_vs = VK_NULL_HANDLE;
-VkShaderModule vkShaderModule_PBR_fs = VK_NULL_HANDLE;
+//VkShaderModule vkShaderModule_whiteVertex_vs = VK_NULL_HANDLE;
+//VkShaderModule vkShaderModule_whiteVertex_fs = VK_NULL_HANDLE;
+//
+//VkShaderModule vkShaderModule_previewImage_vs = VK_NULL_HANDLE;
+//VkShaderModule vkShaderModule_previewImage_fs = VK_NULL_HANDLE;
+//
+//VkShaderModule vkShaderModule_impostor_vs = VK_NULL_HANDLE;
+//VkShaderModule vkShaderModule_impostor_fs = VK_NULL_HANDLE;
+//
+//VkShaderModule vkShaderModule_phong_vs = VK_NULL_HANDLE;
+//VkShaderModule vkShaderModule_phong_fs = VK_NULL_HANDLE;
+//
+//VkShaderModule vkShaderModule_PBR_vs = VK_NULL_HANDLE;
+//VkShaderModule vkShaderModule_PBR_fs = VK_NULL_HANDLE;
+//
+//VkShaderModule vkShaderModule_PBR_Skinned_vs = VK_NULL_HANDLE;
+//VkShaderModule vkShaderModule_PBR_Skinned_fs = VK_NULL_HANDLE;
 
 //GrassImage
 ImageData grassTextureData;
@@ -245,7 +250,7 @@ Material_BasicPBR* pMaterial_BasicPBR_RockyGround = NULL;
 Material_BasicPBR* pMaterial_BasicPBR_GrassyGround = NULL;
 
 //desccriptor set layouts 
-DescriptorSetLayouts* gpDescriptorSetLayouts = NULL; 
+DescriptorSetLayouts* gpDescriptorSetLayouts = NULL;
 
 //for pipeline
 VkViewport vkViewport;
@@ -1160,6 +1165,299 @@ VkResult LoadModel_PBR(const char* modelPath, VulkanComboData* vulkanComboData, 
     return VK_SUCCESS;
 }
 
+// Convert aiMatrix4x4 to glm::mat4 (Assimp row-major)
+static glm::mat4 aiMat4ToGlm(const aiMatrix4x4& m) {
+    // Assimp stores row-major; glm::mat4 expects column-major when accessed with ptr.
+    glm::mat4 out;
+    out[0][0] = m.a1; out[1][0] = m.a2; out[2][0] = m.a3; out[3][0] = m.a4;
+    out[0][1] = m.b1; out[1][1] = m.b2; out[2][1] = m.b3; out[3][1] = m.b4;
+    out[0][2] = m.c1; out[1][2] = m.c2; out[2][2] = m.c3; out[3][2] = m.c4;
+    out[0][3] = m.d1; out[1][3] = m.d2; out[2][3] = m.d3; out[3][3] = m.d4;
+    return out;
+}
+
+// Utility: add bone influence to a vertex (keep up to 4 influences; replace smallest if needed)
+static void AddBoneDataToVertex(VertexData_Skinned& v, int boneIndex, float weight) {
+    // Find first zero-weight slot
+    for (int i = 0; i < 4; ++i) {
+        if (v.boneWeights[i] == 0.0f) {
+            v.boneIDs[i] = boneIndex;
+            v.boneWeights[i] = weight;
+            return;
+        }
+    }
+    // All slots taken: find smallest weight slot and replace if this weight is larger
+    int minIdx = 0;
+    float minVal = v.boneWeights[0];
+    for (int i = 1; i < 4; ++i) {
+        if (v.boneWeights[i] < minVal) {
+            minVal = v.boneWeights[i];
+            minIdx = i;
+        }
+    }
+    if (weight > minVal) {
+        v.boneIDs[minIdx] = boneIndex;
+        v.boneWeights[minIdx] = weight;
+    }
+}
+
+VkResult LoadModel_Animated_PBR(const char* modelPath, VulkanComboData* vulkanComboData, bool index32)
+{
+    VkResult vkResult = VK_SUCCESS;
+    // Similar implementation as LoadModel_Phong but for PBR-specific vertex structure
+    // This function is a placeholder and should be implemented similarly to LoadModel_Phong
+    VkResult ZzCreateVertexAndIndex16Buffer(
+        const float* vertices, VkDeviceSize vertexBufferSize,
+        const uint16_t * indices, VkDeviceSize indexBufferSize,
+        VulkanComboData * vulkanComboData
+    );
+    VkResult ZzCreateVertexAndIndex32Buffer(
+        const float* vertices, VkDeviceSize vertexBufferSize,
+        const uint32_t * indices, VkDeviceSize indexBufferSize,
+        VulkanComboData * vulkanComboData
+    );
+
+    Assimp::Importer importer;
+    const aiScene* scene = importer.ReadFile(modelPath,
+          aiProcess_Triangulate             // ensure all faces are triangles
+        | aiProcess_JoinIdenticalVertices   // remove duplicates (safe, keeps indices consistent)
+        | aiProcess_GenSmoothNormals        // generate normals if missing
+        | aiProcess_CalcTangentSpace        // tangents for normal mapping
+        | aiProcess_LimitBoneWeights        // clamp to 4 bone weights per vertex (required for GPU skinning)
+        | aiProcess_ImproveCacheLocality    // optimize vertex cache locality
+        | aiProcess_SortByPType             // separate points/lines/triangles (we only want triangles)
+		| aiProcess_FlipWindingOrder        // convert to Vulkan's right-handed coordinate system
+    );
+
+    if (!scene || scene->mFlags & AI_SCENE_FLAGS_INCOMPLETE)
+    {
+        std::cerr << "Assimp Error: " << importer.GetErrorString() << std::endl;
+        fprintf(gpFILE, "LoadModel_PBR_Skinned() : Assimp Importer::ReadFile() failed.\n");
+        return VK_ERROR_INITIALIZATION_FAILED;
+    }
+    //std::cout << "Meshes: " << scene->mNumMeshes << std::endl;
+
+    std::vector<VertexData_Skinned> vkVertices;
+
+	// for skinned mesh
+    std::unordered_map<std::string, uint32_t> boneMapping; // bone name -> index
+    std::vector<BoneInfo> boneInfo;                        // indexed by bone index
+    uint32_t numBones = 0;
+
+    if (index32)
+    {
+        std::vector<uint32_t> vkIndices;
+        // before looping meshes:
+        boneMapping.clear();
+        boneInfo.clear();
+        numBones = 0;
+
+        if (scene && scene->mRootNode) {
+            for (unsigned int meshIndex = 0; meshIndex < scene->mNumMeshes; meshIndex++) {
+                aiMesh* mesh = scene->mMeshes[meshIndex];
+
+                // Vertices
+                for (unsigned int i = 0; i < mesh->mNumVertices; i++) {
+                    VertexData_Skinned v{};
+
+                    // Position
+                    if (mesh->HasPositions()) {
+                        v.pos = glm::vec3(
+                            mesh->mVertices[i].x,
+                            mesh->mVertices[i].y,
+                            mesh->mVertices[i].z
+                        );
+                    }
+
+                    // Normal
+                    if (mesh->HasNormals())
+                    {
+                        v.normal = glm::vec3(
+                            mesh->mNormals[i].x,
+                            mesh->mNormals[i].y,
+                            mesh->mNormals[i].z
+                        );
+                    }
+                    else {
+                        v.normal = glm::vec3(0.0f, 0.0f, 1.0f); // default fallback
+                    }
+
+                    // TexCoords (Assimp supports 8 UV channels; we use channel 0)
+                    if (mesh->HasTextureCoords(0))
+                    {
+                        v.texCoord = glm::vec2(
+                            mesh->mTextureCoords[0][i].x,
+                            mesh->mTextureCoords[0][i].y
+                        );
+                    }
+                    else {
+                        v.texCoord = glm::vec2(0.0f);
+                    }
+
+                    // Vertex Tangents 
+                    if (mesh->HasTangentsAndBitangents()) {
+                        v.tangent = glm::vec3(
+                            mesh->mTangents[i].x,
+                            mesh->mTangents[i].y,
+                            mesh->mTangents[i].z
+                        );
+                    }
+                    else {
+                        v.tangent = glm::vec3(1.0f, 0.0f, 0.0f); // default fallback
+                    }
+
+                    vkVertices.push_back(v);
+                }
+
+                // Indices (faces are always triangles if aiProcess_Triangulate is used)
+                for (unsigned int f = 0; f < mesh->mNumFaces; f++) {
+                    const aiFace& face = mesh->mFaces[f];
+                    for (unsigned int j = 0; j < face.mNumIndices; j++) {
+                        vkIndices.push_back(face.mIndices[j]);
+                    }
+                }
+
+                //bones
+
+                // inside mesh loop, after creating a temporary vertices[] array for this mesh:
+                if (mesh->mNumBones > 0) {
+                    for (unsigned int i = 0; i < mesh->mNumBones; ++i) {
+                        std::string boneName(mesh->mBones[i]->mName.C_Str());
+                        uint32_t boneIndex = 0;
+                        if (boneMapping.find(boneName) == boneMapping.end()) {
+                            boneIndex = numBones++;
+                            boneMapping[boneName] = boneIndex;
+
+                            BoneInfo bi;
+                            bi.offsetMatrix = aiMat4ToGlm(mesh->mBones[i]->mOffsetMatrix);
+                            bi.finalTransformation = glm::mat4(1.0f);
+                            boneInfo.push_back(bi);
+                        }
+                        else {
+                            boneIndex = boneMapping[boneName];
+                        }
+
+                        // assign weights to the affected vertices (vertex indices are mesh-local)
+                        for (unsigned int w = 0; w < mesh->mBones[i]->mNumWeights; ++w) {
+                            unsigned int vertexID = mesh->mBones[i]->mWeights[w].mVertexId;
+                            float weight = mesh->mBones[i]->mWeights[w].mWeight;
+                            // make sure the vertex array exists and has the vertexID
+                            //tmpVertices[vertexID].AddBoneData(boneIndex, weight);
+
+                            AddBoneDataToVertex(vkVertices[vertexID], boneIndex, weight);
+
+
+                        }
+                    }
+                }
+            }
+
+
+        }
+
+        vulkanComboData->indicesCount = static_cast<uint32_t>(vkIndices.size());
+
+        //PBR model
+        vkResult = ZzCreateVertexAndIndex32Buffer(
+            (float*)vkVertices.data(), vkVertices.size() * sizeof(VertexData_Skinned),
+            vkIndices.data(), vkIndices.size() * sizeof(uint32_t),
+            vulkanComboData
+        );
+        if (vkResult != VK_SUCCESS)
+        {
+            fprintf(gpFILE, "initialize() : ZzCreateVetexAndIndexBuffer() for PBR model failed (%d).\n", vkResult);
+            return(vkResult);
+        }
+    }
+    else
+    {
+        std::vector<uint16_t> vkIndices;
+
+        if (scene && scene->mRootNode) {
+            for (unsigned int meshIndex = 0; meshIndex < scene->mNumMeshes; meshIndex++) {
+                aiMesh* mesh = scene->mMeshes[meshIndex];
+
+                // Vertices
+                for (unsigned int i = 0; i < mesh->mNumVertices; i++) {
+                    VertexData_Skinned v{};
+
+                    // Position
+                    if (mesh->HasPositions()) {
+                        v.pos = glm::vec3(
+                            mesh->mVertices[i].x,
+                            mesh->mVertices[i].y,
+                            mesh->mVertices[i].z
+                        );
+                    }
+
+                    // Normal
+                    if (mesh->HasNormals())
+                    {
+                        v.normal = glm::vec3(
+                            mesh->mNormals[i].x,
+                            mesh->mNormals[i].y,
+                            mesh->mNormals[i].z
+                        );
+                    }
+                    else {
+                        v.normal = glm::vec3(0.0f, 0.0f, 1.0f); // default fallback
+                    }
+
+                    // TexCoords (Assimp supports 8 UV channels; we use channel 0)
+                    if (mesh->HasTextureCoords(0))
+                    {
+                        v.texCoord = glm::vec2(
+                            mesh->mTextureCoords[0][i].x,
+                            mesh->mTextureCoords[0][i].y
+                        );
+                    }
+                    else {
+                        v.texCoord = glm::vec2(0.0f);
+                    }
+
+                    // Vertex Tangents 
+                    if (mesh->HasTangentsAndBitangents()) {
+                        v.tangent = glm::vec3(
+                            mesh->mTangents[i].x,
+                            mesh->mTangents[i].y,
+                            mesh->mTangents[i].z
+                        );
+                    }
+                    else {
+                        v.tangent = glm::vec3(1.0f, 0.0f, 0.0f); // default fallback
+                    }
+
+                    vkVertices.push_back(v);
+                }
+
+                // Indices (faces are always triangles if aiProcess_Triangulate is used)
+                for (unsigned int f = 0; f < mesh->mNumFaces; f++) {
+                    const aiFace& face = mesh->mFaces[f];
+                    for (unsigned int j = 0; j < face.mNumIndices; j++) {
+                        vkIndices.push_back(face.mIndices[j]);
+                    }
+                }
+            }
+        }
+
+        vulkanComboData->indicesCount = static_cast<uint32_t>(vkIndices.size());
+
+        //Suzanne
+        vkResult = ZzCreateVertexAndIndex16Buffer(
+            (float*)vkVertices.data(), vkVertices.size() * sizeof(VertexData_Skinned),
+            vkIndices.data(), vkIndices.size() * sizeof(uint16_t),
+            vulkanComboData
+        );
+        if (vkResult != VK_SUCCESS)
+        {
+            fprintf(gpFILE, "initialize() : ZzCreateVetexAndIndexBuffer() for PBR model failed (%d).\n", vkResult);
+            return(vkResult);
+        }
+    }
+
+    return VK_SUCCESS;
+}
+
 VkResult initialize(void)
 {
     // function declarations
@@ -1182,6 +1480,7 @@ VkResult initialize(void)
 
     VkResult LoadModel_Phong(const char* modelPath, VulkanComboData * vulkanComboData, bool index32);
     VkResult LoadModel_PBR(const char* modelPath, VulkanComboData * vulkanComboData, bool index32);
+    VkResult LoadModel_Animated_PBR(const char* modelPath, VulkanComboData * vulkanComboData, bool index32);
 
     //VkResult createVertexBuffer_uvQuad(void);
     VkResult createUniformBuffer(void);
@@ -1216,7 +1515,8 @@ VkResult initialize(void)
 
     //compileShaderVS_FS("Impostor");
     //compileShaderVS_FS("Phong");
-    compileShaderVS_FS("PBR");
+    //compileShaderVS_FS("PBR");
+    compileShaderVS_FS("PBR_Skinned");
 
     // code
     // STEP 3 : Create Vulkan instance
@@ -1513,9 +1813,9 @@ VkResult initialize(void)
         return(vkResult);
     }
 
-//------------------------------------------------------------------------------------------------------------------
+    //------------------------------------------------------------------------------------------------------------------
 
-    //create uniform buffer
+        //create uniform buffer
     vkResult = createUniformBuffer();
     if (vkResult != VK_SUCCESS)
     {
@@ -1539,8 +1839,8 @@ VkResult initialize(void)
     {
         fprintf(gpFILE, "initialize() : pDescriptorSetLayouts->init() failed (%d).\n", vkResult);
         return(vkResult);
-	}
-        
+    }
+
     //Create Descriptor Pool
     vkResult = createDescriptorPool();
     if (vkResult != VK_SUCCESS)
@@ -1708,8 +2008,16 @@ VkResult initialize(void)
         return(vkResult);
     }
 
+    //Rat
+    vkResult = LoadModel_Animated_PBR("Resources/Models/Test/Anim_Rat_Walk.FBX", &RatBufferData, true);
+    if (vkResult != VK_SUCCESS)
+    {
+        fprintf(gpFILE, "initialize() : Rat LoadModel_Animated_PBR()  failed (%d).\n", vkResult);
+        return(vkResult);
+    }
+
     //-------------------------------------PBR model textures----------------------------------------------------------
-    
+
     const char* pathRockyGround = "Resources/PBR_Materials/T_omfr20_4K/";
     pMaterial_BasicPBR_RockyGround = new Material_BasicPBR(gpDescriptorSetLayouts->vkDescriptorSetLayout_BasicPBR, pathRockyGround);
     vkResult = pMaterial_BasicPBR_RockyGround->getVkResult();
@@ -1719,14 +2027,14 @@ VkResult initialize(void)
         return(vkResult);
     }
 
-	const char* pathGrassyGround = "Resources/PBR_Materials/T_sbykqdp0_4K/";
-	pMaterial_BasicPBR_GrassyGround = new Material_BasicPBR(gpDescriptorSetLayouts->vkDescriptorSetLayout_BasicPBR, pathGrassyGround);
-	vkResult = pMaterial_BasicPBR_GrassyGround->getVkResult();
-	if (vkResult != VK_SUCCESS)
-	{
-		fprintf(gpFILE, "initialize() : pMaterial_BasicPBR_GrassyGround failed to load (%d).\n", vkResult);
-		return(vkResult);
-	}
+    const char* pathGrassyGround = "Resources/PBR_Materials/T_sbykqdp0_4K/";
+    pMaterial_BasicPBR_GrassyGround = new Material_BasicPBR(gpDescriptorSetLayouts->vkDescriptorSetLayout_BasicPBR, pathGrassyGround);
+    vkResult = pMaterial_BasicPBR_GrassyGround->getVkResult();
+    if (vkResult != VK_SUCCESS)
+    {
+        fprintf(gpFILE, "initialize() : pMaterial_BasicPBR_GrassyGround failed to load (%d).\n", vkResult);
+        return(vkResult);
+    }
 
 
 
@@ -2333,11 +2641,11 @@ void uninitialize(void)
 
     // pipeline
     //destroyGraphicsPipelines();
-    if(gpGraphicsPipelines)
+    if (gpGraphicsPipelines)
     {
         delete gpGraphicsPipelines;
-		gpGraphicsPipelines = NULL;
-	}
+        gpGraphicsPipelines = NULL;
+    }
 
     // renderpass
     if (vkRenderPass)
@@ -2364,20 +2672,20 @@ void uninitialize(void)
         pMaterial_BasicPBR_RockyGround = NULL;
     }
 
-	if (pMaterial_BasicPBR_GrassyGround)
-	{
-		delete pMaterial_BasicPBR_GrassyGround;
-		pMaterial_BasicPBR_GrassyGround = NULL;
-	}
-    
+    if (pMaterial_BasicPBR_GrassyGround)
+    {
+        delete pMaterial_BasicPBR_GrassyGround;
+        pMaterial_BasicPBR_GrassyGround = NULL;
+    }
+
     //pipeline Layouts
 
     //descriptor set layouts
-    if(gpDescriptorSetLayouts)
+    if (gpDescriptorSetLayouts)
     {
         delete gpDescriptorSetLayouts;
         gpDescriptorSetLayouts = NULL;
-	}
+    }
 
     //shaderModules
     destroyShaders();
@@ -2393,6 +2701,7 @@ void uninitialize(void)
     ZzDestroyVertexAndIndexBuffer(&CubeBufferData);
     ZzDestroyVertexAndIndexBuffer(&SuzanneBufferData);
     ZzDestroyVertexAndIndexBuffer(&SphereBufferData);
+    ZzDestroyVertexAndIndexBuffer(&RatBufferData);
 
 
     //uniform buffer
@@ -4741,7 +5050,7 @@ void destroySamplers(void)
     {
         vkDestroySampler(vkDevice, vkSampler_LinearMipmapClamp, NULL);
         vkSampler_LinearMipmapClamp = VK_NULL_HANDLE;
-	}
+    }
 
 }
 
@@ -6796,180 +7105,207 @@ VkResult createShaders(void)
     // local variables
     VkResult vkResult = VK_SUCCESS;
 
-    vkResult = createShaderModule(&vkShaderModule_basic_vs, "shader.vert.spv");
-    if (vkResult != VK_SUCCESS)
-    {
-        fprintf(gpFILE, "createShaders() -> createShaderModule() for vertex shader failed.\n");
-        return vkResult;
-    }
+    //vkResult = createShaderModule(&vkShaderModule_basic_vs, "shader.vert.spv");
+    //if (vkResult != VK_SUCCESS)
+    //{
+    //    fprintf(gpFILE, "createShaders() -> createShaderModule() for vertex shader failed.\n");
+    //    return vkResult;
+    //}
 
-    vkResult = createShaderModule(&vkShaderModule_basic_fs, "shader.frag.spv");
-    if (vkResult != VK_SUCCESS)
-    {
-        fprintf(gpFILE, "createShaders() -> createShaderModule() for fragment shader failed.\n");
-        return vkResult;
-    }
+    //vkResult = createShaderModule(&vkShaderModule_basic_fs, "shader.frag.spv");
+    //if (vkResult != VK_SUCCESS)
+    //{
+    //    fprintf(gpFILE, "createShaders() -> createShaderModule() for fragment shader failed.\n");
+    //    return vkResult;
+    //}
 
-    //vkShaderModule_whiteVertex_vs
-    vkResult = createShaderModule(&vkShaderModule_whiteVertex_vs, "whiteVertex.vert.spv");
-    if (vkResult != VK_SUCCESS)
-    {
-        fprintf(gpFILE, "createShaders() -> createShaderModule() for white vertex shader failed.\n");
-        return vkResult;
-    }
+ //   //vkShaderModule_whiteVertex_vs
+ //   vkResult = createShaderModule(&vkShaderModule_whiteVertex_vs, "whiteVertex.vert.spv");
+ //   if (vkResult != VK_SUCCESS)
+ //   {
+ //       fprintf(gpFILE, "createShaders() -> createShaderModule() for white vertex shader failed.\n");
+ //       return vkResult;
+ //   }
 
-    //vkShaderModule_whiteFragment_fs
-    vkResult = createShaderModule(&vkShaderModule_whiteVertex_fs, "whiteVertex.frag.spv");
-    if (vkResult != VK_SUCCESS)
-    {
-        fprintf(gpFILE, "createShaders() -> createShaderModule() for white fragment shader failed.\n");
-        return vkResult;
-    }
+ //   //vkShaderModule_whiteFragment_fs
+ //   vkResult = createShaderModule(&vkShaderModule_whiteVertex_fs, "whiteVertex.frag.spv");
+ //   if (vkResult != VK_SUCCESS)
+ //   {
+ //       fprintf(gpFILE, "createShaders() -> createShaderModule() for white fragment shader failed.\n");
+ //       return vkResult;
+ //   }
 
-    //----------
+ //   //----------
 
-    //vkShaderModule_previewImage_vs
-    vkResult = createShaderModule(&vkShaderModule_previewImage_vs, "PreviewImage.vert.spv");
-    if (vkResult != VK_SUCCESS)
-    {
-        fprintf(gpFILE, "createShaders() -> createShaderModule() for preview image vertex shader failed.\n");
-        return vkResult;
-    }
+ //   //vkShaderModule_previewImage_vs
+ //   vkResult = createShaderModule(&vkShaderModule_previewImage_vs, "PreviewImage.vert.spv");
+ //   if (vkResult != VK_SUCCESS)
+ //   {
+ //       fprintf(gpFILE, "createShaders() -> createShaderModule() for preview image vertex shader failed.\n");
+ //       return vkResult;
+ //   }
 
-    //vkShaderModule_previewImage_fs
-    vkResult = createShaderModule(&vkShaderModule_previewImage_fs, "PreviewImage.frag.spv");
-    if (vkResult != VK_SUCCESS)
-    {
-        fprintf(gpFILE, "createShaders() -> createShaderModule() for preview image fragment shader failed.\n");
-        return vkResult;
-    }
+ //   //vkShaderModule_previewImage_fs
+ //   vkResult = createShaderModule(&vkShaderModule_previewImage_fs, "PreviewImage.frag.spv");
+ //   if (vkResult != VK_SUCCESS)
+ //   {
+ //       fprintf(gpFILE, "createShaders() -> createShaderModule() for preview image fragment shader failed.\n");
+ //       return vkResult;
+ //   }
 
-    //----------
+ //   //----------
 
-    //vkShaderModule_impostor_vs
-    vkResult = createShaderModule(&vkShaderModule_impostor_vs, "Impostor.vert.spv");
-    if (vkResult != VK_SUCCESS)
-    {
-        fprintf(gpFILE, "createShaders() -> createShaderModule() for impostor vertex shader failed.\n");
-        return vkResult;
-    }
+ //   //vkShaderModule_impostor_vs
+ //   vkResult = createShaderModule(&vkShaderModule_impostor_vs, "Impostor.vert.spv");
+ //   if (vkResult != VK_SUCCESS)
+ //   {
+ //       fprintf(gpFILE, "createShaders() -> createShaderModule() for impostor vertex shader failed.\n");
+ //       return vkResult;
+ //   }
 
-    //vkShaderModule_impostor_fs
-    vkResult = createShaderModule(&vkShaderModule_impostor_fs, "Impostor.frag.spv");
-    if (vkResult != VK_SUCCESS)
-    {
-        fprintf(gpFILE, "createShaders() -> createShaderModule() for impostor fragment shader failed.\n");
-        return vkResult;
-    }
+ //   //vkShaderModule_impostor_fs
+ //   vkResult = createShaderModule(&vkShaderModule_impostor_fs, "Impostor.frag.spv");
+ //   if (vkResult != VK_SUCCESS)
+ //   {
+ //       fprintf(gpFILE, "createShaders() -> createShaderModule() for impostor fragment shader failed.\n");
+ //       return vkResult;
+ //   }
 
-    //----------phongshader--------------
-    vkResult = createShaderModule(&vkShaderModule_phong_vs, "Phong.vert.spv");
-    if (vkResult != VK_SUCCESS)
-    {
-        fprintf(gpFILE, "createShaders() -> createShaderModule() for phong vertex shader failed.\n");
-        return vkResult;
-    }
+ //   //----------phongshader--------------
+ //   vkResult = createShaderModule(&vkShaderModule_phong_vs, "Phong.vert.spv");
+ //   if (vkResult != VK_SUCCESS)
+ //   {
+ //       fprintf(gpFILE, "createShaders() -> createShaderModule() for phong vertex shader failed.\n");
+ //       return vkResult;
+ //   }
 
-    vkResult = createShaderModule(&vkShaderModule_phong_fs, "Phong.frag.spv");
-    if (vkResult != VK_SUCCESS)
-    {
-        fprintf(gpFILE, "createShaders() -> createShaderModule() for phong fragment shader failed.\n");
-        return vkResult;
-    }
+ //   vkResult = createShaderModule(&vkShaderModule_phong_fs, "Phong.frag.spv");
+ //   if (vkResult != VK_SUCCESS)
+ //   {
+ //       fprintf(gpFILE, "createShaders() -> createShaderModule() for phong fragment shader failed.\n");
+ //       return vkResult;
+ //   }
 
-    //-----------PBR shader----------------
-    vkResult = createShaderModule(&vkShaderModule_PBR_vs, "PBR.vert.spv");
-    if (vkResult != VK_SUCCESS)
-    {
-        fprintf(gpFILE, "createShaders() -> createShaderModule() for pbr vertex shader failed.\n");
-        return vkResult;
-    }
-    vkResult = createShaderModule(&vkShaderModule_PBR_fs, "PBR.frag.spv");
-    if (vkResult != VK_SUCCESS)
-    {
-        fprintf(gpFILE, "createShaders() -> createShaderModule() for pbr fragment shader failed.\n");
-        return vkResult;
-    }
+ //   //-----------PBR shader----------------
+ //   vkResult = createShaderModule(&vkShaderModule_PBR_vs, "PBR.vert.spv");
+ //   if (vkResult != VK_SUCCESS)
+ //   {
+ //       fprintf(gpFILE, "createShaders() -> createShaderModule() for pbr vertex shader failed.\n");
+ //       return vkResult;
+ //   }
+ //   vkResult = createShaderModule(&vkShaderModule_PBR_fs, "PBR.frag.spv");
+ //   if (vkResult != VK_SUCCESS)
+ //   {
+ //       fprintf(gpFILE, "createShaders() -> createShaderModule() for pbr fragment shader failed.\n");
+ //       return vkResult;
+ //   }
+
+	////PBR_Skinned
+	//vkResult = createShaderModule(&vkShaderModule_PBR_Skinned_vs, "PBR_Skinned.vert.spv");
+ //   if (vkResult != VK_SUCCESS)
+ //   {
+ //       fprintf(gpFILE, "createShaders() -> createShaderModule() for pbr skinned vertex shader failed.\n");
+	//	return vkResult;
+ //   }
+	//vkResult = createShaderModule(&vkShaderModule_PBR_Skinned_fs, "PBR_Skinned.frag.spv");
+ //   if (vkResult != VK_SUCCESS)
+ //   {
+ //       fprintf(gpFILE, "createShaders() -> createShaderModule() for pbr skinned fragment shader failed.\n");
+ //       return vkResult;
+	//}
+
 
     return vkResult;
 }
 
 void destroyShaders(void)
 {
-    if (vkShaderModule_basic_fs)
-    {
-        vkDestroyShaderModule(vkDevice, vkShaderModule_basic_fs, NULL);
-        vkShaderModule_basic_fs = VK_NULL_HANDLE;
-    }
-    if (vkShaderModule_basic_vs)
-    {
-        vkDestroyShaderModule(vkDevice, vkShaderModule_basic_vs, NULL);
-        vkShaderModule_basic_vs = VK_NULL_HANDLE;
-    }
+    //if (vkShaderModule_basic_fs)
+    //{
+    //    vkDestroyShaderModule(vkDevice, vkShaderModule_basic_fs, NULL);
+    //    vkShaderModule_basic_fs = VK_NULL_HANDLE;
+    //}
+    //if (vkShaderModule_basic_vs)
+    //{
+    //    vkDestroyShaderModule(vkDevice, vkShaderModule_basic_vs, NULL);
+    //    vkShaderModule_basic_vs = VK_NULL_HANDLE;
+    //}
 
-    //-- shader modules for white vertex shaders
-    if (vkShaderModule_whiteVertex_vs)
-    {
-        vkDestroyShaderModule(vkDevice, vkShaderModule_whiteVertex_vs, NULL);
-        vkShaderModule_whiteVertex_vs = VK_NULL_HANDLE;
-    }
+ //   //-- shader modules for white vertex shaders
+ //   if (vkShaderModule_whiteVertex_vs)
+ //   {
+ //       vkDestroyShaderModule(vkDevice, vkShaderModule_whiteVertex_vs, NULL);
+ //       vkShaderModule_whiteVertex_vs = VK_NULL_HANDLE;
+ //   }
 
-    if (vkShaderModule_whiteVertex_fs)
-    {
-        vkDestroyShaderModule(vkDevice, vkShaderModule_whiteVertex_fs, NULL);
-        vkShaderModule_whiteVertex_fs = VK_NULL_HANDLE;
-    }
+ //   if (vkShaderModule_whiteVertex_fs)
+ //   {
+ //       vkDestroyShaderModule(vkDevice, vkShaderModule_whiteVertex_fs, NULL);
+ //       vkShaderModule_whiteVertex_fs = VK_NULL_HANDLE;
+ //   }
 
-    //-- shader modules for previewImage shaders
+ //   //-- shader modules for previewImage shaders
 
-    if (vkShaderModule_previewImage_vs)
-    {
-        vkDestroyShaderModule(vkDevice, vkShaderModule_previewImage_vs, NULL);
-        vkShaderModule_previewImage_vs = VK_NULL_HANDLE;
-    }
+ //   if (vkShaderModule_previewImage_vs)
+ //   {
+ //       vkDestroyShaderModule(vkDevice, vkShaderModule_previewImage_vs, NULL);
+ //       vkShaderModule_previewImage_vs = VK_NULL_HANDLE;
+ //   }
 
-    if (vkShaderModule_previewImage_fs)
-    {
-        vkDestroyShaderModule(vkDevice, vkShaderModule_previewImage_fs, NULL);
-        vkShaderModule_previewImage_fs = VK_NULL_HANDLE;
-    }
+ //   if (vkShaderModule_previewImage_fs)
+ //   {
+ //       vkDestroyShaderModule(vkDevice, vkShaderModule_previewImage_fs, NULL);
+ //       vkShaderModule_previewImage_fs = VK_NULL_HANDLE;
+ //   }
 
-    //-- shader modules for impostor shaders
-    if (vkShaderModule_impostor_vs)
-    {
-        vkDestroyShaderModule(vkDevice, vkShaderModule_impostor_vs, NULL);
-        vkShaderModule_impostor_vs = VK_NULL_HANDLE;
-    }
+ //   //-- shader modules for impostor shaders
+ //   if (vkShaderModule_impostor_vs)
+ //   {
+ //       vkDestroyShaderModule(vkDevice, vkShaderModule_impostor_vs, NULL);
+ //       vkShaderModule_impostor_vs = VK_NULL_HANDLE;
+ //   }
 
-    if (vkShaderModule_impostor_fs)
-    {
-        vkDestroyShaderModule(vkDevice, vkShaderModule_impostor_fs, NULL);
-        vkShaderModule_impostor_fs = VK_NULL_HANDLE;
-    }
+ //   if (vkShaderModule_impostor_fs)
+ //   {
+ //       vkDestroyShaderModule(vkDevice, vkShaderModule_impostor_fs, NULL);
+ //       vkShaderModule_impostor_fs = VK_NULL_HANDLE;
+ //   }
 
-    //-- shader modules for phong shaders
-    if (vkShaderModule_phong_vs)
-    {
-        vkDestroyShaderModule(vkDevice, vkShaderModule_phong_vs, NULL);
-        vkShaderModule_phong_vs = VK_NULL_HANDLE;
-    }
-    if (vkShaderModule_phong_fs)
-    {
-        vkDestroyShaderModule(vkDevice, vkShaderModule_phong_fs, NULL);
-        vkShaderModule_phong_fs = VK_NULL_HANDLE;
-    }
+ //   //-- shader modules for phong shaders
+ //   if (vkShaderModule_phong_vs)
+ //   {
+ //       vkDestroyShaderModule(vkDevice, vkShaderModule_phong_vs, NULL);
+ //       vkShaderModule_phong_vs = VK_NULL_HANDLE;
+ //   }
+ //   if (vkShaderModule_phong_fs)
+ //   {
+ //       vkDestroyShaderModule(vkDevice, vkShaderModule_phong_fs, NULL);
+ //       vkShaderModule_phong_fs = VK_NULL_HANDLE;
+ //   }
 
-    //-- shader modules for PBR shaders
-    if (vkShaderModule_PBR_vs)
-    {
-        vkDestroyShaderModule(vkDevice, vkShaderModule_PBR_vs, NULL);
-        vkShaderModule_PBR_vs = VK_NULL_HANDLE;
-    }
-    if (vkShaderModule_PBR_fs)
-    {
-        vkDestroyShaderModule(vkDevice, vkShaderModule_PBR_fs, NULL);
-        vkShaderModule_PBR_fs = VK_NULL_HANDLE;
-    }
+ //   //-- shader modules for PBR shaders
+ //   if (vkShaderModule_PBR_vs)
+ //   {
+ //       vkDestroyShaderModule(vkDevice, vkShaderModule_PBR_vs, NULL);
+ //       vkShaderModule_PBR_vs = VK_NULL_HANDLE;
+ //   }
+ //   if (vkShaderModule_PBR_fs)
+ //   {
+ //       vkDestroyShaderModule(vkDevice, vkShaderModule_PBR_fs, NULL);
+ //       vkShaderModule_PBR_fs = VK_NULL_HANDLE;
+ //   }
+
+	////PBR_Skinned
+ //   if (vkShaderModule_PBR_Skinned_vs)
+ //   {
+ //       vkDestroyShaderModule(vkDevice, vkShaderModule_PBR_Skinned_vs, NULL);
+ //       vkShaderModule_PBR_Skinned_vs = VK_NULL_HANDLE;
+	//}
+ //   if (vkShaderModule_PBR_Skinned_fs)
+ //   {
+ //       vkDestroyShaderModule(vkDevice, vkShaderModule_PBR_Skinned_fs, NULL);
+ //       vkShaderModule_PBR_Skinned_fs = VK_NULL_HANDLE;
+	//}
 }
 
 /*
@@ -7125,7 +7461,7 @@ VkResult createDescriptorPool(void)
     VkDescriptorPoolSize vkDescriptorPoolSizes[] =
     {
         {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1 * MAX_FRAMES}, // descriptor type and descriptor count
-        {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 6+3 } // descriptor type and descriptor count for combined image sampler
+        {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 6 + 3 } // descriptor type and descriptor count for combined image sampler
     };
 
     // Declare and initialize VkDescriptorPoolCreateInfo structure and refer above VkDescriptorPoolSize into it.
@@ -8115,6 +8451,55 @@ void RenderPBR_Basic(uint32_t curIndex)
 
 }
 
+void RenderPBR_Skinned(uint32_t curIndex)
+
+{
+    static float fAngle = 0.0f;
+    fAngle += MyWin32::fDeltaTime * 20.0f; // Increment the angle for rotation
+    if (fAngle >= 360.0f)
+        fAngle = fAngle - 360.0f; // Reset the angle if it exceeds 360 degrees
+
+    PushConstants pushConstants;
+	glm::mat4 translation = glm::translate(glm::mat4(1.0f), glm::vec3(5.0f, 5.0f, 0.0f));
+	glm::mat4 rotation = glm::rotate(glm::mat4(1.0f), glm::radians(fAngle), glm::vec3(0.0f, 0.0f, 1.0f));
+	glm::mat4 scale = glm::scale(glm::mat4(1.0f), glm::vec3(0.2f, 0.2f, 0.2f));
+
+	pushConstants.model = translation * rotation * scale;
+    //pushConstants.model = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.0f, 0.0f));
+    //ushConstants.model = glm::mat4(1.0f); // Identity matrix for no transformation
+
+#ifdef IMGUI_ENABLE
+    pushConstants.v3Color = v3Color;
+    pushConstants.fFactor = fFactor;
+#else
+    pushConstants.v3Color = glm::vec3(1.0);
+    pushConstants.fFactor = 1.0f;
+#endif //IMGUI_ENABLE
+
+
+    // Bind the pipeline and descriptor sets
+    vkCmdBindPipeline(vkCommandBuffer_Array[curIndex], VK_PIPELINE_BIND_POINT_GRAPHICS, gpGraphicsPipelines->PBR_Skinned.vkPipeline);
+
+    VkDescriptorSet vkLocalDescriptorSets[] = { vkDescriptorSets_frameData[curIndex],pMaterial_BasicPBR_GrassyGround->getDescriptorSet() };
+    vkCmdBindDescriptorSets(vkCommandBuffer_Array[curIndex], VK_PIPELINE_BIND_POINT_GRAPHICS, gpGraphicsPipelines->PBR_Skinned.vkPipelineLayout, 0, _ARRAYSIZE(vkLocalDescriptorSets), vkLocalDescriptorSets, 0, NULL);
+
+    // Push the model matrix
+    vkCmdPushConstants(
+        vkCommandBuffer_Array[curIndex],
+        gpGraphicsPipelines->PBR_Skinned.vkPipelineLayout,
+        VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, // stages where the push constant will be used
+        0,                                      // offset
+        sizeof(PushConstants),                  // size
+        &pushConstants                          // pointer to our data
+    );
+    // Bind vertex buffer
+    VkDeviceSize offset = 0;
+    vkCmdBindVertexBuffers(vkCommandBuffer_Array[curIndex], 0, 1, &RatBufferData.vertexData.vkBuffer, &offset);
+    vkCmdBindIndexBuffer(vkCommandBuffer_Array[curIndex], RatBufferData.indexData.vkBuffer, 0, VK_INDEX_TYPE_UINT32);
+    vkCmdDrawIndexed(vkCommandBuffer_Array[curIndex], RatBufferData.indicesCount, 1, 0, 0, 0);
+
+}
+
 VkResult buildCommandBuffers(uint32_t curIndex)
 {
     VkResult vkResult = VK_SUCCESS;
@@ -8179,6 +8564,8 @@ VkResult buildCommandBuffers(uint32_t curIndex)
 
     RenderPBR_Basic(curIndex); // Render the PBR basic model
 
+	RenderPBR_Skinned(curIndex); // Render the PBR skinned model
+
 #ifdef IMGUI_ENABLE
     RenderImGui(curIndex); // Render ImGui UI
 #endif //IMGUI_ENABLE
@@ -8203,7 +8590,7 @@ VkResult createGraphicsPipelines(void)
 
     if (gpGraphicsPipelines)
     {
-		vkResult = gpGraphicsPipelines->createPipelines();
+        vkResult = gpGraphicsPipelines->createPipelines();
         if (vkResult != VK_SUCCESS)
         {
             fprintf(gpFILE, "createGraphicsPipelines() : gpGraphicsPipelines->createPipelines() failed: %d.\n", vkResult);
@@ -8212,13 +8599,13 @@ VkResult createGraphicsPipelines(void)
     }
     else
     {
-		gpGraphicsPipelines = new GraphicsPipelines();
+        gpGraphicsPipelines = new GraphicsPipelines();
         vkResult = gpGraphicsPipelines->vkResult;
         if (vkResult != VK_SUCCESS)
         {
             fprintf(gpFILE, "createGraphicsPipelines() : gpGraphicsPipelines->createPipelines() failed: %d.\n", vkResult);
             return vkResult;
-		}
+        }
     }
 
 
@@ -8229,10 +8616,10 @@ VkResult createGraphicsPipelines(void)
 void destroyGraphicsPipelines(void)
 {
 
-    if(gpGraphicsPipelines)
+    if (gpGraphicsPipelines)
     {
         gpGraphicsPipelines->destroyPipelines();
-	}
+    }
 
 
 }
