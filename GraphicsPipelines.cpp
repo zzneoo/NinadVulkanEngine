@@ -1510,7 +1510,7 @@ VkResult GraphicsPipelines::createGraphicsPipeline_PBR_Skinned(void)
     //tangent
     vkVertexInputAttributeDescription_array[3].binding = 0; // binding index
     vkVertexInputAttributeDescription_array[3].location = 3; // location index
-    vkVertexInputAttributeDescription_array[3].format = VK_FORMAT_R32G32B32_SFLOAT; // format of each vertex
+    vkVertexInputAttributeDescription_array[3].format = VK_FORMAT_R32G32B32A32_SFLOAT; // format of each vertex
     vkVertexInputAttributeDescription_array[3].offset = offsetof(VertexData_Skinned, tangent); // offset of each vertex
 
 	//boneIDs

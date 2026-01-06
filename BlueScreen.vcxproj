@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8"?>
+﻿<?xml version="1.0" encoding="utf-8"?>
 <Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup Label="ProjectConfigurations">
     <ProjectConfiguration Include="Debug|Win32">
@@ -139,6 +139,7 @@
     </PreBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClInclude Include="AnimatedModel.h" />
     <ClInclude Include="BlueScreen.h" />
     <ClInclude Include="Camera.h" />
     <ClInclude Include="DescriptorSetLayouts.h" />
@@ -160,6 +161,7 @@
     <ClInclude Include="VK.h" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="AnimatedModel.cpp" />
     <ClCompile Include="BlueScreen.cpp" />
     <ClCompile Include="Camera.cpp" />
     <ClCompile Include="DescriptorSetLayouts.cpp" />

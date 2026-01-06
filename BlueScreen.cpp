@@ -55,6 +55,7 @@ using namespace tinyddsloader;
 
 #include "DescriptorSetLayouts.h"
 #include "GraphicsPipelines.h"
+#include "AnimatedModel.h"
 
 // macros
 #define WIN_WIDTH  1920
@@ -187,6 +188,7 @@ VulkanComboData  SuzanneBufferData;
 VulkanComboData  SphereBufferData;
 VulkanComboData  RatBufferData;
 
+AnimatedModel* pModel_Rat = NULL;
 
 
 const uint16_t triangle_indices[] =
@@ -1165,6 +1167,8 @@ VkResult LoadModel_PBR(const char* modelPath, VulkanComboData* vulkanComboData, 
     return VK_SUCCESS;
 }
 
+//Skeleton animation utilities
+
 // Convert aiMatrix4x4 to glm::mat4 (Assimp row-major)
 static glm::mat4 aiMat4ToGlm(const aiMatrix4x4& m) {
     // Assimp stores row-major; glm::mat4 expects column-major when accessed with ptr.
@@ -1198,6 +1202,199 @@ static void AddBoneDataToVertex(VertexData_Skinned& v, int boneIndex, float weig
     if (weight > minVal) {
         v.boneIDs[minIdx] = boneIndex;
         v.boneWeights[minIdx] = weight;
+    }
+}
+
+double TicksPerSecond(const aiAnimation* anim)
+{
+    return anim->mTicksPerSecond != 0.0
+        ? anim->mTicksPerSecond
+        : 25.0f;
+}
+
+double AnimationTime(const aiAnimation* anim, float timeInSeconds)
+{
+    float timeInTicks = timeInSeconds * (float)TicksPerSecond(anim);
+    return fmod(timeInTicks, anim->mDuration);
+}
+
+uint32_t FindPositionKey(float animationTime, const aiNodeAnim* channel)
+{
+    for (uint32_t i = 0; i < channel->mNumPositionKeys - 1; i++)
+    {
+        if (animationTime < channel->mPositionKeys[i + 1].mTime)
+            return i;
+    }
+    return channel->mNumPositionKeys - 2;
+}
+
+uint32_t FindRotationKey(float animationTime, const aiNodeAnim* channel)
+{
+    for (uint32_t i = 0; i < channel->mNumRotationKeys - 1; i++)
+    {
+        if (animationTime < channel->mRotationKeys[i + 1].mTime)
+            return i;
+    }
+    return channel->mNumRotationKeys - 2;
+}
+
+uint32_t FindScalingKey(float animationTime, const aiNodeAnim* channel)
+{
+    for (uint32_t i = 0; i < channel->mNumScalingKeys - 1; i++)
+    {
+        if (animationTime < channel->mScalingKeys[i + 1].mTime)
+            return i;
+    }
+    return channel->mNumScalingKeys - 2;
+}
+
+glm::vec3 InterpolatePosition(float time, const aiNodeAnim* channel)
+{
+    if (channel->mNumPositionKeys == 1)
+        return glm::vec3(channel->mPositionKeys[0].mValue.x,
+            channel->mPositionKeys[0].mValue.y,
+            channel->mPositionKeys[0].mValue.z);
+
+    int index = FindPositionKey(time, channel);
+    int next = index + 1;
+
+    float delta =
+        (float)channel->mPositionKeys[next].mTime -
+        (float)channel->mPositionKeys[index].mTime;
+
+    float factor =
+        (float)(time - channel->mPositionKeys[index].mTime) / delta;
+
+    auto& a = channel->mPositionKeys[index].mValue;
+    auto& b = channel->mPositionKeys[next].mValue;
+
+    return glm::mix(
+        glm::vec3(a.x, a.y, a.z),
+        glm::vec3(b.x, b.y, b.z),
+        factor
+    );
+}
+
+glm::quat InterpolateRotation(float time, const aiNodeAnim* channel)
+{
+    if (channel->mNumRotationKeys == 1)
+    {
+        auto& q = channel->mRotationKeys[0].mValue;
+        return glm::quat(q.w, q.x, q.y, q.z);
+    }
+
+    int index = FindRotationKey(time, channel);
+    int next = index + 1;
+
+    float delta =
+        (float)channel->mRotationKeys[next].mTime -
+        (float)channel->mRotationKeys[index].mTime;
+
+    float factor =
+        (float)(time - channel->mRotationKeys[index].mTime) / delta;
+
+    auto& a = channel->mRotationKeys[index].mValue;
+    auto& b = channel->mRotationKeys[next].mValue;
+
+    return glm::normalize(glm::slerp(
+        glm::quat(a.w, a.x, a.y, a.z),
+        glm::quat(b.w, b.x, b.y, b.z),
+        factor
+    ));
+}
+
+glm::vec3 InterpolateScale(float animationTime, const aiNodeAnim* channel)
+{
+    // Only one key no interpolation needed
+    if (channel->mNumScalingKeys == 1)
+    {
+        const aiVector3D& v = channel->mScalingKeys[0].mValue;
+        return glm::vec3(v.x, v.y, v.z);
+    }
+
+    uint32_t index = FindScalingKey(animationTime, channel);
+    uint32_t nextIndex = index + 1;
+
+    float t1 = (float)channel->mScalingKeys[index].mTime;
+    float t2 = (float)channel->mScalingKeys[nextIndex].mTime;
+
+    float factor = (animationTime - t1) / (t2 - t1);
+    factor = glm::clamp(factor, 0.0f, 1.0f);
+
+    const aiVector3D& start = channel->mScalingKeys[index].mValue;
+    const aiVector3D& end = channel->mScalingKeys[nextIndex].mValue;
+
+    return glm::mix(
+        glm::vec3(start.x, start.y, start.z),
+        glm::vec3(end.x, end.y, end.z),
+        factor
+    );
+}
+
+const aiNodeAnim* FindNodeAnim(const aiAnimation* anim,
+    const std::string& name)
+{
+    for (uint32_t i = 0; i < anim->mNumChannels; i++)
+    {
+        const aiNodeAnim* channel = anim->mChannels[i];
+        if (name == channel->mNodeName.C_Str())
+            return channel;
+    }
+    return nullptr;
+}
+
+
+// for skinned mesh
+std::unordered_map<std::string, uint32_t> boneMapping; // bone name -> index
+std::vector<glm::mat4> boneOffsetMatrices;// indexed by bone index
+
+
+
+void ReadNodeHierarchy(float animationTime,
+    const aiAnimation* animation,
+    aiNode* node,
+    const glm::mat4& parentTransform)
+{
+    std::string nodeName(node->mName.C_Str());
+
+    // Node's default transform (bind pose)
+    glm::mat4 nodeTransform =
+        aiMat4ToGlm(node->mTransformation);
+
+    const aiNodeAnim* channel = FindNodeAnim(animation, nodeName);
+
+    // If animated, override bind transform
+    if (channel)
+    {
+        glm::vec3 T = InterpolatePosition(animationTime, channel);
+        glm::quat R = InterpolateRotation(animationTime, channel);
+        glm::vec3 S = InterpolateScale(animationTime, channel);
+
+        nodeTransform =
+            glm::translate(glm::mat4(1.0f), T) *
+            glm::mat4_cast(R) *
+            glm::scale(glm::mat4(1.0f), S);
+    }
+
+    glm::mat4 globalTransform = parentTransform * nodeTransform;
+
+    // If this node corresponds to a bone, update final matrix
+    auto it = boneMapping.find(nodeName);
+    if (it != boneMapping.end())
+    {
+        uint32_t boneIndex = it->second;
+
+       // glm::mat4 finalTransformation = globalInverseTransform * globalTransform * boneOffsetMatrices[boneIndex];
+
+    }
+
+    // Recurse
+    for (uint32_t i = 0; i < node->mNumChildren; i++)
+    {
+        ReadNodeHierarchy(animationTime,
+            animation,
+            node->mChildren[i],
+            globalTransform);
     }
 }
 
@@ -1240,8 +1437,6 @@ VkResult LoadModel_Animated_PBR(const char* modelPath, VulkanComboData* vulkanCo
     std::vector<VertexData_Skinned> vkVertices;
 
 	// for skinned mesh
-    std::unordered_map<std::string, uint32_t> boneMapping; // bone name -> index
-    std::vector<BoneInfo> boneInfo;                        // indexed by bone index
     uint32_t numBones = 0;
 
     if (index32)
@@ -1249,7 +1444,7 @@ VkResult LoadModel_Animated_PBR(const char* modelPath, VulkanComboData* vulkanCo
         std::vector<uint32_t> vkIndices;
         // before looping meshes:
         boneMapping.clear();
-        boneInfo.clear();
+        boneOffsetMatrices.clear();
         numBones = 0;
 
         if (scene && scene->mRootNode) {
@@ -1259,6 +1454,8 @@ VkResult LoadModel_Animated_PBR(const char* modelPath, VulkanComboData* vulkanCo
                 // Vertices
                 for (unsigned int i = 0; i < mesh->mNumVertices; i++) {
                     VertexData_Skinned v{};
+                    v.boneIDs = glm::ivec4(0);
+                    v.boneWeights = glm::vec4(0.0f);
 
                     // Position
                     if (mesh->HasPositions()) {
@@ -1295,15 +1492,29 @@ VkResult LoadModel_Animated_PBR(const char* modelPath, VulkanComboData* vulkanCo
                     }
 
                     // Vertex Tangents 
-                    if (mesh->HasTangentsAndBitangents()) {
-                        v.tangent = glm::vec3(
+                    if (mesh->HasTangentsAndBitangents())
+                    {
+                        glm::vec3 tangent(
                             mesh->mTangents[i].x,
                             mesh->mTangents[i].y,
                             mesh->mTangents[i].z
                         );
+
+                        glm::vec3 bitangent(
+                            mesh->mBitangents[i].x,
+                            mesh->mBitangents[i].y,
+                            mesh->mBitangents[i].z
+                        );
+
+                        glm::vec3 normal = glm::normalize(v.normal);
+                        tangent = glm::normalize(tangent);
+
+                        float handedness = (glm::dot(glm::cross(tangent, normal), bitangent) < 0.0f)? -1.0f: 1.0f;
+                        v.tangent = glm::vec4(tangent, handedness);
                     }
                     else {
-                        v.tangent = glm::vec3(1.0f, 0.0f, 0.0f); // default fallback
+                        // Fallback: X-axis tangent, right-handed
+                        v.tangent = glm::vec4(1.0f, 0.0f, 0.0f, 1.0f);
                     }
 
                     vkVertices.push_back(v);
@@ -1328,10 +1539,8 @@ VkResult LoadModel_Animated_PBR(const char* modelPath, VulkanComboData* vulkanCo
                             boneIndex = numBones++;
                             boneMapping[boneName] = boneIndex;
 
-                            BoneInfo bi;
-                            bi.offsetMatrix = aiMat4ToGlm(mesh->mBones[i]->mOffsetMatrix);
-                            bi.finalTransformation = glm::mat4(1.0f);
-                            boneInfo.push_back(bi);
+                            glm::mat4 offsetMatrix = aiMat4ToGlm(mesh->mBones[i]->mOffsetMatrix);
+                            boneOffsetMatrices.push_back(offsetMatrix);
                         }
                         else {
                             boneIndex = boneMapping[boneName];
@@ -1350,6 +1559,8 @@ VkResult LoadModel_Animated_PBR(const char* modelPath, VulkanComboData* vulkanCo
                         }
                     }
                 }
+
+                assert(boneOffsetMatrices.size() == numBones);
             }
 
 
@@ -1365,7 +1576,7 @@ VkResult LoadModel_Animated_PBR(const char* modelPath, VulkanComboData* vulkanCo
         );
         if (vkResult != VK_SUCCESS)
         {
-            fprintf(gpFILE, "initialize() : ZzCreateVetexAndIndexBuffer() for PBR model failed (%d).\n", vkResult);
+            fprintf(gpFILE, "initialize() : ZzCreateVetexAndIndexBuffer() for Animated PBR model failed (%d).\n", vkResult);
             return(vkResult);
         }
     }
@@ -1416,15 +1627,29 @@ VkResult LoadModel_Animated_PBR(const char* modelPath, VulkanComboData* vulkanCo
                     }
 
                     // Vertex Tangents 
-                    if (mesh->HasTangentsAndBitangents()) {
-                        v.tangent = glm::vec3(
+                    if (mesh->HasTangentsAndBitangents())
+                    {
+                        glm::vec3 tangent(
                             mesh->mTangents[i].x,
                             mesh->mTangents[i].y,
                             mesh->mTangents[i].z
                         );
+
+                        glm::vec3 bitangent(
+                            mesh->mBitangents[i].x,
+                            mesh->mBitangents[i].y,
+                            mesh->mBitangents[i].z
+                        );
+
+                        glm::vec3 normal = glm::normalize(v.normal);
+                        tangent = glm::normalize(tangent);
+
+                        float handedness = (glm::dot(glm::cross(tangent, normal), bitangent) < 0.0f) ? -1.0f : 1.0f;
+                        v.tangent = glm::vec4(tangent, handedness);
                     }
-                    else {
-                        v.tangent = glm::vec3(1.0f, 0.0f, 0.0f); // default fallback
+                    else{
+                        // Fallback: X-axis tangent, right-handed
+                        v.tangent = glm::vec4(1.0f, 0.0f, 0.0f, 1.0f);
                     }
 
                     vkVertices.push_back(v);
@@ -1450,7 +1675,7 @@ VkResult LoadModel_Animated_PBR(const char* modelPath, VulkanComboData* vulkanCo
         );
         if (vkResult != VK_SUCCESS)
         {
-            fprintf(gpFILE, "initialize() : ZzCreateVetexAndIndexBuffer() for PBR model failed (%d).\n", vkResult);
+            fprintf(gpFILE, "initialize() : ZzCreateVetexAndIndexBuffer() for Animated PBR model failed (%d).\n", vkResult);
             return(vkResult);
         }
     }
@@ -1513,9 +1738,9 @@ VkResult initialize(void)
     // variable declarations
     VkResult vkResult = VK_SUCCESS;
 
-    //compileShaderVS_FS("Impostor");
-    //compileShaderVS_FS("Phong");
-    //compileShaderVS_FS("PBR");
+    compileShaderVS_FS("Impostor");
+    compileShaderVS_FS("Phong");
+    compileShaderVS_FS("PBR");
     compileShaderVS_FS("PBR_Skinned");
 
     // code
@@ -2015,6 +2240,8 @@ VkResult initialize(void)
         fprintf(gpFILE, "initialize() : Rat LoadModel_Animated_PBR()  failed (%d).\n", vkResult);
         return(vkResult);
     }
+
+    pModel_Rat = new AnimatedModel("Resources/Models/Test/Anim_Rat_Walk.FBX", true);
 
     //-------------------------------------PBR model textures----------------------------------------------------------
 
@@ -2688,7 +2915,7 @@ void uninitialize(void)
     }
 
     //shaderModules
-    destroyShaders();
+    //destroyShaders();
 
 
     //Destroy vertex data for colored triangle
@@ -2703,6 +2930,7 @@ void uninitialize(void)
     ZzDestroyVertexAndIndexBuffer(&SphereBufferData);
     ZzDestroyVertexAndIndexBuffer(&RatBufferData);
 
+	delete pModel_Rat;
 
     //uniform buffer
 
@@ -8494,9 +8722,12 @@ void RenderPBR_Skinned(uint32_t curIndex)
     );
     // Bind vertex buffer
     VkDeviceSize offset = 0;
-    vkCmdBindVertexBuffers(vkCommandBuffer_Array[curIndex], 0, 1, &RatBufferData.vertexData.vkBuffer, &offset);
-    vkCmdBindIndexBuffer(vkCommandBuffer_Array[curIndex], RatBufferData.indexData.vkBuffer, 0, VK_INDEX_TYPE_UINT32);
-    vkCmdDrawIndexed(vkCommandBuffer_Array[curIndex], RatBufferData.indicesCount, 1, 0, 0, 0);
+
+	const VulkanComboData* vulkanComboData_Rat = pModel_Rat->GetVulkanComboData();
+
+    vkCmdBindVertexBuffers(vkCommandBuffer_Array[curIndex], 0, 1, &vulkanComboData_Rat->vertexData.vkBuffer, &offset);
+    vkCmdBindIndexBuffer(vkCommandBuffer_Array[curIndex], vulkanComboData_Rat->indexData.vkBuffer, 0, VK_INDEX_TYPE_UINT32);
+    vkCmdDrawIndexed(vkCommandBuffer_Array[curIndex], vulkanComboData_Rat->indicesCount, 1, 0, 0, 0);
 
 }
 

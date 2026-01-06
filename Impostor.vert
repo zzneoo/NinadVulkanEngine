@@ -6,12 +6,15 @@ layout(location = 1) in vec2 vTexCoord;
 
 layout(std140, set = 0, binding = 0) uniform FrameData 
 {
-    mat4 view;        // offset 0   → 64 bytes
-    mat4 projection;  // offset 64  → 64 bytes
-    float fTime;      // offset 128
-    uint  frameID;    // offset 132
-    vec3 cameraPos;   // offset 144 → needs to be aligned to 16 bytes
-    float _pad;       // offset 156 → pad to 160 (multiple of 16)
+    mat4 view;
+    mat4 projection;
+
+    float fTime;
+    uint  frameID;
+    vec2 _pad0;
+
+    vec3 cameraPos;
+    float _pad;
 }global;
 
 layout(push_constant) uniform PushConstants {
