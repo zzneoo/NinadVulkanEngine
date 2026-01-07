@@ -56,6 +56,48 @@ VkResult DescriptorSetLayouts::createDescriptorSetLayout_FrameData(void)
     return(vkResult);
 }
 
+VkResult DescriptorSetLayouts::createDescriptorSetLayout_FrameDataBoneData(void)
+{
+    // variable declarations
+    VkResult vkResult = VK_SUCCESS;
+
+    // Declare and initialize VkDescriptorSetLayoutBinding structure which will have information about the descriptor set layout binding.
+    VkDescriptorSetLayoutBinding vkDescriptorSetLayoutBinding_Array[2];
+    memset((void*)&vkDescriptorSetLayoutBinding_Array, 0, sizeof(vkDescriptorSetLayoutBinding_Array));
+
+    vkDescriptorSetLayoutBinding_Array[0].binding = 0; // binding index
+    vkDescriptorSetLayoutBinding_Array[0].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER; // descriptor type
+    vkDescriptorSetLayoutBinding_Array[0].descriptorCount = 1; // number of descriptors
+    vkDescriptorSetLayoutBinding_Array[0].stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT; // stage flags for the descriptor set layout binding
+    vkDescriptorSetLayoutBinding_Array[0].pImmutableSamplers = NULL; // no immutable samplers
+
+	vkDescriptorSetLayoutBinding_Array[1].binding = 1; // binding index
+	vkDescriptorSetLayoutBinding_Array[1].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER; // descriptor type
+	vkDescriptorSetLayoutBinding_Array[1].descriptorCount = 1; // number of descriptors
+	vkDescriptorSetLayoutBinding_Array[1].stageFlags = VK_SHADER_STAGE_VERTEX_BIT; // stage flags for the descriptor set layout binding
+	vkDescriptorSetLayoutBinding_Array[1].pImmutableSamplers = NULL; // no immutable samplers
+
+    // code
+    VkDescriptorSetLayoutCreateInfo vkDescriptorSetLayoutCreateInfo;
+    memset((void*)&vkDescriptorSetLayoutCreateInfo, 0, sizeof(VkDescriptorSetLayoutCreateInfo));
+
+    vkDescriptorSetLayoutCreateInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
+    vkDescriptorSetLayoutCreateInfo.pNext = NULL;
+    vkDescriptorSetLayoutCreateInfo.flags = 0;
+    vkDescriptorSetLayoutCreateInfo.bindingCount = 2;
+    vkDescriptorSetLayoutCreateInfo.pBindings = vkDescriptorSetLayoutBinding_Array; // pointer to the descriptor set layout binding array
+
+
+    vkResult = vkCreateDescriptorSetLayout(vkDevice, &vkDescriptorSetLayoutCreateInfo, NULL, &vkDescriptorSetLayout_frameDataBoneData);
+    if (vkResult != VK_SUCCESS)
+    {
+        fprintf(gpFILE, "createDiscriptorSetLayout() -> vkCreateDescriptorSetLayout() :  failed: %d.\n", vkResult);
+        return(vkResult);
+    }
+
+    return(vkResult);
+}
+
 VkResult DescriptorSetLayouts::createDescriptorSetLayout_SingleImage(void)
 {
     // variable declarations
@@ -178,6 +220,13 @@ VkResult DescriptorSetLayouts::createDescriptorSetLayouts(void)
         return(vkResult);
     }
 
+	vkResult = createDescriptorSetLayout_FrameDataBoneData();
+	if (vkResult != VK_SUCCESS)
+	{
+		fprintf(gpFILE, "initialize() : createDescriptorSetLayout_FrameDataBoneData() failed (%d).\n", vkResult);
+		return(vkResult);
+	}
+
     //descriptor set layout for impostor
     vkResult = createDescriptorSetLayout_SingleImage();
     if (vkResult != VK_SUCCESS)
@@ -213,6 +262,12 @@ void DescriptorSetLayouts::destroyDescriptorSetLayouts(void)
         vkDestroyDescriptorSetLayout(vkDevice, vkDescriptorSetLayout_frameData, NULL);
         vkDescriptorSetLayout_frameData = VK_NULL_HANDLE;
     }
+
+    if (vkDescriptorSetLayout_frameDataBoneData)
+    {
+        vkDestroyDescriptorSetLayout(vkDevice, vkDescriptorSetLayout_frameDataBoneData, NULL);
+        vkDescriptorSetLayout_frameDataBoneData = VK_NULL_HANDLE;
+	}
 
     //descriptor set layout for impostor
     if (vkDescriptorSetLayout_SingleImage)

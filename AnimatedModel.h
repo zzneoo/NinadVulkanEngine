@@ -15,6 +15,7 @@ extern VkDevice vkDevice;
 extern VkCommandPool vkCommandPool;
 extern VkPhysicalDeviceMemoryProperties vkPhysicalDeviceMemoryProperties;
 extern VkQueue vkQueue;
+extern VkPhysicalDevice vkPhysicalDevice_Selected;
 
 
 class AnimatedModel
@@ -24,11 +25,15 @@ public:
     ~AnimatedModel();
 
 	const uint16_t GetNumBones() const { return numBones; }
-    void UpdateAnimation(float deltaTime);
+    void UpdateAnimation(float deltaTime, uint16_t currFrame);
 	const VulkanComboData* GetVulkanComboData() const { return &vulkanComboData; }
+	const VulkanSSBO* GetBoneSSBOs() const { return boneSSBO; }
 
 private:
     static glm::mat4 aiMat4ToGlm(const aiMatrix4x4& m);
+    // Helper: find memory type
+    uint32_t FindMemoryType(VkPhysicalDevice physicalDevice, uint32_t typeFilter, VkMemoryPropertyFlags properties);
+
     void AddBoneDataToVertex(VertexData_Skinned& v, int boneIndex, float weight);
     VkResult LoadModel_Animated_PBR(const char* modelPath, bool index32);
 
@@ -46,6 +51,9 @@ private:
         const aiAnimation* animation,
         aiNode* node,
         const glm::mat4& parentTransform);
+
+    // createSSBO: creates a storage buffer backed by host-visible coherent memory and maps it persistently
+    VkResult createSSBO(VkDevice device, VkPhysicalDevice physicalDevice, VulkanSSBO& outSSBO);
 
     VkResult ZzCreateVertexBuffer(const float* vertices, VkDeviceSize vertexBufferSize, VulkanData* vulkanData);
     VkResult ZzCreateIndex16Buffer(const uint16_t* indices, VkDeviceSize indexBufferSize, VulkanData* vulkanData);
@@ -79,4 +87,7 @@ private:
 	uint16_t numBones = 0;
 
 	VulkanComboData vulkanComboData;
+
+    VulkanSSBO boneSSBO[2];
+
 };

@@ -475,7 +475,7 @@ VkResult GraphicsPipelines::createPipelineLayout_PBR_Skinned(void)
     VkPipelineLayoutCreateInfo vkPipelineLayoutCreateInfo;
     memset((void*)&vkPipelineLayoutCreateInfo, 0, sizeof(VkPipelineLayoutCreateInfo));
 
-    VkDescriptorSetLayout vkDescriptorSetLayouts[] = { gpDescriptorSetLayouts->vkDescriptorSetLayout_frameData,gpDescriptorSetLayouts->vkDescriptorSetLayout_BasicPBR };
+    VkDescriptorSetLayout vkDescriptorSetLayouts[] = { gpDescriptorSetLayouts->vkDescriptorSetLayout_frameDataBoneData,gpDescriptorSetLayouts->vkDescriptorSetLayout_BasicPBR };
 
     vkPipelineLayoutCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
     vkPipelineLayoutCreateInfo.pNext = NULL;

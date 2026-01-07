@@ -24,6 +24,7 @@ public:
 	static glm::vec2 gNearFarFrustum;
 	static float fovY;
 	static float fDeltaTime;
+	static double dTotalElapsedTime;
 
 	static CamStruct myCamStruct;
 	static ClientSize myClientSize;

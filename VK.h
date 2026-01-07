@@ -111,6 +111,14 @@ typedef struct
 	VkDeviceMemory vkDeviceMemory;
 } VulkanData;
 
+struct VulkanSSBO {
+	VkBuffer vkBuffer = VK_NULL_HANDLE;
+	VkDeviceMemory vkDeviceMemory = VK_NULL_HANDLE;
+	VkDescriptorBufferInfo descriptor{};
+	void* mapped = nullptr;           // persistently mapped pointer (or null)
+	VkDeviceSize size = 0;
+};
+
 typedef struct
 {
 	VulkanData vertexData;

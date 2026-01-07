@@ -245,6 +245,7 @@ VkSampler vkSampler_LinearMipmapClamp = VK_NULL_HANDLE;
 
 VkDescriptorPool vkDescriptorPool = VK_NULL_HANDLE;
 VkDescriptorSet  vkDescriptorSets_frameData[MAX_FRAMES];
+VkDescriptorSet  vkDescriptorSets_frameDataBoneData[MAX_FRAMES];
 VkDescriptorSet  vkDescriptorSet_SingleImage;
 VkDescriptorSet  vkDescriptorSet_AlbedoNormal;
 
@@ -1715,6 +1716,7 @@ VkResult initialize(void)
 
     VkResult createDescriptorPool(void);
     VkResult createDescriptorSet_FrameData(void);
+    VkResult createDescriptorSet_FrameDataBoneData(void);
     VkResult createDescriptorSet_SingleImage(void);
     VkResult createDescriptorSet_AlbedoNormal(void);
 
@@ -2243,6 +2245,15 @@ VkResult initialize(void)
 
     pModel_Rat = new AnimatedModel("Resources/Models/Test/Anim_Rat_Walk.FBX", true);
 
+    //createDescriptorSet_FrameDataBoneData
+	vkResult = createDescriptorSet_FrameDataBoneData();
+	if (vkResult != VK_SUCCESS)
+	{
+		fprintf(gpFILE, "initialize() : createDescriptorSet_FrameDataBoneData() failed (%d).\n", vkResult);
+		return(vkResult);
+	}
+
+
     //-------------------------------------PBR model textures----------------------------------------------------------
 
     const char* pathRockyGround = "Resources/PBR_Materials/T_omfr20_4K/";
@@ -2760,12 +2771,14 @@ VkResult display(void)
 void update(void)
 {
     // code
+	MyWin32::dTotalElapsedTime += MyWin32::fDeltaTime * 100.0f;
 
 
     if (FALSE == MyWin32::isGUI)
     {
         camera.UpdateViewMatrix(ghwnd);
     }
+
 }
 
 void uninitialize(void)
@@ -2889,6 +2902,10 @@ void uninitialize(void)
         vkDescriptorPool = VK_NULL_HANDLE;
         vkDescriptorSets_frameData[0] = VK_NULL_HANDLE; // set to NULL to avoid dangling pointer
         vkDescriptorSets_frameData[1] = VK_NULL_HANDLE; // set to NULL to avoid dangling pointer
+
+        vkDescriptorSets_frameDataBoneData[0] = VK_NULL_HANDLE; // set to NULL to avoid dangling pointer
+        vkDescriptorSets_frameDataBoneData[1] = VK_NULL_HANDLE; // set to NULL to avoid dangling pointer
+
 
     }
 
@@ -7689,7 +7706,8 @@ VkResult createDescriptorPool(void)
     VkDescriptorPoolSize vkDescriptorPoolSizes[] =
     {
         {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1 * MAX_FRAMES}, // descriptor type and descriptor count
-        {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 6 + 3 } // descriptor type and descriptor count for combined image sampler
+        {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 6 + 3 }, // descriptor type and descriptor count for combined image sampler
+		{VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1 * MAX_FRAMES}, // descriptor type and descriptor count for storage buffer//bones
     };
 
     // Declare and initialize VkDescriptorPoolCreateInfo structure and refer above VkDescriptorPoolSize into it.
@@ -7699,7 +7717,7 @@ VkResult createDescriptorPool(void)
     vkDescriptorPoolCreateInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
     vkDescriptorPoolCreateInfo.pNext = NULL;
     vkDescriptorPoolCreateInfo.flags = 0; // no flags
-    vkDescriptorPoolCreateInfo.maxSets = (1 * MAX_FRAMES) + 2 + 2; // maximum number of descriptor sets that can be allocated from this pool
+    vkDescriptorPoolCreateInfo.maxSets = (2 * MAX_FRAMES) + 2 + 2; // maximum number of descriptor sets that can be allocated from this pool
     vkDescriptorPoolCreateInfo.poolSizeCount = _ARRAYSIZE(vkDescriptorPoolSizes); // number of descriptor pool sizes
     vkDescriptorPoolCreateInfo.pPoolSizes = vkDescriptorPoolSizes;
 
@@ -7789,6 +7807,96 @@ VkResult createDescriptorSet_FrameData(void)
         //vkWriteDescriptorSet_array[1].pImageInfo = NULL; // no image info
         //vkWriteDescriptorSet_array[1].pBufferInfo = &vkDescriptorBufferInfo_frameData; // pointer to the buffer info
         //vkWriteDescriptorSet_array[1].pTexelBufferView = NULL; // no texel buffer view
+
+
+        // Call vkUpdateDescriptorSets() to update the descriptor set with the uniform buffer information.
+        vkUpdateDescriptorSets(vkDevice, _ARRAYSIZE(vkWriteDescriptorSet_array), vkWriteDescriptorSet_array, 0, NULL);
+
+    }
+
+
+    return(vkResult);
+}
+
+VkResult createDescriptorSet_FrameDataBoneData(void)
+{
+    // local variables
+    VkResult vkResult = VK_SUCCESS;
+
+    // code
+    // Declare and initialize VkDescriptorSetAllocateInfo structure.
+    VkDescriptorSetAllocateInfo vkDescriptorSetAllocateInfo;
+    memset((void*)&vkDescriptorSetAllocateInfo, 0, sizeof(VkDescriptorSetAllocateInfo));
+
+    VkDescriptorSetLayout layouts[MAX_FRAMES]{};
+    for (uint32_t i = 0; i < MAX_FRAMES; i++)
+        layouts[i] = gpDescriptorSetLayouts->vkDescriptorSetLayout_frameDataBoneData;
+
+    //------------------------------------------------------------------------------------------------
+    vkDescriptorSetAllocateInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
+    vkDescriptorSetAllocateInfo.pNext = NULL;
+    vkDescriptorSetAllocateInfo.descriptorPool = vkDescriptorPool; // global descriptor pool
+    vkDescriptorSetAllocateInfo.descriptorSetCount = MAX_FRAMES;//
+    vkDescriptorSetAllocateInfo.pSetLayouts = layouts; // pointer to the descriptor set layout
+
+
+    // Call vkAllocateDescriptorSets() to allocate the descriptor set
+    vkResult = vkAllocateDescriptorSets(vkDevice, &vkDescriptorSetAllocateInfo, vkDescriptorSets_frameDataBoneData);
+
+    if (vkResult != VK_SUCCESS)
+    {
+        fprintf(gpFILE, "createDiscriptorSet() : vkAllocateDescriptorSets() failed.\n");
+        return(vkResult);
+    }
+
+    //UniformBufferObject_camera
+    for (size_t i = 0; i < MAX_FRAMES; i++)
+    {
+        // Declare and initialize VkDescriptorBufferInfo structure which will have information about the uniform buffer.
+        //VkDescriptorBufferInfo vkDescriptorBufferInfo_camera;
+        //memset((void*)&vkDescriptorBufferInfo_camera, 0, sizeof(VkDescriptorBufferInfo));
+        //vkDescriptorBufferInfo_camera.buffer = uniformBufferData_camera[i].vkBuffer; // uniform buffer
+        //vkDescriptorBufferInfo_camera.offset = 0; // offset in the buffer
+        //vkDescriptorBufferInfo_camera.range = sizeof(UniformBufferObject_camera); // size of the buffer
+
+        VkDescriptorBufferInfo vkDescriptorBufferInfo_frameData;
+        memset((void*)&vkDescriptorBufferInfo_frameData, 0, sizeof(VkDescriptorBufferInfo));
+        vkDescriptorBufferInfo_frameData.buffer = uniformBufferData_frameData[i].vkBuffer; // uniform buffer
+        vkDescriptorBufferInfo_frameData.offset = 0; // offset in the buffer
+        vkDescriptorBufferInfo_frameData.range = sizeof(UniformBufferObject_FrameData); // size of the buffer
+
+		VkDescriptorBufferInfo vkDescriptorBufferInfo_boneData;
+		memset((void*)&vkDescriptorBufferInfo_boneData, 0, sizeof(VkDescriptorBufferInfo));
+		vkDescriptorBufferInfo_boneData.buffer = pModel_Rat->GetBoneSSBOs()[i].vkBuffer; // uniform buffer
+		vkDescriptorBufferInfo_boneData.offset = 0; // offset in the buffer
+		vkDescriptorBufferInfo_boneData.range = pModel_Rat->GetBoneSSBOs()[i].size; // size of the buffer
+
+        //write or copy the descriptor set with the uniform buffer information
+        // Declare and initialize VkWriteDescriptorSet structure which will have information about the descriptor set.
+        VkWriteDescriptorSet vkWriteDescriptorSet_array[2];
+        memset((void*)vkWriteDescriptorSet_array, 0, sizeof(VkWriteDescriptorSet) * _ARRAYSIZE(vkWriteDescriptorSet_array));
+
+        vkWriteDescriptorSet_array[0].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+        vkWriteDescriptorSet_array[0].pNext = NULL;
+        vkWriteDescriptorSet_array[0].dstSet = vkDescriptorSets_frameDataBoneData[i]; // descriptor set
+        vkWriteDescriptorSet_array[0].dstBinding = 0; // 0 means the index number of the binding
+        vkWriteDescriptorSet_array[0].dstArrayElement = 0; // 0 means the index number of the array element
+        vkWriteDescriptorSet_array[0].descriptorCount = 1; // we are using only one descriptor, more incase of array
+        vkWriteDescriptorSet_array[0].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER; // type of the descriptor
+        vkWriteDescriptorSet_array[0].pImageInfo = NULL; // no image info
+        vkWriteDescriptorSet_array[0].pBufferInfo = &vkDescriptorBufferInfo_frameData; // pointer to the buffer info
+        vkWriteDescriptorSet_array[0].pTexelBufferView = NULL; // no texel buffer view
+
+		vkWriteDescriptorSet_array[1].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+		vkWriteDescriptorSet_array[1].pNext = NULL;
+		vkWriteDescriptorSet_array[1].dstSet = vkDescriptorSets_frameDataBoneData[i]; // descriptor set
+		vkWriteDescriptorSet_array[1].dstBinding = 1; // 1 means the index number of the binding
+		vkWriteDescriptorSet_array[1].dstArrayElement = 0; // 0 means the index number of the array element
+		vkWriteDescriptorSet_array[1].descriptorCount = 1; // we are using only one descriptor
+		vkWriteDescriptorSet_array[1].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER; // type of the descriptor
+		vkWriteDescriptorSet_array[1].pImageInfo = NULL; // no image info
+		vkWriteDescriptorSet_array[1].pBufferInfo = &vkDescriptorBufferInfo_boneData; // pointer to the buffer info
+		vkWriteDescriptorSet_array[1].pTexelBufferView = NULL; // no texel buffer view
 
 
         // Call vkUpdateDescriptorSets() to update the descriptor set with the uniform buffer information.
@@ -8680,12 +8788,13 @@ void RenderPBR_Basic(uint32_t curIndex)
 }
 
 void RenderPBR_Skinned(uint32_t curIndex)
-
 {
     static float fAngle = 0.0f;
     fAngle += MyWin32::fDeltaTime * 20.0f; // Increment the angle for rotation
     if (fAngle >= 360.0f)
         fAngle = fAngle - 360.0f; // Reset the angle if it exceeds 360 degrees
+
+    pModel_Rat->UpdateAnimation(MyWin32::fDeltaTime * 1.0f, curIndex);
 
     PushConstants pushConstants;
 	glm::mat4 translation = glm::translate(glm::mat4(1.0f), glm::vec3(5.0f, 5.0f, 0.0f));
@@ -8708,7 +8817,7 @@ void RenderPBR_Skinned(uint32_t curIndex)
     // Bind the pipeline and descriptor sets
     vkCmdBindPipeline(vkCommandBuffer_Array[curIndex], VK_PIPELINE_BIND_POINT_GRAPHICS, gpGraphicsPipelines->PBR_Skinned.vkPipeline);
 
-    VkDescriptorSet vkLocalDescriptorSets[] = { vkDescriptorSets_frameData[curIndex],pMaterial_BasicPBR_GrassyGround->getDescriptorSet() };
+    VkDescriptorSet vkLocalDescriptorSets[] = { vkDescriptorSets_frameDataBoneData[curIndex],pMaterial_BasicPBR_GrassyGround->getDescriptorSet() };
     vkCmdBindDescriptorSets(vkCommandBuffer_Array[curIndex], VK_PIPELINE_BIND_POINT_GRAPHICS, gpGraphicsPipelines->PBR_Skinned.vkPipelineLayout, 0, _ARRAYSIZE(vkLocalDescriptorSets), vkLocalDescriptorSets, 0, NULL);
 
     // Push the model matrix

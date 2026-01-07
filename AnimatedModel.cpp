@@ -16,11 +16,30 @@ AnimatedModel::AnimatedModel(const char* modelPath, bool index32)
         fprintf(gpFILE, "AnimatedModel::AnimatedModel() : LoadModel_Animated_PBR() failed (%d).\n", vkResult);
 	}
 
+    for (uint32_t i = 0; i < 2; ++i)
+    {
+        VkResult res = createSSBO(vkDevice, vkPhysicalDevice_Selected, boneSSBO[i]);
+        if (res != VK_SUCCESS)
+            throw std::runtime_error("Failed to create bone SSBO");
+    }
 
 }
 AnimatedModel::~AnimatedModel()
 {
 	ZzDestroyVertexAndIndexBuffer(&vulkanComboData);
+	//bone SSBOs
+    for (uint32_t i = 0; i < 2; ++i)
+    {
+        if (boneSSBO[i].vkBuffer != VK_NULL_HANDLE)
+        {
+            vkUnmapMemory(vkDevice, boneSSBO[i].vkDeviceMemory);
+            vkDestroyBuffer(vkDevice, boneSSBO[i].vkBuffer, nullptr);
+            vkFreeMemory(vkDevice, boneSSBO[i].vkDeviceMemory, nullptr);
+            boneSSBO[i].vkBuffer = VK_NULL_HANDLE;
+            boneSSBO[i].vkDeviceMemory = VK_NULL_HANDLE;
+            boneSSBO[i].mapped = nullptr;
+        }
+	}
 
     importer.FreeScene();
 
@@ -492,7 +511,7 @@ void AnimatedModel::ReadNodeHierarchy(float animationTime,
     }
 }
 
-void AnimatedModel::UpdateAnimation(float deltaTime)
+void AnimatedModel::UpdateAnimation(float deltaTime,uint16_t currFrame)
 {
     if (!scene || !currentAnimation)
         return;
@@ -511,6 +530,10 @@ void AnimatedModel::UpdateAnimation(float deltaTime)
         scene->mRootNode,
         glm::mat4(1.0f)
     );
+
+	// Update SSBO with final bone matrices
+	memcpy(boneSSBO[currFrame].mapped, finalBoneMatrices.data(), sizeof(glm::mat4) * finalBoneMatrices.size());
+
 }
 
 glm::mat4 AnimatedModel::aiMat4ToGlm(const aiMatrix4x4& m) {
@@ -521,6 +544,20 @@ glm::mat4 AnimatedModel::aiMat4ToGlm(const aiMatrix4x4& m) {
     out[0][2] = m.c1; out[1][2] = m.c2; out[2][2] = m.c3; out[3][2] = m.c4;
     out[0][3] = m.d1; out[1][3] = m.d2; out[2][3] = m.d3; out[3][3] = m.d4;
     return out;
+}
+
+// Helper: find memory type
+uint32_t AnimatedModel::FindMemoryType(VkPhysicalDevice physicalDevice, uint32_t typeFilter, VkMemoryPropertyFlags properties)
+{
+    VkPhysicalDeviceMemoryProperties memProps;
+    vkGetPhysicalDeviceMemoryProperties(physicalDevice, &memProps);
+
+    for (uint32_t i = 0; i < memProps.memoryTypeCount; ++i) {
+        if ((typeFilter & (1u << i)) && ((memProps.memoryTypes[i].propertyFlags & properties) == properties)) {
+            return i;
+        }
+    }
+    throw std::runtime_error("Failed to find suitable memory type!");
 }
 
 void AnimatedModel::AddBoneDataToVertex(VertexData_Skinned& v, int boneIndex, float weight) {
@@ -546,6 +583,75 @@ void AnimatedModel::AddBoneDataToVertex(VertexData_Skinned& v, int boneIndex, fl
         v.boneWeights[minIdx] = weight;
     }
 }
+
+// createSSBO: creates a storage buffer backed by host-visible coherent memory and maps it persistently
+VkResult AnimatedModel::createSSBO(VkDevice device, VkPhysicalDevice physicalDevice, VulkanSSBO& outSSBO)
+{
+    outSSBO.size = sizeof(glm::mat4) * (size_t)this->numBones;
+
+    VkBufferCreateInfo bufCI{};
+    bufCI.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
+    bufCI.size = outSSBO.size;
+    bufCI.usage = VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT; // transfer dst optional
+    bufCI.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+
+    VkResult res = vkCreateBuffer(device, &bufCI, nullptr, &outSSBO.vkBuffer);
+    if (res != VK_SUCCESS) return res;
+
+    VkMemoryRequirements memReq;
+    vkGetBufferMemoryRequirements(device, outSSBO.vkBuffer, &memReq);
+
+    VkMemoryAllocateInfo allocInfo{};
+    allocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
+    allocInfo.allocationSize = memReq.size;
+
+    // Request HOST_VISIBLE && HOST_COHERENT for simplicity.
+    VkMemoryPropertyFlags desired = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT;
+    uint32_t memTypeIndex = FindMemoryType(physicalDevice, memReq.memoryTypeBits, desired);
+    allocInfo.memoryTypeIndex = memTypeIndex;
+
+    res = vkAllocateMemory(device, &allocInfo, nullptr, &outSSBO.vkDeviceMemory);
+    if (res != VK_SUCCESS) {
+        vkDestroyBuffer(device, outSSBO.vkBuffer, nullptr);
+        outSSBO.vkBuffer = VK_NULL_HANDLE;
+        return res;
+    }
+
+    // Bind and map persistently
+    res = vkBindBufferMemory(device, outSSBO.vkBuffer, outSSBO.vkDeviceMemory, 0);
+    if (res != VK_SUCCESS) {
+        vkFreeMemory(device, outSSBO.vkDeviceMemory, nullptr);
+        vkDestroyBuffer(device, outSSBO.vkBuffer, nullptr);
+        outSSBO.vkDeviceMemory = VK_NULL_HANDLE;
+        outSSBO.vkBuffer = VK_NULL_HANDLE;
+        return res;
+    }
+
+    // Persistently map entire allocation
+    void* mappedPtr = nullptr;
+    res = vkMapMemory(device, outSSBO.vkDeviceMemory, 0, outSSBO.size, 0, &mappedPtr);
+    if (res != VK_SUCCESS) {
+        vkFreeMemory(device, outSSBO.vkDeviceMemory, nullptr);
+        vkDestroyBuffer(device, outSSBO.vkBuffer, nullptr);
+        outSSBO.vkDeviceMemory = VK_NULL_HANDLE;
+        outSSBO.vkBuffer = VK_NULL_HANDLE;
+        return res;
+    }
+
+    outSSBO.mapped = mappedPtr;
+
+    // Zero-initialize (optional)
+    std::memset(outSSBO.mapped, 0, (size_t)outSSBO.size);
+
+    // Descriptor info for descriptor updates
+    outSSBO.descriptor.buffer = outSSBO.vkBuffer;
+    outSSBO.descriptor.offset = 0;
+    outSSBO.descriptor.range = outSSBO.size;
+
+    return VK_SUCCESS;
+}
+
+
 
 VkResult AnimatedModel::ZzCreateVertexBuffer(const float* vertices, VkDeviceSize vertexBufferSize, VulkanData* vulkanData)
 {
