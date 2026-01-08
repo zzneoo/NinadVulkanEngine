@@ -2,6 +2,7 @@
 #include "VK.h"
 #include "DescriptorSetLayouts.h"
 #include <windows.h>
+#include <vector>
 
 extern VkDevice vkDevice;
 extern DescriptorSetLayouts* gpDescriptorSetLayouts;
@@ -48,13 +49,16 @@ public:
 	VkResult vkResult;
 
 private:
+
+	std::vector<VkPipelineLayout> vkPipelineLayoutList;
+
 	VkResult createShaderModule(VkShaderModule* shaderModule, const char* fileName);
 
+	VkResult createPipelineLayout(VkPipelineLayoutCreateInfo vkPipelineLayoutCreateInfo, VkPipelineLayout* vkPipelineLayout);
+
 	VkResult createPipelineLayout_previewImage(void);
-	VkResult createPipelineLayout_Impostor(void);
 	VkResult createPipelineLayout_Phong(void);
 	VkResult createPipelineLayout_PBR(void);
-	VkResult createPipelineLayout_PBR_Skinned(void);
 	VkResult createPipelineLayout_WhiteVertex(void);
 	VkResult createPipelineLayout_ColoredVertex(void);
 
@@ -67,10 +71,10 @@ private:
 	//----------------------------Pipelines-------------------------------------------------------
 
 	VkResult createGraphicsPipeline_PreviewImage(void);
-	VkResult createGraphicsPipeline_Impostor(void);
+	VkResult createGraphicsPipeline_Impostor(VkPipelineLayoutCreateInfo vkPipelineLayoutCreateInfo);
 	VkResult createGraphicsPipeline_Phong(void);
 	VkResult createGraphicsPipeline_PBR(void);
-	VkResult createGraphicsPipeline_PBR_Skinned(void);
+	VkResult createGraphicsPipeline_PBR_Skinned(VkPipelineLayoutCreateInfo vkPipelineLayoutCreateInfo);
 	VkResult createGraphicsPipeline_WhiteVertex(void);
 	VkResult createGraphicsPipeline_ColoredVertex(void);
 

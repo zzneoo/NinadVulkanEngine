@@ -20,6 +20,32 @@ DescriptorSetLayouts::~DescriptorSetLayouts()
     destroyDescriptorSetLayouts();
 }
 
+VkResult DescriptorSetLayouts::createDescriptorSetLayout(const VkDescriptorSetLayoutBinding * DescriptorSetLayoutBinding, uint32_t  bindingCount, VkDescriptorSetLayout *DescriptorSetLayout)
+{
+    // variable declarations
+    VkResult vkResult = VK_SUCCESS;
+
+
+	// code
+	VkDescriptorSetLayoutCreateInfo vkDescriptorSetLayoutCreateInfo;
+	memset((void*)&vkDescriptorSetLayoutCreateInfo, 0, sizeof(VkDescriptorSetLayoutCreateInfo));
+	vkDescriptorSetLayoutCreateInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
+	vkDescriptorSetLayoutCreateInfo.pNext = NULL;
+	vkDescriptorSetLayoutCreateInfo.flags = 0;
+	vkDescriptorSetLayoutCreateInfo.bindingCount = bindingCount;
+	vkDescriptorSetLayoutCreateInfo.pBindings = DescriptorSetLayoutBinding; // pointer to the descriptor set layout binding array
+
+	vkResult = vkCreateDescriptorSetLayout(vkDevice, &vkDescriptorSetLayoutCreateInfo, NULL, DescriptorSetLayout);
+    if (vkResult != VK_SUCCESS)
+    {
+        fprintf(gpFILE, "createDiscriptorSetLayout() -> vkCreateDescriptorSetLayout() :  failed: %d.\n", vkResult);
+		return(vkResult);
+
+    }
+
+    return(vkResult);
+}
+
 VkResult DescriptorSetLayouts::createDescriptorSetLayout_FrameData(void)
 {
     // variable declarations
@@ -196,6 +222,7 @@ VkResult DescriptorSetLayouts::createDescriptorSetLayout_BasicPBR(void)
     vkDescriptorSetLayoutCreateInfo.flags = 0;
     vkDescriptorSetLayoutCreateInfo.bindingCount = 3;
     vkDescriptorSetLayoutCreateInfo.pBindings = vkDescriptorSetLayoutBinding_Array; // pointer to the descriptor set layout binding array
+
     vkResult = vkCreateDescriptorSetLayout(vkDevice, &vkDescriptorSetLayoutCreateInfo, NULL, &vkDescriptorSetLayout_BasicPBR);
     if (vkResult != VK_SUCCESS)
     {
