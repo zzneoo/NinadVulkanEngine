@@ -53,6 +53,7 @@ private:
 	std::vector<VkPipelineLayout> vkPipelineLayoutList;
 	std::vector<VkShaderModule> vkShaderModuleList;
 	std::vector<VkPipeline> vkPipelineList;
+	std::vector<VkPipelineCache> vkPipelineCacheList;
 
 	VkResult createShaderModule(VkShaderModule* shaderModule, const char* fileName);
 
@@ -61,6 +62,8 @@ private:
 
 	VkResult createShaderModules(void);
 	void destroyShaderModules(void);
+
+	void destroyPipelineCaches(void);
 
 	//----------------------------Pipelines-------------------------------------------------------
 

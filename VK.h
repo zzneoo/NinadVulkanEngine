@@ -111,7 +111,8 @@ typedef struct
 	VkDeviceMemory vkDeviceMemory;
 } VulkanData;
 
-struct VulkanSSBO {
+struct VulkanSSBO 
+{
 	VkBuffer vkBuffer = VK_NULL_HANDLE;
 	VkDeviceMemory vkDeviceMemory = VK_NULL_HANDLE;
 	VkDescriptorBufferInfo descriptor{};
@@ -140,12 +141,13 @@ typedef struct
 	ImageData* imageData_depthBuffer;
 }SwapChainResourceData;
 
-typedef struct
+typedef struct PipelineData
 {
-	VkPipeline vkPipeline;
-	VkPipelineLayout vkPipelineLayout;
-	VkShaderModule vkVertexShaderModule;
-	VkShaderModule vkFragmentShaderModule;
+	VkPipeline vkPipeline = VK_NULL_HANDLE;
+	VkPipelineCache vkPipelineCache = VK_NULL_HANDLE;
+	VkPipelineLayout vkPipelineLayout = VK_NULL_HANDLE;
+	VkShaderModule vkVertexShaderModule = VK_NULL_HANDLE;
+	VkShaderModule vkFragmentShaderModule = VK_NULL_HANDLE;
 }PipelineData;
 
 

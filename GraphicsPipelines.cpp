@@ -22,9 +22,12 @@ GraphicsPipelines::GraphicsPipelines()
 
 GraphicsPipelines::~GraphicsPipelines()
 {
+
 	destroyPipelines();
     destroyPipelineLayouts();
+	destroyPipelineCaches();
     destroyShaderModules();
+
 }
 
 VkResult GraphicsPipelines::createShaderModule(VkShaderModule* shaderModule, const char* fileName)
@@ -233,6 +236,20 @@ void GraphicsPipelines::destroyShaderModules(void)
 
 	vkShaderModuleList.clear();
 
+}
+
+void GraphicsPipelines::destroyPipelineCaches(void)
+{
+    // destroy pipeline caches from the list in reverse order
+    for (int32_t i = (int32_t)vkPipelineCacheList.size() - 1; i >= 0; i--)
+    {
+        if (vkPipelineCacheList[i])
+        {
+            vkDestroyPipelineCache(vkDevice, vkPipelineCacheList[i], NULL);
+            vkPipelineCacheList[i] = VK_NULL_HANDLE;
+        }
+    }
+	vkPipelineCacheList.clear();
 }
 
 //----------------------------Pipeline Layouts------------------------------------------------
@@ -491,23 +508,25 @@ VkResult GraphicsPipelines::createGraphicsPipeline_Impostor(VkPipelineLayoutCrea
     //tesselation state
     //no tessellation state right now
 
-
-    //pipeline cache 
-    VkPipelineCacheCreateInfo vkPipelineCacheCreateInfo;
-    memset((void*)&vkPipelineCacheCreateInfo, 0, sizeof(VkPipelineCacheCreateInfo));
-    vkPipelineCacheCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_CACHE_CREATE_INFO;
-    vkPipelineCacheCreateInfo.pNext = NULL;
-    vkPipelineCacheCreateInfo.flags = 0;
-    vkPipelineCacheCreateInfo.initialDataSize = 0;
-    vkPipelineCacheCreateInfo.pInitialData = NULL;
-
-    VkPipelineCache vkPipelineCache;
-    vkResult = vkCreatePipelineCache(vkDevice, &vkPipelineCacheCreateInfo, NULL, &vkPipelineCache);
-    if (vkResult != VK_SUCCESS)
+    if(Impostor.vkPipelineCache == VK_NULL_HANDLE)
     {
-        fprintf(gpFILE, "createGraphicsPipeline() : vkCreatePipelineCache() failed: %d .\n", vkResult);
-        return(vkResult);
-    }
+        //create pipeline cache
+        VkPipelineCacheCreateInfo vkPipelineCacheCreateInfo;
+        memset((void*)&vkPipelineCacheCreateInfo, 0, sizeof(VkPipelineCacheCreateInfo));
+        vkPipelineCacheCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_CACHE_CREATE_INFO;
+        vkPipelineCacheCreateInfo.pNext = NULL;
+        vkPipelineCacheCreateInfo.flags = 0;
+        vkPipelineCacheCreateInfo.initialDataSize = 0;
+        vkPipelineCacheCreateInfo.pInitialData = NULL;
+        vkResult = vkCreatePipelineCache(vkDevice, &vkPipelineCacheCreateInfo, NULL, &Impostor.vkPipelineCache);
+        if (vkResult != VK_SUCCESS)
+        {
+            fprintf(gpFILE, "createGraphicsPipeline_Impostor() : vkCreatePipelineCache() failed (%d).\n", vkResult);
+            return(vkResult);
+        }
+		vkPipelineCacheList.push_back(Impostor.vkPipelineCache);
+	}
+
 
     //  Declare and initialize VkGraphicsPipelineCreateInfo structure.
     VkGraphicsPipelineCreateInfo vkGraphicsPipelineCreateInfo;
@@ -534,22 +553,13 @@ VkResult GraphicsPipelines::createGraphicsPipeline_Impostor(VkPipelineLayoutCrea
 
 
     //  Call vkCreateGraphicsPipelines() API to create the graphics pipeline.
-    vkResult = vkCreateGraphicsPipelines(vkDevice, vkPipelineCache, 1, &vkGraphicsPipelineCreateInfo, NULL, &Impostor.vkPipeline);
+    vkResult = vkCreateGraphicsPipelines(vkDevice, Impostor.vkPipelineCache, 1, &vkGraphicsPipelineCreateInfo, NULL, &Impostor.vkPipeline);
 
     if (vkResult != VK_SUCCESS)
     {
         fprintf(gpFILE, "createGraphicsPipeline() : vkCreateGraphicsPipelines() failed: %d .\n", vkResult);
-
-        //destroy pipeline cache
-        vkDestroyPipelineCache(vkDevice, vkPipelineCache, NULL);
-        vkPipelineCache = VK_NULL_HANDLE;
-
         return(vkResult);
     }
-
-    //destroy pipeline cache
-    vkDestroyPipelineCache(vkDevice, vkPipelineCache, NULL);
-    vkPipelineCache = VK_NULL_HANDLE;
 
     return(vkResult);
 }
@@ -764,21 +774,25 @@ VkResult GraphicsPipelines::createGraphicsPipeline_Phong(VkPipelineLayoutCreateI
 
 
     //pipeline cache 
-    VkPipelineCacheCreateInfo vkPipelineCacheCreateInfo;
-    memset((void*)&vkPipelineCacheCreateInfo, 0, sizeof(VkPipelineCacheCreateInfo));
-    vkPipelineCacheCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_CACHE_CREATE_INFO;
-    vkPipelineCacheCreateInfo.pNext = NULL;
-    vkPipelineCacheCreateInfo.flags = 0;
-    vkPipelineCacheCreateInfo.initialDataSize = 0;
-    vkPipelineCacheCreateInfo.pInitialData = NULL;
-
-    VkPipelineCache vkPipelineCache;
-    vkResult = vkCreatePipelineCache(vkDevice, &vkPipelineCacheCreateInfo, NULL, &vkPipelineCache);
-    if (vkResult != VK_SUCCESS)
+    if(Phong.vkPipelineCache == VK_NULL_HANDLE)
     {
-        fprintf(gpFILE, "createGraphicsPipeline() : vkCreatePipelineCache() failed: %d .\n", vkResult);
-        return(vkResult);
-    }
+        //create pipeline cache
+        VkPipelineCacheCreateInfo vkPipelineCacheCreateInfo;
+        memset((void*)&vkPipelineCacheCreateInfo, 0, sizeof(VkPipelineCacheCreateInfo));
+        vkPipelineCacheCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_CACHE_CREATE_INFO;
+        vkPipelineCacheCreateInfo.pNext = NULL;
+        vkPipelineCacheCreateInfo.flags = 0;
+        vkPipelineCacheCreateInfo.initialDataSize = 0;
+        vkPipelineCacheCreateInfo.pInitialData = NULL;
+        vkResult = vkCreatePipelineCache(vkDevice, &vkPipelineCacheCreateInfo, NULL, &Phong.vkPipelineCache);
+        if (vkResult != VK_SUCCESS)
+        {
+            fprintf(gpFILE, "createGraphicsPipeline_Phong() : vkCreatePipelineCache() failed (%d).\n", vkResult);
+            return(vkResult);
+		}
+		vkPipelineCacheList.push_back(Phong.vkPipelineCache);
+	}
+
 
     //  Declare and initialize VkGraphicsPipelineCreateInfo structure.
     VkGraphicsPipelineCreateInfo vkGraphicsPipelineCreateInfo;
@@ -805,22 +819,13 @@ VkResult GraphicsPipelines::createGraphicsPipeline_Phong(VkPipelineLayoutCreateI
 
 
     //  Call vkCreateGraphicsPipelines() API to create the graphics pipeline.
-    vkResult = vkCreateGraphicsPipelines(vkDevice, vkPipelineCache, 1, &vkGraphicsPipelineCreateInfo, NULL, &Phong.vkPipeline);
+    vkResult = vkCreateGraphicsPipelines(vkDevice, Phong.vkPipelineCache, 1, &vkGraphicsPipelineCreateInfo, NULL, &Phong.vkPipeline);
 
     if (vkResult != VK_SUCCESS)
     {
         fprintf(gpFILE, "createGraphicsPipeline() : vkCreateGraphicsPipelines() failed: %d .\n", vkResult);
-
-        //destroy pipeline cache
-        vkDestroyPipelineCache(vkDevice, vkPipelineCache, NULL);
-        vkPipelineCache = VK_NULL_HANDLE;
-
         return(vkResult);
     }
-
-    //destroy pipeline cache
-    vkDestroyPipelineCache(vkDevice, vkPipelineCache, NULL);
-    vkPipelineCache = VK_NULL_HANDLE;
 
     return(vkResult);
 }
@@ -1034,21 +1039,25 @@ VkResult GraphicsPipelines::createGraphicsPipeline_PBR(VkPipelineLayoutCreateInf
 
 
     //pipeline cache 
-    VkPipelineCacheCreateInfo vkPipelineCacheCreateInfo;
-    memset((void*)&vkPipelineCacheCreateInfo, 0, sizeof(VkPipelineCacheCreateInfo));
-    vkPipelineCacheCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_CACHE_CREATE_INFO;
-    vkPipelineCacheCreateInfo.pNext = NULL;
-    vkPipelineCacheCreateInfo.flags = 0;
-    vkPipelineCacheCreateInfo.initialDataSize = 0;
-    vkPipelineCacheCreateInfo.pInitialData = NULL;
 
-    VkPipelineCache vkPipelineCache;
-    vkResult = vkCreatePipelineCache(vkDevice, &vkPipelineCacheCreateInfo, NULL, &vkPipelineCache);
-    if (vkResult != VK_SUCCESS)
+    if(PBR.vkPipelineCache == VK_NULL_HANDLE)
     {
-        fprintf(gpFILE, "createGraphicsPipeline() : vkCreatePipelineCache() failed: %d .\n", vkResult);
-        return(vkResult);
-    }
+        //create pipeline cache
+        VkPipelineCacheCreateInfo vkPipelineCacheCreateInfo;
+        memset((void*)&vkPipelineCacheCreateInfo, 0, sizeof(VkPipelineCacheCreateInfo));
+        vkPipelineCacheCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_CACHE_CREATE_INFO;
+        vkPipelineCacheCreateInfo.pNext = NULL;
+        vkPipelineCacheCreateInfo.flags = 0;
+        vkPipelineCacheCreateInfo.initialDataSize = 0;
+        vkPipelineCacheCreateInfo.pInitialData = NULL;
+        vkResult = vkCreatePipelineCache(vkDevice, &vkPipelineCacheCreateInfo, NULL, &PBR.vkPipelineCache);
+        if (vkResult != VK_SUCCESS)
+        {
+            fprintf(gpFILE, "createGraphicsPipeline_PBR() : vkCreatePipelineCache() failed (%d).\n", vkResult);
+            return(vkResult);
+        }
+		vkPipelineCacheList.push_back(PBR.vkPipelineCache);
+	}
 
     //  Declare and initialize VkGraphicsPipelineCreateInfo structure.
     VkGraphicsPipelineCreateInfo vkGraphicsPipelineCreateInfo;
@@ -1075,22 +1084,13 @@ VkResult GraphicsPipelines::createGraphicsPipeline_PBR(VkPipelineLayoutCreateInf
 
 
     //  Call vkCreateGraphicsPipelines() API to create the graphics pipeline.
-    vkResult = vkCreateGraphicsPipelines(vkDevice, vkPipelineCache, 1, &vkGraphicsPipelineCreateInfo, NULL, &PBR.vkPipeline);
+    vkResult = vkCreateGraphicsPipelines(vkDevice, PBR.vkPipelineCache, 1, &vkGraphicsPipelineCreateInfo, NULL, &PBR.vkPipeline);
 
     if (vkResult != VK_SUCCESS)
     {
         fprintf(gpFILE, "createGraphicsPipeline() : vkCreateGraphicsPipelines() failed: %d .\n", vkResult);
-
-        //destroy pipeline cache
-        vkDestroyPipelineCache(vkDevice, vkPipelineCache, NULL);
-        vkPipelineCache = VK_NULL_HANDLE;
-
         return(vkResult);
     }
-
-    //destroy pipeline cache
-    vkDestroyPipelineCache(vkDevice, vkPipelineCache, NULL);
-    vkPipelineCache = VK_NULL_HANDLE;
 
     return(vkResult);
 }
@@ -1319,21 +1319,24 @@ VkResult GraphicsPipelines::createGraphicsPipeline_PBR_Skinned(VkPipelineLayoutC
 
 
     //pipeline cache 
-    VkPipelineCacheCreateInfo vkPipelineCacheCreateInfo;
-    memset((void*)&vkPipelineCacheCreateInfo, 0, sizeof(VkPipelineCacheCreateInfo));
-    vkPipelineCacheCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_CACHE_CREATE_INFO;
-    vkPipelineCacheCreateInfo.pNext = NULL;
-    vkPipelineCacheCreateInfo.flags = 0;
-    vkPipelineCacheCreateInfo.initialDataSize = 0;
-    vkPipelineCacheCreateInfo.pInitialData = NULL;
-
-    VkPipelineCache vkPipelineCache;
-    vkResult = vkCreatePipelineCache(vkDevice, &vkPipelineCacheCreateInfo, NULL, &vkPipelineCache);
-    if (vkResult != VK_SUCCESS)
+    if(PBR_Skinned.vkPipelineCache == VK_NULL_HANDLE)
     {
-        fprintf(gpFILE, "createGraphicsPipeline() : vkCreatePipelineCache() failed: %d .\n", vkResult);
-        return(vkResult);
-    }
+        //create pipeline cache
+        VkPipelineCacheCreateInfo vkPipelineCacheCreateInfo;
+        memset((void*)&vkPipelineCacheCreateInfo, 0, sizeof(VkPipelineCacheCreateInfo));
+        vkPipelineCacheCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_CACHE_CREATE_INFO;
+        vkPipelineCacheCreateInfo.pNext = NULL;
+        vkPipelineCacheCreateInfo.flags = 0;
+        vkPipelineCacheCreateInfo.initialDataSize = 0;
+        vkPipelineCacheCreateInfo.pInitialData = NULL;
+        vkResult = vkCreatePipelineCache(vkDevice, &vkPipelineCacheCreateInfo, NULL, &PBR_Skinned.vkPipelineCache);
+        if (vkResult != VK_SUCCESS)
+        {
+            fprintf(gpFILE, "createGraphicsPipeline_PBR_Skinned() : vkCreatePipelineCache() failed (%d).\n", vkResult);
+            return(vkResult);
+		}
+		vkPipelineCacheList.push_back(PBR_Skinned.vkPipelineCache);
+	}
 
     //  Declare and initialize VkGraphicsPipelineCreateInfo structure.
     VkGraphicsPipelineCreateInfo vkGraphicsPipelineCreateInfo;
@@ -1360,22 +1363,13 @@ VkResult GraphicsPipelines::createGraphicsPipeline_PBR_Skinned(VkPipelineLayoutC
 
 
     //  Call vkCreateGraphicsPipelines() API to create the graphics pipeline.
-    vkResult = vkCreateGraphicsPipelines(vkDevice, vkPipelineCache, 1, &vkGraphicsPipelineCreateInfo, NULL, &PBR_Skinned.vkPipeline);
+    vkResult = vkCreateGraphicsPipelines(vkDevice, PBR_Skinned.vkPipelineCache, 1, &vkGraphicsPipelineCreateInfo, NULL, &PBR_Skinned.vkPipeline);
 
     if (vkResult != VK_SUCCESS)
     {
         fprintf(gpFILE, "createGraphicsPipeline() : vkCreateGraphicsPipelines() failed: %d .\n", vkResult);
-
-        //destroy pipeline cache
-        vkDestroyPipelineCache(vkDevice, vkPipelineCache, NULL);
-        vkPipelineCache = VK_NULL_HANDLE;
-
         return(vkResult);
     }
-
-    //destroy pipeline cache
-    vkDestroyPipelineCache(vkDevice, vkPipelineCache, NULL);
-    vkPipelineCache = VK_NULL_HANDLE;
 
     return(vkResult);
 }
@@ -1537,21 +1531,24 @@ VkResult GraphicsPipelines::createGraphicsPipeline_PreviewImage(VkPipelineLayout
 
 
     //pipeline cache 
-    VkPipelineCacheCreateInfo vkPipelineCacheCreateInfo;
-    memset((void*)&vkPipelineCacheCreateInfo, 0, sizeof(VkPipelineCacheCreateInfo));
-    vkPipelineCacheCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_CACHE_CREATE_INFO;
-    vkPipelineCacheCreateInfo.pNext = NULL;
-    vkPipelineCacheCreateInfo.flags = 0;
-    vkPipelineCacheCreateInfo.initialDataSize = 0;
-    vkPipelineCacheCreateInfo.pInitialData = NULL;
-
-    VkPipelineCache vkPipelineCache;
-    vkResult = vkCreatePipelineCache(vkDevice, &vkPipelineCacheCreateInfo, NULL, &vkPipelineCache);
-    if (vkResult != VK_SUCCESS)
+    if(PreviewImage.vkPipelineCache == VK_NULL_HANDLE)
     {
-        fprintf(gpFILE, "createGraphicsPipeline() : vkCreatePipelineCache() failed: %d .\n", vkResult);
-        return(vkResult);
-    }
+        //create pipeline cache
+        VkPipelineCacheCreateInfo vkPipelineCacheCreateInfo;
+        memset((void*)&vkPipelineCacheCreateInfo, 0, sizeof(VkPipelineCacheCreateInfo));
+        vkPipelineCacheCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_CACHE_CREATE_INFO;
+        vkPipelineCacheCreateInfo.pNext = NULL;
+        vkPipelineCacheCreateInfo.flags = 0;
+        vkPipelineCacheCreateInfo.initialDataSize = 0;
+        vkPipelineCacheCreateInfo.pInitialData = NULL;
+        vkResult = vkCreatePipelineCache(vkDevice, &vkPipelineCacheCreateInfo, NULL, &PreviewImage.vkPipelineCache);
+        if (vkResult != VK_SUCCESS)
+        {
+			fprintf(gpFILE, "createGraphicsPipeline_PreviewImage() : vkCreatePipelineCache() failed (%d).\n", vkResult);
+			return(vkResult);
+		}
+		vkPipelineCacheList.push_back(PreviewImage.vkPipelineCache);
+	}
 
     //  Declare and initialize VkGraphicsPipelineCreateInfo structure.
     VkGraphicsPipelineCreateInfo vkGraphicsPipelineCreateInfo;
@@ -1578,22 +1575,13 @@ VkResult GraphicsPipelines::createGraphicsPipeline_PreviewImage(VkPipelineLayout
 
 
     //  Call vkCreateGraphicsPipelines() API to create the graphics pipeline.
-    vkResult = vkCreateGraphicsPipelines(vkDevice, vkPipelineCache, 1, &vkGraphicsPipelineCreateInfo, NULL, &PreviewImage.vkPipeline);
+    vkResult = vkCreateGraphicsPipelines(vkDevice, PreviewImage.vkPipelineCache, 1, &vkGraphicsPipelineCreateInfo, NULL, &PreviewImage.vkPipeline);
 
     if (vkResult != VK_SUCCESS)
     {
         fprintf(gpFILE, "createGraphicsPipeline() : vkCreateGraphicsPipelines() failed: %d .\n", vkResult);
-
-        //destroy pipeline cache
-        vkDestroyPipelineCache(vkDevice, vkPipelineCache, NULL);
-        vkPipelineCache = VK_NULL_HANDLE;
-
         return(vkResult);
     }
-
-    //destroy pipeline cache
-    vkDestroyPipelineCache(vkDevice, vkPipelineCache, NULL);
-    vkPipelineCache = VK_NULL_HANDLE;
 
     return(vkResult);
 }
@@ -1804,21 +1792,24 @@ VkResult GraphicsPipelines::createGraphicsPipeline_WhiteVertex(VkPipelineLayoutC
 
 
     //pipeline cache 
-    VkPipelineCacheCreateInfo vkPipelineCacheCreateInfo;
-    memset((void*)&vkPipelineCacheCreateInfo, 0, sizeof(VkPipelineCacheCreateInfo));
-    vkPipelineCacheCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_CACHE_CREATE_INFO;
-    vkPipelineCacheCreateInfo.pNext = NULL;
-    vkPipelineCacheCreateInfo.flags = 0;
-    vkPipelineCacheCreateInfo.initialDataSize = 0;
-    vkPipelineCacheCreateInfo.pInitialData = NULL;
-
-    VkPipelineCache vkPipelineCache;
-    vkResult = vkCreatePipelineCache(vkDevice, &vkPipelineCacheCreateInfo, NULL, &vkPipelineCache);
-    if (vkResult != VK_SUCCESS)
+    if(WhiteVertex.vkPipelineCache == VK_NULL_HANDLE)
     {
-        fprintf(gpFILE, "createGraphicsPipeline() : vkCreatePipelineCache() failed: %d .\n", vkResult);
-        return(vkResult);
-    }
+        //create pipeline cache
+        VkPipelineCacheCreateInfo vkPipelineCacheCreateInfo;
+        memset((void*)&vkPipelineCacheCreateInfo, 0, sizeof(VkPipelineCacheCreateInfo));
+        vkPipelineCacheCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_CACHE_CREATE_INFO;
+        vkPipelineCacheCreateInfo.pNext = NULL;
+        vkPipelineCacheCreateInfo.flags = 0;
+        vkPipelineCacheCreateInfo.initialDataSize = 0;
+        vkPipelineCacheCreateInfo.pInitialData = NULL;
+        vkResult = vkCreatePipelineCache(vkDevice, &vkPipelineCacheCreateInfo, NULL, &WhiteVertex.vkPipelineCache);
+        if (vkResult != VK_SUCCESS)
+        {
+			fprintf(gpFILE, "createGraphicsPipeline_WhiteVertex() : vkCreatePipelineCache() failed (%d).\n", vkResult);
+			return(vkResult);
+		}
+		vkPipelineCacheList.push_back(WhiteVertex.vkPipelineCache);
+	}
 
     //  Declare and initialize VkGraphicsPipelineCreateInfo structure.
     VkGraphicsPipelineCreateInfo vkGraphicsPipelineCreateInfo;
@@ -1845,22 +1836,13 @@ VkResult GraphicsPipelines::createGraphicsPipeline_WhiteVertex(VkPipelineLayoutC
 
 
     //  Call vkCreateGraphicsPipelines() API to create the graphics pipeline.
-    vkResult = vkCreateGraphicsPipelines(vkDevice, vkPipelineCache, 1, &vkGraphicsPipelineCreateInfo, NULL, &WhiteVertex.vkPipeline);
+    vkResult = vkCreateGraphicsPipelines(vkDevice, WhiteVertex.vkPipelineCache, 1, &vkGraphicsPipelineCreateInfo, NULL, &WhiteVertex.vkPipeline);
 
     if (vkResult != VK_SUCCESS)
     {
         fprintf(gpFILE, "createGraphicsPipeline() : vkCreateGraphicsPipelines() failed: %d .\n", vkResult);
-
-        //destroy pipeline cache
-        vkDestroyPipelineCache(vkDevice, vkPipelineCache, NULL);
-        vkPipelineCache = VK_NULL_HANDLE;
-
         return(vkResult);
     }
-
-    //destroy pipeline cache
-    vkDestroyPipelineCache(vkDevice, vkPipelineCache, NULL);
-    vkPipelineCache = VK_NULL_HANDLE;
 
     return(vkResult);
 }
@@ -2078,21 +2060,24 @@ VkResult GraphicsPipelines::createGraphicsPipeline_ColoredVertex(VkPipelineLayou
 
 
     //pipeline cache 
-    VkPipelineCacheCreateInfo vkPipelineCacheCreateInfo;
-    memset((void*)&vkPipelineCacheCreateInfo, 0, sizeof(VkPipelineCacheCreateInfo));
-    vkPipelineCacheCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_CACHE_CREATE_INFO;
-    vkPipelineCacheCreateInfo.pNext = NULL;
-    vkPipelineCacheCreateInfo.flags = 0;
-    vkPipelineCacheCreateInfo.initialDataSize = 0;
-    vkPipelineCacheCreateInfo.pInitialData = NULL;
-
-    VkPipelineCache vkPipelineCache;
-    vkResult = vkCreatePipelineCache(vkDevice, &vkPipelineCacheCreateInfo, NULL, &vkPipelineCache);
-    if (vkResult != VK_SUCCESS)
+    if(ColoredVertex.vkPipelineCache == VK_NULL_HANDLE)
     {
-        fprintf(gpFILE, "createGraphicsPipeline() : vkCreatePipelineCache() failed: %d .\n", vkResult);
-        return(vkResult);
-    }
+        //create pipeline cache
+        VkPipelineCacheCreateInfo vkPipelineCacheCreateInfo;
+        memset((void*)&vkPipelineCacheCreateInfo, 0, sizeof(VkPipelineCacheCreateInfo));
+        vkPipelineCacheCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_CACHE_CREATE_INFO;
+        vkPipelineCacheCreateInfo.pNext = NULL;
+        vkPipelineCacheCreateInfo.flags = 0;
+        vkPipelineCacheCreateInfo.initialDataSize = 0;
+        vkPipelineCacheCreateInfo.pInitialData = NULL;
+        vkResult = vkCreatePipelineCache(vkDevice, &vkPipelineCacheCreateInfo, NULL, &ColoredVertex.vkPipelineCache);
+        if (vkResult != VK_SUCCESS)
+		{
+			fprintf(gpFILE, "createGraphicsPipeline_ColoredVertex() : vkCreatePipelineCache() failed (%d).\n", vkResult);
+			return(vkResult);
+		}
+		vkPipelineCacheList.push_back(ColoredVertex.vkPipelineCache);
+	}
 
     //  Declare and initialize VkGraphicsPipelineCreateInfo structure.
     VkGraphicsPipelineCreateInfo vkGraphicsPipelineCreateInfo;
@@ -2119,22 +2104,13 @@ VkResult GraphicsPipelines::createGraphicsPipeline_ColoredVertex(VkPipelineLayou
 
 
     //  Call vkCreateGraphicsPipelines() API to create the graphics pipeline.
-    vkResult = vkCreateGraphicsPipelines(vkDevice, vkPipelineCache, 1, &vkGraphicsPipelineCreateInfo, NULL, &ColoredVertex.vkPipeline);
+    vkResult = vkCreateGraphicsPipelines(vkDevice, ColoredVertex.vkPipelineCache, 1, &vkGraphicsPipelineCreateInfo, NULL, &ColoredVertex.vkPipeline);
 
     if (vkResult != VK_SUCCESS)
     {
         fprintf(gpFILE, "createGraphicsPipeline() : vkCreateGraphicsPipelines() failed: %d .\n", vkResult);
-
-        //destroy pipeline cache
-        vkDestroyPipelineCache(vkDevice, vkPipelineCache, NULL);
-        vkPipelineCache = VK_NULL_HANDLE;
-
         return(vkResult);
     }
-
-    //destroy pipeline cache
-    vkDestroyPipelineCache(vkDevice, vkPipelineCache, NULL);
-    vkPipelineCache = VK_NULL_HANDLE;
 
     return(vkResult);
 }
