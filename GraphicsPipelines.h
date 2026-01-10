@@ -43,26 +43,20 @@ public:
 	PipelineData WhiteVertex;
 	PipelineData ColoredVertex;
 
+	VkResult vkResult;
+
 	VkResult createPipelines(void);
 	void destroyPipelines(void);
-
-	VkResult vkResult;
 
 private:
 
 	std::vector<VkPipelineLayout> vkPipelineLayoutList;
+	std::vector<VkShaderModule> vkShaderModuleList;
+	std::vector<VkPipeline> vkPipelineList;
 
 	VkResult createShaderModule(VkShaderModule* shaderModule, const char* fileName);
 
 	VkResult createPipelineLayout(VkPipelineLayoutCreateInfo vkPipelineLayoutCreateInfo, VkPipelineLayout* vkPipelineLayout);
-
-	VkResult createPipelineLayout_previewImage(void);
-	VkResult createPipelineLayout_Phong(void);
-	VkResult createPipelineLayout_PBR(void);
-	VkResult createPipelineLayout_WhiteVertex(void);
-	VkResult createPipelineLayout_ColoredVertex(void);
-
-	VkResult createPipelineLayouts(void);
 	void destroyPipelineLayouts(void);
 
 	VkResult createShaderModules(void);
@@ -70,13 +64,13 @@ private:
 
 	//----------------------------Pipelines-------------------------------------------------------
 
-	VkResult createGraphicsPipeline_PreviewImage(void);
+	VkResult createGraphicsPipeline_PreviewImage(VkPipelineLayoutCreateInfo vkPipelineLayoutCreateInfo);
 	VkResult createGraphicsPipeline_Impostor(VkPipelineLayoutCreateInfo vkPipelineLayoutCreateInfo);
-	VkResult createGraphicsPipeline_Phong(void);
-	VkResult createGraphicsPipeline_PBR(void);
+	VkResult createGraphicsPipeline_Phong(VkPipelineLayoutCreateInfo vkPipelineLayoutCreateInfo);
+	VkResult createGraphicsPipeline_PBR(VkPipelineLayoutCreateInfo vkPipelineLayoutCreateInfo);
 	VkResult createGraphicsPipeline_PBR_Skinned(VkPipelineLayoutCreateInfo vkPipelineLayoutCreateInfo);
-	VkResult createGraphicsPipeline_WhiteVertex(void);
-	VkResult createGraphicsPipeline_ColoredVertex(void);
+	VkResult createGraphicsPipeline_WhiteVertex(VkPipelineLayoutCreateInfo vkPipelineLayoutCreateInfo);
+	VkResult createGraphicsPipeline_ColoredVertex(VkPipelineLayoutCreateInfo vkPipelineLayoutCreateInfo);
 
 
 };

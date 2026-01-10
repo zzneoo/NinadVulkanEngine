@@ -11,13 +11,6 @@ GraphicsPipelines::GraphicsPipelines()
         return;
 	}
 
-	vkResult = createPipelineLayouts();
-    if (vkResult != VK_SUCCESS)
-    {
-        fprintf(gpFILE, "GraphicsPipelines() : createPipelineLayouts() failed (%d).\n", vkResult);
-        return;
-	}
-
 	vkResult = createPipelines();
     if (vkResult != VK_SUCCESS)
     {
@@ -29,8 +22,8 @@ GraphicsPipelines::GraphicsPipelines()
 
 GraphicsPipelines::~GraphicsPipelines()
 {
-	destroyPipelineLayouts();
 	destroyPipelines();
+    destroyPipelineLayouts();
     destroyShaderModules();
 }
 
@@ -102,6 +95,7 @@ VkResult GraphicsPipelines::createShaderModule(VkShaderModule* shaderModule, con
         shaderData = NULL;
     }
 
+	vkShaderModuleList.push_back(*shaderModule);
 
     return vkResult;
 
@@ -226,93 +220,18 @@ VkResult GraphicsPipelines::createShaderModules()
 
 void GraphicsPipelines::destroyShaderModules(void)
 {
-	// Colored Vertex Shader Modules
-    if (ColoredVertex.vkFragmentShaderModule)
+
+    // destroy shader modules from the list in reverse order
+    for (int32_t i = (int32_t)vkShaderModuleList.size() - 1; i >= 0; i--)
     {
-        vkDestroyShaderModule(vkDevice, ColoredVertex.vkFragmentShaderModule, NULL);
-        ColoredVertex.vkFragmentShaderModule = VK_NULL_HANDLE;
-    }
-    if (ColoredVertex.vkVertexShaderModule)
-    {
-        vkDestroyShaderModule(vkDevice, ColoredVertex.vkVertexShaderModule, NULL);
-        ColoredVertex.vkVertexShaderModule = VK_NULL_HANDLE;
+        if (vkShaderModuleList[i])
+        {
+            vkDestroyShaderModule(vkDevice, vkShaderModuleList[i], NULL);
+            vkShaderModuleList[i] = VK_NULL_HANDLE;
+        }
     }
 
-    //-- shader modules for white vertex shaders
-    if (WhiteVertex.vkVertexShaderModule)
-    {
-        vkDestroyShaderModule(vkDevice, WhiteVertex.vkVertexShaderModule, NULL);
-        WhiteVertex.vkVertexShaderModule = VK_NULL_HANDLE;
-    }
-
-    if (WhiteVertex.vkFragmentShaderModule)
-    {
-        vkDestroyShaderModule(vkDevice, WhiteVertex.vkFragmentShaderModule, NULL);
-        WhiteVertex.vkFragmentShaderModule = VK_NULL_HANDLE;
-    }
-
-    //-- shader modules for previewImage shaders
-
-    if (PreviewImage.vkVertexShaderModule)
-    {
-        vkDestroyShaderModule(vkDevice, PreviewImage.vkVertexShaderModule, NULL);
-        PreviewImage.vkVertexShaderModule = VK_NULL_HANDLE;
-    }
-
-    if (PreviewImage.vkFragmentShaderModule)
-    {
-        vkDestroyShaderModule(vkDevice, PreviewImage.vkFragmentShaderModule, NULL);
-        PreviewImage.vkFragmentShaderModule = VK_NULL_HANDLE;
-    }
-
-    //-- shader modules for impostor shaders
-    if (Impostor.vkVertexShaderModule)
-    {
-        vkDestroyShaderModule(vkDevice, Impostor.vkVertexShaderModule, NULL);
-        Impostor.vkVertexShaderModule = VK_NULL_HANDLE;
-    }
-
-    if (Impostor.vkFragmentShaderModule)
-    {
-        vkDestroyShaderModule(vkDevice, Impostor.vkFragmentShaderModule, NULL);
-        Impostor.vkFragmentShaderModule = VK_NULL_HANDLE;
-    }
-
-    //-- shader modules for phong shaders
-    if (Phong.vkVertexShaderModule)
-    {
-        vkDestroyShaderModule(vkDevice, Phong.vkVertexShaderModule, NULL);
-        Phong.vkVertexShaderModule = VK_NULL_HANDLE;
-    }
-    if (Phong.vkFragmentShaderModule)
-    {
-        vkDestroyShaderModule(vkDevice, Phong.vkFragmentShaderModule, NULL);
-        Phong.vkFragmentShaderModule = VK_NULL_HANDLE;
-    }
-
-    //-- shader modules for PBR shaders
-    if (PBR.vkVertexShaderModule)
-    {
-        vkDestroyShaderModule(vkDevice, PBR.vkVertexShaderModule, NULL);
-        PBR.vkVertexShaderModule = VK_NULL_HANDLE;
-    }
-    if (PBR.vkFragmentShaderModule)
-    {
-        vkDestroyShaderModule(vkDevice, PBR.vkFragmentShaderModule, NULL);
-        PBR.vkFragmentShaderModule = VK_NULL_HANDLE;
-    }
-
-    //PBR_Skinned
-    if (PBR_Skinned.vkVertexShaderModule)
-    {
-        vkDestroyShaderModule(vkDevice, PBR_Skinned.vkVertexShaderModule, NULL);
-        PBR_Skinned.vkVertexShaderModule = VK_NULL_HANDLE;
-    }
-    if (PBR_Skinned.vkFragmentShaderModule)
-    {
-        vkDestroyShaderModule(vkDevice, PBR_Skinned.vkFragmentShaderModule, NULL);
-        PBR_Skinned.vkFragmentShaderModule = VK_NULL_HANDLE;
-    }
+	vkShaderModuleList.clear();
 
 }
 
@@ -357,301 +276,11 @@ VkResult GraphicsPipelines::createPipelineLayout(VkPipelineLayoutCreateInfo vkPi
     return(vkResult);
 }
 
-VkResult GraphicsPipelines::createPipelineLayout_previewImage(void)
-{
-    // local variables
-    VkResult vkResult = VK_SUCCESS;
-
-
-    // Declare and initialize VkPipelineLayoutCreateInfo structure which will have information about the pipeline layout.
-    VkPipelineLayoutCreateInfo vkPipelineLayoutCreateInfo;
-    memset((void*)&vkPipelineLayoutCreateInfo, 0, sizeof(VkPipelineLayoutCreateInfo));
-
-    vkPipelineLayoutCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
-    vkPipelineLayoutCreateInfo.pNext = NULL;
-    vkPipelineLayoutCreateInfo.flags = 0;
-    vkPipelineLayoutCreateInfo.setLayoutCount = 1;
-    vkPipelineLayoutCreateInfo.pSetLayouts = &gpDescriptorSetLayouts->vkDescriptorSetLayout_SingleImage; // pointer to the descriptor set layout for preview image
-    vkPipelineLayoutCreateInfo.pushConstantRangeCount = 0; // no push constant ranges for preview image pipeline layout
-    vkPipelineLayoutCreateInfo.pPushConstantRanges = NULL; // no push constant ranges for preview image pipeline layout
-
-    vkResult = vkCreatePipelineLayout(vkDevice, &vkPipelineLayoutCreateInfo, NULL, &PreviewImage.vkPipelineLayout);
-    if (vkResult != VK_SUCCESS)
-    {
-        fprintf(gpFILE, "createPipelineLayout() -> vkCreatePipelineLayout() :  failed: %d.\n", vkResult);
-        return(vkResult);
-    }
-
-    return(vkResult);
-}
-
-VkResult GraphicsPipelines::createPipelineLayout_Phong(void)
-{
-    // local variables
-    VkResult vkResult = VK_SUCCESS;
-
-    //push constant
-// Declare and initialize VkPushConstantRange structure which will have information about the push constant range.
-    VkPushConstantRange vkPushConstantRange;
-    memset((void*)&vkPushConstantRange, 0, sizeof(VkPushConstantRange));
-    vkPushConstantRange.stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT; // stage flags for the push constant range
-    vkPushConstantRange.offset = 0; // offset in the push constant range
-    vkPushConstantRange.size = sizeof(PushConstants); // size of the push constant range
-
-    // Declare and initialize VkPipelineLayoutCreateInfo structure which will have information about the pipeline layout.
-    VkPipelineLayoutCreateInfo vkPipelineLayoutCreateInfo;
-    memset((void*)&vkPipelineLayoutCreateInfo, 0, sizeof(VkPipelineLayoutCreateInfo));
-
-    VkDescriptorSetLayout vkDescriptorSetLayouts[] = { gpDescriptorSetLayouts->vkDescriptorSetLayout_frameData };
-
-    vkPipelineLayoutCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
-    vkPipelineLayoutCreateInfo.pNext = NULL;
-    vkPipelineLayoutCreateInfo.flags = 0;
-    vkPipelineLayoutCreateInfo.setLayoutCount = 1;// two descriptor set layout for imposter pipeline layout
-    vkPipelineLayoutCreateInfo.pSetLayouts = vkDescriptorSetLayouts; // pointer to the descriptor set layout
-    vkPipelineLayoutCreateInfo.pushConstantRangeCount = 1; // one push constant range for imposter pipeline layout
-    vkPipelineLayoutCreateInfo.pPushConstantRanges = &vkPushConstantRange; // pointer to the push constant range
-
-    vkResult = vkCreatePipelineLayout(vkDevice, &vkPipelineLayoutCreateInfo, NULL, &Phong.vkPipelineLayout);
-    if (vkResult != VK_SUCCESS)
-    {
-        fprintf(gpFILE, "createPipelineLayout_Phong() -> vkCreatePipelineLayout() :  failed: %d.\n", vkResult);
-        return(vkResult);
-    }
-
-    return(vkResult);
-}
-
-VkResult GraphicsPipelines::createPipelineLayout_PBR(void)
-{
-    // local variables
-    VkResult vkResult = VK_SUCCESS;
-
-    //push constant
-// Declare and initialize VkPushConstantRange structure which will have information about the push constant range.
-    VkPushConstantRange vkPushConstantRange;
-    memset((void*)&vkPushConstantRange, 0, sizeof(VkPushConstantRange));
-    vkPushConstantRange.stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT; // stage flags for the push constant range
-    vkPushConstantRange.offset = 0; // offset in the push constant range
-    vkPushConstantRange.size = sizeof(PushConstants); // size of the push constant range
-
-    // Declare and initialize VkPipelineLayoutCreateInfo structure which will have information about the pipeline layout.
-    VkPipelineLayoutCreateInfo vkPipelineLayoutCreateInfo;
-    memset((void*)&vkPipelineLayoutCreateInfo, 0, sizeof(VkPipelineLayoutCreateInfo));
-
-    VkDescriptorSetLayout vkDescriptorSetLayouts[] = { gpDescriptorSetLayouts->vkDescriptorSetLayout_frameData,gpDescriptorSetLayouts->vkDescriptorSetLayout_BasicPBR };
-
-    vkPipelineLayoutCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
-    vkPipelineLayoutCreateInfo.pNext = NULL;
-    vkPipelineLayoutCreateInfo.flags = 0;
-    vkPipelineLayoutCreateInfo.setLayoutCount = 2;// two descriptor set layout for imposter pipeline layout
-    vkPipelineLayoutCreateInfo.pSetLayouts = vkDescriptorSetLayouts; // pointer to the descriptor set layout
-    vkPipelineLayoutCreateInfo.pushConstantRangeCount = 1; // one push constant range for imposter pipeline layout
-    vkPipelineLayoutCreateInfo.pPushConstantRanges = &vkPushConstantRange; // pointer to the push constant range
-
-    vkResult = vkCreatePipelineLayout(vkDevice, &vkPipelineLayoutCreateInfo, NULL, &PBR.vkPipelineLayout);
-    if (vkResult != VK_SUCCESS)
-    {
-        fprintf(gpFILE, "createPipelinnLayout_PBR() -> vkCreatePipelineLayout() :  failed: %d.\n", vkResult);
-        return(vkResult);
-    }
-
-    return(vkResult);
-}
-
-VkResult GraphicsPipelines::createPipelineLayout_WhiteVertex(void)
-{
-    // local variables
-    VkResult vkResult = VK_SUCCESS;
-
-
-    //push constant
-    // Declare and initialize VkPushConstantRange structure which will have information about the push constant range.
-    VkPushConstantRange vkPushConstantRange;
-    memset((void*)&vkPushConstantRange, 0, sizeof(VkPushConstantRange));
-    vkPushConstantRange.stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT; // stage flags for the push constant range
-    vkPushConstantRange.offset = 0; // offset in the push constant range
-    vkPushConstantRange.size = sizeof(PushConstants); // size of the push constant range
-
-
-    // Declare and initialize VkPipelineLayoutCreateInfo structure which will have information about the pipeline layout.
-    VkPipelineLayoutCreateInfo vkPipelineLayoutCreateInfo;
-    memset((void*)&vkPipelineLayoutCreateInfo, 0, sizeof(VkPipelineLayoutCreateInfo));
-
-    vkPipelineLayoutCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
-    vkPipelineLayoutCreateInfo.pNext = NULL;
-    vkPipelineLayoutCreateInfo.flags = 0;
-    vkPipelineLayoutCreateInfo.setLayoutCount = 1;
-    vkPipelineLayoutCreateInfo.pSetLayouts = &gpDescriptorSetLayouts->vkDescriptorSetLayout_frameData;
-    vkPipelineLayoutCreateInfo.pushConstantRangeCount = 1;
-    vkPipelineLayoutCreateInfo.pPushConstantRanges = &vkPushConstantRange;
-
-    vkResult = vkCreatePipelineLayout(vkDevice, &vkPipelineLayoutCreateInfo, NULL, &WhiteVertex.vkPipelineLayout);
-    if (vkResult != VK_SUCCESS)
-    {
-        fprintf(gpFILE, "createPipelineLayout() -> vkCreatePipelineLayout() :  failed: %d.\n", vkResult);
-        return(vkResult);
-    }
-
-    return(vkResult);
-}
-
-VkResult GraphicsPipelines::createPipelineLayout_ColoredVertex(void)
-{
-    // local variables
-    VkResult vkResult = VK_SUCCESS;
-
-
-    //push constant
-    // Declare and initialize VkPushConstantRange structure which will have information about the push constant range.
-    VkPushConstantRange vkPushConstantRange;
-    memset((void*)&vkPushConstantRange, 0, sizeof(VkPushConstantRange));
-    vkPushConstantRange.stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT; // stage flags for the push constant range
-    vkPushConstantRange.offset = 0; // offset in the push constant range
-    vkPushConstantRange.size = sizeof(PushConstants); // size of the push constant range
-
-
-    // Declare and initialize VkPipelineLayoutCreateInfo structure which will have information about the pipeline layout.
-    VkPipelineLayoutCreateInfo vkPipelineLayoutCreateInfo;
-    memset((void*)&vkPipelineLayoutCreateInfo, 0, sizeof(VkPipelineLayoutCreateInfo));
-
-    vkPipelineLayoutCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
-    vkPipelineLayoutCreateInfo.pNext = NULL;
-    vkPipelineLayoutCreateInfo.flags = 0;
-    vkPipelineLayoutCreateInfo.setLayoutCount = 1;
-    vkPipelineLayoutCreateInfo.pSetLayouts = &gpDescriptorSetLayouts->vkDescriptorSetLayout_frameData;
-    vkPipelineLayoutCreateInfo.pushConstantRangeCount = 1;
-    vkPipelineLayoutCreateInfo.pPushConstantRanges = &vkPushConstantRange;
-
-    vkResult = vkCreatePipelineLayout(vkDevice, &vkPipelineLayoutCreateInfo, NULL, &ColoredVertex.vkPipelineLayout);
-    if (vkResult != VK_SUCCESS)
-    {
-        fprintf(gpFILE, "createPipelineLayout() -> vkCreatePipelineLayout() :  failed: %d.\n", vkResult);
-        return(vkResult);
-    }
-
-    return(vkResult);
-}
-
-//--------------------------------------------------------------------------------------------
-VkResult GraphicsPipelines::createPipelineLayouts(void)
-{
-	VkResult vkResult = VK_SUCCESS;
-    //pipeline layout for preview image
-    vkResult = createPipelineLayout_previewImage();
-    if (vkResult != VK_SUCCESS)
-    {
-        fprintf(gpFILE, "createPipelineLayouts() : createPipelineLayout_previewImage() failed (%d).\n", vkResult);
-        return(vkResult);
-    }
-    ////pipeline layout for impostor
-    //vkResult = createPipelineLayout_Impostor();
-    //if (vkResult != VK_SUCCESS)
-    //{
-    //    fprintf(gpFILE, "createPipelineLayouts() : createPipelineLayout_Impostor() failed (%d).\n", vkResult);
-    //    return(vkResult);
-    //}
-    //pipeline layout for phong
-    vkResult = createPipelineLayout_Phong();
-    if (vkResult != VK_SUCCESS)
-    {
-        fprintf(gpFILE, "createPipelineLayouts() : createPipelineLayout_Phong() failed (%d).\n", vkResult);
-        return(vkResult);
-    }
-    //pipeline layout for PBR
-    vkResult = createPipelineLayout_PBR();
-    if (vkResult != VK_SUCCESS)
-    {
-        fprintf(gpFILE, "createPipelineLayouts() : createPipelineLayout_PBR() failed (%d).\n", vkResult);
-        return(vkResult);
-	}
-
-	////pipeline layout for PBR_Skinneds
-	//vkResult = createPipelineLayout_PBR_Skinned();
-	//if (vkResult != VK_SUCCESS)
-	//{
-	//	fprintf(gpFILE, "createPipelineLayouts() : createPipelineLayout_PBR_Skinned() failed (%d).\n", vkResult);
-	//	return(vkResult);
-	//}
-
-    //pipeline layout for white vertex
-    vkResult = createPipelineLayout_WhiteVertex();
-    if (vkResult != VK_SUCCESS)
-    {
-        fprintf(gpFILE, "createPipelineLayouts() : createPipelineLayout_WhiteVertex() failed (%d).\n", vkResult);
-        return(vkResult);
-    }
-    //pipeline layout for colored vertex
-    vkResult = createPipelineLayout_ColoredVertex();
-    if (vkResult != VK_SUCCESS)
-    {
-        fprintf(gpFILE, "createPipelineLayouts() : createPipelineLayout_ColoredVertex() failed (%d).\n", vkResult);
-        return(vkResult);
-	}
-
-	return(vkResult);
-}
-
 void GraphicsPipelines::destroyPipelineLayouts(void)
 {
-    ////pipeline layout
-    //if (vkPipelineLayout)
-    //{
-    //    vkDestroyPipelineLayout(vkDevice, vkPipelineLayout, NULL);
-    //    vkPipelineLayout = VK_NULL_HANDLE;
-    //}
-
-    //pipeline layout for preview image
-    if (PreviewImage.vkPipelineLayout)
-    {
-        vkDestroyPipelineLayout(vkDevice, PreviewImage.vkPipelineLayout, NULL);
-        PreviewImage.vkPipelineLayout = VK_NULL_HANDLE;
-    }
-
-    ////pipeline layout for imposter
-    //if (Impostor.vkPipelineLayout)
-    //{
-    //    vkDestroyPipelineLayout(vkDevice, Impostor.vkPipelineLayout, NULL);
-    //    Impostor.vkPipelineLayout = VK_NULL_HANDLE;
-    //}
-
-    //pipeline layout for phong
-    if (Phong.vkPipelineLayout)
-    {
-        vkDestroyPipelineLayout(vkDevice, Phong.vkPipelineLayout, NULL);
-        Phong.vkPipelineLayout = VK_NULL_HANDLE;
-    }
-
-    //pipeline layout for PBR
-    if (PBR.vkPipelineLayout)
-    {
-        vkDestroyPipelineLayout(vkDevice, PBR.vkPipelineLayout, NULL);
-        PBR.vkPipelineLayout = VK_NULL_HANDLE;
-    }
-
-	////pipeline layout for PBR_Skinned
- //   if (PBR_Skinned.vkPipelineLayout)
- //   {
- //       vkDestroyPipelineLayout(vkDevice, PBR_Skinned.vkPipelineLayout, NULL);
- //       PBR_Skinned.vkPipelineLayout = VK_NULL_HANDLE;
-	//}
-
-	//pipeline layout for white vertex
-    if (WhiteVertex.vkPipelineLayout)
-    {
-        vkDestroyPipelineLayout(vkDevice, WhiteVertex.vkPipelineLayout, NULL);
-        WhiteVertex.vkPipelineLayout = VK_NULL_HANDLE;
-	}
-
-    //pipeline layout for colored vertex
-    if (ColoredVertex.vkPipelineLayout)
-    {
-        vkDestroyPipelineLayout(vkDevice, ColoredVertex.vkPipelineLayout, NULL);
-        ColoredVertex.vkPipelineLayout = VK_NULL_HANDLE;
-	}
 
 	//destroy vkPipelineLayoutList
-	for (uint16_t i = 0; i < vkPipelineLayoutList.size(); i++)
+	for (int32_t i = (int32_t)vkPipelineLayoutList.size() - 1; i >= 0; i--)
     {
         if (vkPipelineLayoutList[i])
         {
@@ -925,10 +554,17 @@ VkResult GraphicsPipelines::createGraphicsPipeline_Impostor(VkPipelineLayoutCrea
     return(vkResult);
 }
 
-VkResult GraphicsPipelines::createGraphicsPipeline_Phong(void)
+VkResult GraphicsPipelines::createGraphicsPipeline_Phong(VkPipelineLayoutCreateInfo vkPipelineLayoutCreateInfo)
 {
     // local variables
     VkResult vkResult = VK_SUCCESS;
+
+	vkResult = createPipelineLayout(vkPipelineLayoutCreateInfo, &Phong.vkPipelineLayout);
+	if (vkResult != VK_SUCCESS)
+	{
+		fprintf(gpFILE, "createGraphicsPipeline_Phong() : createPipelineLayout() failed (%d).\n", vkResult);
+		return(vkResult);
+	}
 
 
     //vertex input state
@@ -1189,11 +825,17 @@ VkResult GraphicsPipelines::createGraphicsPipeline_Phong(void)
     return(vkResult);
 }
 
-VkResult GraphicsPipelines::createGraphicsPipeline_PBR(void)
+VkResult GraphicsPipelines::createGraphicsPipeline_PBR(VkPipelineLayoutCreateInfo vkPipelineLayoutCreateInfo)
 {
     // local variables
     VkResult vkResult = VK_SUCCESS;
 
+	vkResult = createPipelineLayout(vkPipelineLayoutCreateInfo,&PBR.vkPipelineLayout);
+	if (vkResult != VK_SUCCESS)
+	{
+		fprintf(gpFILE, "createGraphicsPipeline_PBR() : createPipelineLayout() failed: %d .\n", vkResult);
+		return(vkResult);
+	}
 
     //vertex input state
     VkVertexInputBindingDescription vkVertexInputBindingDescription_array[1];
@@ -1738,12 +1380,17 @@ VkResult GraphicsPipelines::createGraphicsPipeline_PBR_Skinned(VkPipelineLayoutC
     return(vkResult);
 }
 
-VkResult GraphicsPipelines::createGraphicsPipeline_PreviewImage(void)
+VkResult GraphicsPipelines::createGraphicsPipeline_PreviewImage(VkPipelineLayoutCreateInfo vkPipelineLayoutCreateInfo)
 {
     // local variables
     VkResult vkResult = VK_SUCCESS;
 
-
+	vkResult = createPipelineLayout(vkPipelineLayoutCreateInfo, &PreviewImage.vkPipelineLayout);
+	if (vkResult != VK_SUCCESS)
+	{
+		fprintf(gpFILE, "createGraphicsPipeline_PreviewImage() : createPipelineLayout() failed: %d .\n", vkResult);
+		return(vkResult);
+	}
 
     //  Declare and initialize VkPipelineVertexInputStateCreateInfo structure.
     VkPipelineVertexInputStateCreateInfo vkPipelineVertexInputStateCreateInfo;
@@ -1951,10 +1598,17 @@ VkResult GraphicsPipelines::createGraphicsPipeline_PreviewImage(void)
     return(vkResult);
 }
 
-VkResult GraphicsPipelines::createGraphicsPipeline_WhiteVertex(void)
+VkResult GraphicsPipelines::createGraphicsPipeline_WhiteVertex(VkPipelineLayoutCreateInfo vkPipelineLayoutCreateInfo)
 {
     // local variables
     VkResult vkResult = VK_SUCCESS;
+
+	vkResult = createPipelineLayout(vkPipelineLayoutCreateInfo, &WhiteVertex.vkPipelineLayout);
+	if (vkResult != VK_SUCCESS)
+	{
+		fprintf(gpFILE, "createGraphicsPipeline_WhiteVertex() : createPipelineLayout() failed: %d .\n", vkResult);
+		return(vkResult);
+	}
 
     // code
     // 
@@ -2211,10 +1865,18 @@ VkResult GraphicsPipelines::createGraphicsPipeline_WhiteVertex(void)
     return(vkResult);
 }
 
-VkResult GraphicsPipelines::createGraphicsPipeline_ColoredVertex(void)
+VkResult GraphicsPipelines::createGraphicsPipeline_ColoredVertex(VkPipelineLayoutCreateInfo vkPipelineLayoutCreateInfo)
 {
     // local variables
     VkResult vkResult = VK_SUCCESS;
+
+	vkResult = createPipelineLayout(vkPipelineLayoutCreateInfo, &ColoredVertex.vkPipelineLayout);
+	if (vkResult != VK_SUCCESS)
+	{
+		fprintf(gpFILE, "createGraphicsPipeline_ColoredVertex() : createPipelineLayout() failed: %d .\n", vkResult);
+		return(vkResult);
+	}
+
 
     // code
     // 
@@ -2486,34 +2148,31 @@ VkResult GraphicsPipelines::createPipelines(void)
     // code
 
     std::vector<VkDescriptorSetLayout> vkDescriptorSetLayouts;
+    VkPipelineLayoutCreateInfo vkPipelineLayoutCreateInfo;
+    memset((void*)&vkPipelineLayoutCreateInfo, 0, sizeof(VkPipelineLayoutCreateInfo));
 
-    //vkResult = createGraphicsPipeline_PerVertexColor();
-    //if (vkResult != VK_SUCCESS)
-    //{
-    //    fprintf(gpFILE, "createGraphicsPipelines() : createGraphicsPipeline_PerVertexColor() failed: %d.\n", vkResult);
-    //    return vkResult;
-    //}
+	//--------------------------------------------------------------------------------------------
 
-    //vkResult = createGraphicsPipeline_WhiteVertex();
-    //if (vkResult != VK_SUCCESS)
-    //{
-    //    fprintf(gpFILE, "createGraphicsPipelines() : createGraphicsPipeline_WhiteVertex() failed: %d.\n", vkResult);
-    //    return vkResult;
-    //}
+	//preview image
+	vkDescriptorSetLayouts = { gpDescriptorSetLayouts->vkDescriptorSetLayout_SingleImage };
+	memset((void*)&vkPipelineLayoutCreateInfo, 0, sizeof(VkPipelineLayoutCreateInfo));
+	vkPipelineLayoutCreateInfo.setLayoutCount = static_cast<uint32_t>(vkDescriptorSetLayouts.size());
+	vkPipelineLayoutCreateInfo.pSetLayouts = vkDescriptorSetLayouts.data();
 
-    vkResult = createGraphicsPipeline_PreviewImage();
+    vkResult = createGraphicsPipeline_PreviewImage(vkPipelineLayoutCreateInfo);
     if (vkResult != VK_SUCCESS)
     {
         fprintf(gpFILE, "createGraphicsPipelines() : createGraphicsPipeline_PreviewImage() failed: %d.\n", vkResult);
         return vkResult;
     }
 
+	vkPipelineList.push_back(PreviewImage.vkPipeline);
+
 	//--------------------------------------------------------------------------------------------
 
     //impostor
 	vkDescriptorSetLayouts = { gpDescriptorSetLayouts->vkDescriptorSetLayout_frameData, gpDescriptorSetLayouts->vkDescriptorSetLayout_AlbedoNormal };
 
-	VkPipelineLayoutCreateInfo vkPipelineLayoutCreateInfo;
 	memset((void*)&vkPipelineLayoutCreateInfo, 0, sizeof(VkPipelineLayoutCreateInfo));
 	vkPipelineLayoutCreateInfo.setLayoutCount = static_cast<uint32_t>(vkDescriptorSetLayouts.size());
 	vkPipelineLayoutCreateInfo.pSetLayouts = vkDescriptorSetLayouts.data();
@@ -2525,25 +2184,41 @@ VkResult GraphicsPipelines::createPipelines(void)
         return vkResult;
     }
 
+	vkPipelineList.push_back(Impostor.vkPipeline);
+
 	//--------------------------------------------------------------------------------------------
 
     //phong
-    vkResult = createGraphicsPipeline_Phong();
+	vkDescriptorSetLayouts = { gpDescriptorSetLayouts->vkDescriptorSetLayout_frameData };
+	memset((void*)&vkPipelineLayoutCreateInfo, 0, sizeof(VkPipelineLayoutCreateInfo));
+	vkPipelineLayoutCreateInfo.setLayoutCount = static_cast<uint32_t>(vkDescriptorSetLayouts.size());
+	vkPipelineLayoutCreateInfo.pSetLayouts = vkDescriptorSetLayouts.data();
+
+
+    vkResult = createGraphicsPipeline_Phong(vkPipelineLayoutCreateInfo);
     if (vkResult != VK_SUCCESS)
     {
         fprintf(gpFILE, "createGraphicsPipelines() : createGraphicsPipeline_Phong() failed: %d.\n", vkResult);
         return vkResult;
     }
 
+	vkPipelineList.push_back(Phong.vkPipeline);
+
 	//--------------------------------------------------------------------------------------------
 
     //PBR
-    vkResult = createGraphicsPipeline_PBR();
+	vkDescriptorSetLayouts = { gpDescriptorSetLayouts->vkDescriptorSetLayout_frameData, gpDescriptorSetLayouts->vkDescriptorSetLayout_BasicPBR };
+	memset((void*)&vkPipelineLayoutCreateInfo, 0, sizeof(VkPipelineLayoutCreateInfo));
+	vkPipelineLayoutCreateInfo.setLayoutCount = static_cast<uint32_t>(vkDescriptorSetLayouts.size());
+	vkPipelineLayoutCreateInfo.pSetLayouts = vkDescriptorSetLayouts.data();
+
+    vkResult = createGraphicsPipeline_PBR(vkPipelineLayoutCreateInfo);
     if (vkResult != VK_SUCCESS)
     {
         fprintf(gpFILE, "createGraphicsPipelines() : createGraphicsPipeline_PBR() failed: %d.\n", vkResult);
         return vkResult;
     }
+	vkPipelineList.push_back(PBR.vkPipeline);
 
 	//--------------------------------------------------------------------------------------------
 
@@ -2559,29 +2234,41 @@ VkResult GraphicsPipelines::createPipelines(void)
         fprintf(gpFILE, "createGraphicsPipelines() : createGraphicsPipeline_PBR_skinned() failed: %d.\n", vkResult);
         return vkResult;
 	}
+	vkPipelineList.push_back(PBR_Skinned.vkPipeline);
 
 	//--------------------------------------------------------------------------------------------
 
 	//White Vertex
-	vkResult = createGraphicsPipeline_WhiteVertex();
+	vkDescriptorSetLayouts = { gpDescriptorSetLayouts->vkDescriptorSetLayout_frameData };
+	memset((void*)&vkPipelineLayoutCreateInfo, 0, sizeof(VkPipelineLayoutCreateInfo));
+	vkPipelineLayoutCreateInfo.setLayoutCount = static_cast<uint32_t>(vkDescriptorSetLayouts.size());
+	vkPipelineLayoutCreateInfo.pSetLayouts = vkDescriptorSetLayouts.data();
+
+	vkResult = createGraphicsPipeline_WhiteVertex(vkPipelineLayoutCreateInfo);
     if (vkResult != VK_SUCCESS)
     {
         fprintf(gpFILE, "createGraphicsPipelines() : createGraphicsPipeline_WhiteVertex() failed: %d.\n", vkResult);
 		return vkResult;
     }
+	vkPipelineList.push_back(WhiteVertex.vkPipeline);
 
 	//--------------------------------------------------------------------------------------------
 
 	//Colored Vertex
-	vkResult = createGraphicsPipeline_ColoredVertex();
+	vkDescriptorSetLayouts = { gpDescriptorSetLayouts->vkDescriptorSetLayout_frameData };
+	memset((void*)&vkPipelineLayoutCreateInfo, 0, sizeof(VkPipelineLayoutCreateInfo));
+	vkPipelineLayoutCreateInfo.setLayoutCount = static_cast<uint32_t>(vkDescriptorSetLayouts.size());
+	vkPipelineLayoutCreateInfo.pSetLayouts = vkDescriptorSetLayouts.data();
+
+	vkResult = createGraphicsPipeline_ColoredVertex(vkPipelineLayoutCreateInfo);
     if (vkResult != VK_SUCCESS)
     {
 		fprintf(gpFILE, "createGraphicsPipelines() : createGraphicsPipeline_ColoredVertex() failed: %d.\n", vkResult);
 		return vkResult;
     }
+	vkPipelineList.push_back(ColoredVertex.vkPipeline);
 
 	//--------------------------------------------------------------------------------------------
-
 
     return vkResult;
 }
@@ -2589,44 +2276,18 @@ VkResult GraphicsPipelines::createPipelines(void)
 void GraphicsPipelines::destroyPipelines(void)
 {
 
-    if (ColoredVertex.vkPipeline)
+    //destroy vkPipelineList
+    for (int32_t i = (int32_t)vkPipelineList.size() - 1; i >= 0; i--)
     {
-        vkDestroyPipeline(vkDevice, ColoredVertex.vkPipeline, NULL);
-        ColoredVertex.vkPipeline = VK_NULL_HANDLE;
-	}
-
-    if (WhiteVertex.vkPipeline)
-    {
-        vkDestroyPipeline(vkDevice, WhiteVertex.vkPipeline, NULL);
-        WhiteVertex.vkPipeline = VK_NULL_HANDLE;
+        if (vkPipelineList[i])
+        {
+            vkDestroyPipeline(vkDevice, vkPipelineList[i], NULL);
+            vkPipelineList[i] = VK_NULL_HANDLE;
+        }
     }
 
-    if(PBR_Skinned.vkPipeline)
-    {
-        vkDestroyPipeline(vkDevice, PBR_Skinned.vkPipeline, NULL);
-        PBR_Skinned.vkPipeline = VK_NULL_HANDLE;
-	}
+    vkPipelineList.clear();
 
-    if (PBR.vkPipeline)
-    {
-        vkDestroyPipeline(vkDevice, PBR.vkPipeline, NULL);
-        PBR.vkPipeline = VK_NULL_HANDLE;
-    }
-    if (Phong.vkPipeline)
-    {
-        vkDestroyPipeline(vkDevice, Phong.vkPipeline, NULL);
-        Phong.vkPipeline = VK_NULL_HANDLE;
-	}
-    if (Impostor.vkPipeline)
-    {
-        vkDestroyPipeline(vkDevice, Impostor.vkPipeline, NULL);
-        Impostor.vkPipeline = VK_NULL_HANDLE;
-    }
-    if (PreviewImage.vkPipeline)
-    {
-        vkDestroyPipeline(vkDevice, PreviewImage.vkPipeline, NULL);
-        PreviewImage.vkPipeline = VK_NULL_HANDLE;
-	}
 
 }
 

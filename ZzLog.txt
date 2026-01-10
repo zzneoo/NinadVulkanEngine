@@ -60,6 +60,9 @@ initialize() : initialize complete.
 WinMain() : initialize() succeeded.
 -------------------------------------------------------------------------------------
 -------------------------------------------------------------------------------------
+createSwapchain() : minImageCount = 2, maxImageCount = 8
+createSwapchain() : (1) Swapchain Image width x height = 3840 x 2160
+createImagesAndImageViews() : gives swapchain image count = 2
 uninitialize() : ImGui uninitialization is done.
 -------------------------------------------------------------------------------------
 -------------------------------------------------------------------------------------
