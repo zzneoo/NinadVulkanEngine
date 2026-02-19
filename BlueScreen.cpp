@@ -147,10 +147,10 @@ VkCommandPool vkCommandPool = VK_NULL_HANDLE;
 VkCommandBuffer* vkCommandBuffer_Array = NULL;
 
 // RenderPass
-VkRenderPass vkRenderPass = VK_NULL_HANDLE;
+//VkRenderPass vkRenderPass = VK_NULL_HANDLE;
 
 // Framebuffers
-VkFramebuffer* vkFramebuffer_Array = NULL;
+//VkFramebuffer* vkFramebuffer_Array = NULL;
 
 // Semaphores
 VkSemaphore* vkSemaphore_BackBuffer = VK_NULL_HANDLE;
@@ -204,32 +204,8 @@ const uint16_t quad_indices[] =
 
 
 
-
-
 //UniformData uniformBufferData_camera[MAX_FRAMES];
 UniformData uniformBufferData_frameData[MAX_FRAMES];
-
-//shader related variables
-//VkShaderModule vkShaderModule_basic_vs = VK_NULL_HANDLE;
-//VkShaderModule vkShaderModule_basic_fs = VK_NULL_HANDLE;
-
-//VkShaderModule vkShaderModule_whiteVertex_vs = VK_NULL_HANDLE;
-//VkShaderModule vkShaderModule_whiteVertex_fs = VK_NULL_HANDLE;
-//
-//VkShaderModule vkShaderModule_previewImage_vs = VK_NULL_HANDLE;
-//VkShaderModule vkShaderModule_previewImage_fs = VK_NULL_HANDLE;
-//
-//VkShaderModule vkShaderModule_impostor_vs = VK_NULL_HANDLE;
-//VkShaderModule vkShaderModule_impostor_fs = VK_NULL_HANDLE;
-//
-//VkShaderModule vkShaderModule_phong_vs = VK_NULL_HANDLE;
-//VkShaderModule vkShaderModule_phong_fs = VK_NULL_HANDLE;
-//
-//VkShaderModule vkShaderModule_PBR_vs = VK_NULL_HANDLE;
-//VkShaderModule vkShaderModule_PBR_fs = VK_NULL_HANDLE;
-//
-//VkShaderModule vkShaderModule_PBR_Skinned_vs = VK_NULL_HANDLE;
-//VkShaderModule vkShaderModule_PBR_Skinned_fs = VK_NULL_HANDLE;
 
 //GrassImage
 ImageData grassTextureData;
@@ -1684,6 +1660,76 @@ VkResult LoadModel_Animated_PBR(const char* modelPath, VulkanComboData* vulkanCo
     return VK_SUCCESS;
 }
 
+static VkResult initialLayoutTransitions(void)
+{
+    void transitionDepthImageLayout(VkCommandBuffer commandBuffer, VkImage image, VkImageLayout oldLayout, VkImageLayout newLayout);
+
+    VkResult vkResult = VK_SUCCESS;
+
+    //-----------------------------------------------------------------------------------------------------------------------
+
+// Transition the depth image layout to be optimal for depth attachment
+    // Transition the image layout to VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL
+    VkCommandBuffer commandBuffer;
+    VkCommandBufferAllocateInfo commandBufferAllocateInfo;
+    memset(&commandBufferAllocateInfo, 0, sizeof(VkCommandBufferAllocateInfo));
+    commandBufferAllocateInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+    commandBufferAllocateInfo.commandPool = vkCommandPool; // Command pool for allocation
+    commandBufferAllocateInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY; // Primary command buffer
+    commandBufferAllocateInfo.commandBufferCount = 1; // Allocate one command buffer
+    vkResult = vkAllocateCommandBuffers(vkDevice, &commandBufferAllocateInfo, &commandBuffer);
+    if (vkResult != VK_SUCCESS)
+    {
+        return vkResult;
+    }
+    // Begin command buffer recording
+    VkCommandBufferBeginInfo commandBufferBeginInfo;
+    memset(&commandBufferBeginInfo, 0, sizeof(VkCommandBufferBeginInfo));
+    commandBufferBeginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+    commandBufferBeginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT; // One-time use command buffer
+    vkResult = vkBeginCommandBuffer(commandBuffer, &commandBufferBeginInfo);
+    if (vkResult != VK_SUCCESS)
+    {
+        return vkResult;
+    }
+
+    transitionDepthImageLayout(
+        commandBuffer,
+        gSwapChainResourceData.imageData_depthBuffer[0].vkImage,
+        VK_IMAGE_LAYOUT_UNDEFINED,
+        VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL
+    );
+    transitionDepthImageLayout(
+        commandBuffer,
+        gSwapChainResourceData.imageData_depthBuffer[1].vkImage,
+        VK_IMAGE_LAYOUT_UNDEFINED,
+        VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL
+    );
+
+    // End command buffer recording
+    vkResult = vkEndCommandBuffer(commandBuffer);
+    if (vkResult != VK_SUCCESS)
+    {
+        return vkResult;
+    }
+    // Submit the command buffer and wait for it to finish
+    VkSubmitInfo submitInfo;
+    memset(&submitInfo, 0, sizeof(VkSubmitInfo));
+    submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+    submitInfo.commandBufferCount = 1;
+    submitInfo.pCommandBuffers = &commandBuffer;
+    vkResult = vkQueueSubmit(vkQueue, 1, &submitInfo, VK_NULL_HANDLE);
+    if (vkResult != VK_SUCCESS)
+    {
+        return vkResult;
+    }
+    vkQueueWaitIdle(vkQueue);
+    // Free the command buffer
+    vkFreeCommandBuffers(vkDevice, vkCommandPool, 1, &commandBuffer);
+
+    return vkResult;
+}
+
 VkResult initialize(void)
 {
     // function declarations
@@ -1722,10 +1768,10 @@ VkResult initialize(void)
 
     VkResult createSamplers(void);
 
-    VkResult createRenderPass(void);
+    //VkResult createRenderPass(void);
     VkResult createGraphicsPipelines(void);
     VkResult createDepthResources(void);
-    VkResult createFramebuffers(void);
+    //VkResult createFramebuffers(void);
     VkResult createSemaphores(void);
     VkResult createFences(void);
 
@@ -1821,6 +1867,13 @@ VkResult initialize(void)
         fprintf(gpFILE, "initialize() : createSamplers() failed (%d).\n", vkResult);
         return(vkResult);
     }
+
+    vkResult = initialLayoutTransitions();
+    if (vkResult != VK_SUCCESS)
+    {
+        fprintf(gpFILE, "initialize() : initialLayoutTransitions() failed (%d).\n", vkResult);
+        return(vkResult);
+	}
 
     //VK_FORMAT_R8G8B8A8_UNORM, // RGBA format
     //VK_FORMAT_R8G8B8A8_SRGB,  // SRGB format
@@ -2101,13 +2154,13 @@ VkResult initialize(void)
 
     //-----------------------------------------------------------------------------------------------
 
-    // STEP 16 : Create RenderPass
-    vkResult = createRenderPass();
-    if (vkResult != VK_SUCCESS)
-    {
-        fprintf(gpFILE, "initialize() : createRenderPass() failed (%d).\n", vkResult);
-        return(vkResult);
-    }
+    //// STEP 16 : Create RenderPass
+    //vkResult = createRenderPass();
+    //if (vkResult != VK_SUCCESS)
+    //{
+    //    fprintf(gpFILE, "initialize() : createRenderPass() failed (%d).\n", vkResult);
+    //    return(vkResult);
+    //}
 
     //pipeline
     vkResult = createGraphicsPipelines();
@@ -2117,13 +2170,13 @@ VkResult initialize(void)
         return(vkResult);
     }
 
-    //  Create Framebuffers
-    vkResult = createFramebuffers();
-    if (vkResult != VK_SUCCESS)
-    {
-        fprintf(gpFILE, "initialize() : createFramebuffers() failed (%d).\n", vkResult);
-        return(vkResult);
-    }
+    ////  Create Framebuffers
+    //vkResult = createFramebuffers();
+    //if (vkResult != VK_SUCCESS)
+    //{
+    //    fprintf(gpFILE, "initialize() : createFramebuffers() failed (%d).\n", vkResult);
+    //    return(vkResult);
+    //}
 
     // STEP 18 : Create semaphores and fences
     vkResult = createSemaphores();
@@ -2202,13 +2255,28 @@ VkResult initialize(void)
     init_info.Queue = vkQueue;
     init_info.PipelineCache = VK_NULL_HANDLE;
     init_info.DescriptorPool = gImguiDescriptorPool;
-    init_info.RenderPass = vkRenderPass;      // Must match your swapchain render pass
+	init_info.RenderPass = VK_NULL_HANDLE;
     init_info.Subpass = 0;
     init_info.MinImageCount = 2;    // e.g. 2 or 3
     init_info.ImageCount = gSwapchainImageCount; // Match your swapchain image count
     init_info.MSAASamples = VK_SAMPLE_COUNT_1_BIT;
     init_info.Allocator = nullptr;
     init_info.CheckVkResultFn = check_vk_result;
+
+    VkPipelineRenderingCreateInfo pipelineRenderingInfo{};
+    pipelineRenderingInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO;
+    pipelineRenderingInfo.colorAttachmentCount = 1;
+
+	VkFormat swapchainImageFormat = VK_FORMAT_B8G8R8A8_SRGB; // Match your swapchain image format
+	pipelineRenderingInfo.pColorAttachmentFormats = &swapchainImageFormat; // Match your swapchain image format
+    pipelineRenderingInfo.depthAttachmentFormat = VK_FORMAT_D32_SFLOAT;
+    pipelineRenderingInfo.stencilAttachmentFormat = VK_FORMAT_UNDEFINED;
+
+
+
+	init_info.UseDynamicRendering = VK_TRUE; // Enable dynamic rendering support
+	init_info.PipelineRenderingCreateInfo = pipelineRenderingInfo;
+  
 
     ImGui_ImplVulkan_Init(&init_info);
 
@@ -2325,9 +2393,9 @@ VkResult resize(int width, int height)
     VkResult createCommandBuffers(void);
     VkResult createPipelineLayout(void);
     VkResult createGraphicsPipelines(void);
-    VkResult createRenderPass(void);
+    //VkResult createRenderPass(void);
     VkResult createSwapchainResources(void);
-    VkResult createFramebuffers(void);
+    //VkResult createFramebuffers(void);
 
     void destroySwapchainResources(void);
     void destroyGraphicsPipelines(void);
@@ -2367,22 +2435,22 @@ VkResult resize(int width, int height)
         return VK_ERROR_INITIALIZATION_FAILED;
     }
 
-    //destroy framebuffers
-    if (vkFramebuffer_Array)
-    {
-        for (uint32_t i = 0; i < gSwapchainImageCount; i++)
-        {
-            vkDestroyFramebuffer(vkDevice, vkFramebuffer_Array[i], NULL);
-            vkFramebuffer_Array[i] = VK_NULL_HANDLE;
+    ////destroy framebuffers
+    //if (vkFramebuffer_Array)
+    //{
+    //    for (uint32_t i = 0; i < gSwapchainImageCount; i++)
+    //    {
+    //        vkDestroyFramebuffer(vkDevice, vkFramebuffer_Array[i], NULL);
+    //        vkFramebuffer_Array[i] = VK_NULL_HANDLE;
 
-            //fprintf(gpFILE, "resize() : vkDestroyFramebuffer() succeeded for iteration %d.\n", i);
-        }
+    //        //fprintf(gpFILE, "resize() : vkDestroyFramebuffer() succeeded for iteration %d.\n", i);
+    //    }
 
-        free(vkFramebuffer_Array);
-        vkFramebuffer_Array = NULL;
+    //    free(vkFramebuffer_Array);
+    //    vkFramebuffer_Array = NULL;
 
-        //fprintf(gpFILE, "resize() : successfully freed the memory allocated to vkFramebuffer_Array.\n");
-    }
+    //    //fprintf(gpFILE, "resize() : successfully freed the memory allocated to vkFramebuffer_Array.\n");
+    //}
 
     // vkCommandBuffer
     for (uint32_t i = 0; i < gSwapchainImageCount; i++)
@@ -2401,14 +2469,14 @@ VkResult resize(int width, int height)
     // pipeline
     destroyGraphicsPipelines();
 
-    // renderpass
-    if (vkRenderPass)
-    {
-        vkDestroyRenderPass(vkDevice, vkRenderPass, NULL);
-        vkRenderPass = VK_NULL_HANDLE;
+    //// renderpass
+    //if (vkRenderPass)
+    //{
+    //    vkDestroyRenderPass(vkDevice, vkRenderPass, NULL);
+    //    vkRenderPass = VK_NULL_HANDLE;
 
-        //fprintf(gpFILE, "resize() : vkDestroyRenderPass() succeeded.\n");
-    }
+    //    //fprintf(gpFILE, "resize() : vkDestroyRenderPass() succeeded.\n");
+    //}
 
     //destroy swapchain resources
     destroySwapchainResources();
@@ -2440,13 +2508,13 @@ VkResult resize(int width, int height)
         return(vkResult);
     }
 
-    //create render pass
-    vkResult = createRenderPass();
-    if (vkResult != VK_SUCCESS)
-    {
-        fprintf(gpFILE, "resize() : createRenderPass() failed (%d).\n", vkResult);
-        return(vkResult);
-    }
+    ////create render pass
+    //vkResult = createRenderPass();
+    //if (vkResult != VK_SUCCESS)
+    //{
+    //    fprintf(gpFILE, "resize() : createRenderPass() failed (%d).\n", vkResult);
+    //    return(vkResult);
+    //}
 
     ////create pipeline layout
     //vkResult = createPipelineLayout();
@@ -2464,19 +2532,27 @@ VkResult resize(int width, int height)
         return(vkResult);
     }
 
-    //create framebuffers
-    vkResult = createFramebuffers();
-    if (vkResult != VK_SUCCESS)
-    {
-        fprintf(gpFILE, "resize() : createFramebuffers() failed (%d).\n", vkResult);
-        return(vkResult);
-    }
+    ////create framebuffers
+    //vkResult = createFramebuffers();
+    //if (vkResult != VK_SUCCESS)
+    //{
+    //    fprintf(gpFILE, "resize() : createFramebuffers() failed (%d).\n", vkResult);
+    //    return(vkResult);
+    //}
 
     //create command buffers
     vkResult = createCommandBuffers();
     if (vkResult != VK_SUCCESS)
     {
         fprintf(gpFILE, "resize() : createCommandBuffers() failed (%d).\n", vkResult);
+        return(vkResult);
+    }
+
+    //initial layout transitions (Depth for now)
+    vkResult = initialLayoutTransitions();
+    if (vkResult != VK_SUCCESS)
+    {
+        fprintf(gpFILE, "initialize() : initialLayoutTransitions() failed (%d).\n", vkResult);
         return(vkResult);
     }
 
@@ -2669,16 +2745,6 @@ VkResult display(void)
         return vkResult;
     }
 
-
-    // Reset the fence for use in the current frame
-    vkResult = vkResetFences(vkDevice, 1, &vkFence_Array[curIndex]);
-    if (vkResult != VK_SUCCESS)
-    {
-        fprintf(gpFILE, "display() : vkResetFences() failed (%d).\n", vkResult);
-        return vkResult;
-    }
-
-
     // Acquire next image from the swapchain
     vkResult = vkAcquireNextImageKHR(
         vkDevice,
@@ -2693,6 +2759,17 @@ VkResult display(void)
         fprintf(gpFILE, "display() : vkAcquireNextImageKHR() failed (%d).\n", vkResult);
         return vkResult;
     }
+
+
+    // Reset the fence for use in the current frame
+    vkResult = vkResetFences(vkDevice, 1, &vkFence_Array[curIndex]);
+    if (vkResult != VK_SUCCESS)
+    {
+        fprintf(gpFILE, "display() : vkResetFences() failed (%d).\n", vkResult);
+        return vkResult;
+    }
+
+
 
     //--------------------------------------------------------------------------------------
         //IMGUI dynamic
@@ -2864,20 +2941,20 @@ void uninitialize(void)
 
 
 
-    // sub-step 5 for Step (17)
-    if (vkFramebuffer_Array)
-    {
-        for (uint32_t i = 0; i < gSwapchainImageCount; i++)
-        {
-            vkDestroyFramebuffer(vkDevice, vkFramebuffer_Array[i], NULL);
-            vkFramebuffer_Array[i] = VK_NULL_HANDLE;
+    //// sub-step 5 for Step (17)
+    //if (vkFramebuffer_Array)
+    //{
+    //    for (uint32_t i = 0; i < gSwapchainImageCount; i++)
+    //    {
+    //        vkDestroyFramebuffer(vkDevice, vkFramebuffer_Array[i], NULL);
+    //        vkFramebuffer_Array[i] = VK_NULL_HANDLE;
 
-        }
+    //    }
 
-        free(vkFramebuffer_Array);
-        vkFramebuffer_Array = NULL;
+    //    free(vkFramebuffer_Array);
+    //    vkFramebuffer_Array = NULL;
 
-    }
+    //}
 
     // pipeline
     //destroyGraphicsPipelines();
@@ -2887,13 +2964,13 @@ void uninitialize(void)
         gpGraphicsPipelines = NULL;
     }
 
-    // renderpass
-    if (vkRenderPass)
-    {
-        vkDestroyRenderPass(vkDevice, vkRenderPass, NULL);
-        vkRenderPass = VK_NULL_HANDLE;
+    //// renderpass
+    //if (vkRenderPass)
+    //{
+    //    vkDestroyRenderPass(vkDevice, vkRenderPass, NULL);
+    //    vkRenderPass = VK_NULL_HANDLE;
 
-    }
+    //}
 
     //discriptor pool // no need to destroy discriptor set if we destroy discriptor pool
     if (vkDescriptorPool)
@@ -4962,26 +5039,38 @@ VkResult createVulkanDevice(void)
 
 
     //ZzNeO features
-    VkPhysicalDeviceFeatures enabledFeatures;
-    memset((void*)&enabledFeatures, 0, sizeof(VkPhysicalDeviceFeatures));
-    enabledFeatures.samplerAnisotropy = VK_TRUE; // enable anisotropic filtering
-    enabledFeatures.tessellationShader = VK_TRUE; // enable tessellation shader
+    //VkPhysicalDeviceFeatures enabledFeatures;
+    //memset((void*)&enabledFeatures, 0, sizeof(VkPhysicalDeviceFeatures));
+    //enabledFeatures.samplerAnisotropy = VK_TRUE; // enable anisotropic filtering
+    //enabledFeatures.tessellationShader = VK_TRUE; // enable tessellation shader
+
     //enabledFeatures.geometryShader = VK_TRUE; // enable geometry shader
+
+        //------------------------------//
+    VkPhysicalDeviceDynamicRenderingFeatures dynamicRendering{};
+    dynamicRendering.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DYNAMIC_RENDERING_FEATURES;
+    dynamicRendering.dynamicRendering = VK_TRUE;
+
+    VkPhysicalDeviceFeatures2 features2{};
+    features2.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2;
+	features2.features.samplerAnisotropy = VK_TRUE; // enable anisotropic filtering
+	features2.features.tessellationShader = VK_TRUE; // enable tessellation shader
+    features2.pNext = &dynamicRendering;
 
     VkDeviceCreateInfo vkDeviceCreateInfo;
     memset((void*)&vkDeviceCreateInfo, 0, sizeof(VkDeviceCreateInfo));
 
     vkDeviceCreateInfo.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
-    vkDeviceCreateInfo.pNext = NULL;
+	vkDeviceCreateInfo.pNext = &features2; // for dynamic rendering
     vkDeviceCreateInfo.flags = 0;
     vkDeviceCreateInfo.enabledExtensionCount = enabledDeviceExtensionCount;
     vkDeviceCreateInfo.ppEnabledExtensionNames = enabledDeviceExtensionNames_Array;
     vkDeviceCreateInfo.enabledLayerCount = 0;
     vkDeviceCreateInfo.ppEnabledLayerNames = NULL;
-    vkDeviceCreateInfo.pEnabledFeatures = &enabledFeatures;
+	vkDeviceCreateInfo.pEnabledFeatures = NULL; // for dynamic rendering, this should be NULL and features should be passed by pNext chain as above, but if not using dynamic rendering, then this should point to enabledFeatures variable
 
     // newly added code (after vkGetDeviceQueue() was returning VK_NULL_HANDLE)
-    vkDeviceCreateInfo.queueCreateInfoCount = 1;
+	vkDeviceCreateInfo.queueCreateInfoCount = 1;
     vkDeviceCreateInfo.pQueueCreateInfos = &vkDeviceQueueCreateInfo;
 
     /*
@@ -8262,149 +8351,149 @@ void destroySwapchainResources(void)
     //---------------------------------------------------------------------
 }
 
-VkResult createRenderPass(void)
-{
-    // local variables
-    VkResult vkResult = VK_SUCCESS;
+//VkResult createRenderPass(void)
+//{
+//    // local variables
+//    VkResult vkResult = VK_SUCCESS;
+//
+//    // code
+//    VkAttachmentDescription colorAttachment[1];
+//    memset((void*)&colorAttachment, 0, sizeof(VkAttachmentDescription) * _ARRAYSIZE(colorAttachment));
+//    colorAttachment[0].format = vkFormat_Color;
+//    colorAttachment[0].samples = VK_SAMPLE_COUNT_1_BIT;
+//    colorAttachment[0].loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+//    colorAttachment[0].storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+//    colorAttachment[0].stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+//    colorAttachment[0].stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+//    colorAttachment[0].initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+//    colorAttachment[0].finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
+//
+//    VkAttachmentDescription depthAttachment;
+//    memset((void*)&depthAttachment, 0, sizeof(VkAttachmentDescription));
+//    depthAttachment.format = VK_FORMAT_D32_SFLOAT;
+//    depthAttachment.samples = VK_SAMPLE_COUNT_1_BIT;
+//    depthAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+//    depthAttachment.storeOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+//    depthAttachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+//    depthAttachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+//    depthAttachment.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+//    depthAttachment.finalLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+//
+//
+//    VkAttachmentReference colorRef;
+//    memset((void*)&colorRef, 0, sizeof(VkAttachmentReference));
+//    colorRef.attachment = 0;
+//    colorRef.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+//
+//    VkAttachmentReference depthRef;
+//    memset((void*)&depthRef, 0, sizeof(VkAttachmentReference));
+//    depthRef.attachment = 1;
+//    depthRef.layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+//
+//    // sub-step (3) : Declare and initialize VkSubPassDescription structure and keep reference about VkAttachmentReference structure.
+//    VkSubpassDescription vkSubpassDescription;
+//    memset((void*)&vkSubpassDescription, 0, sizeof(VkSubpassDescription));
+//
+//    vkSubpassDescription.flags = 0;
+//    vkSubpassDescription.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
+//    vkSubpassDescription.inputAttachmentCount = 0;
+//    vkSubpassDescription.pInputAttachments = NULL;
+//    vkSubpassDescription.colorAttachmentCount = _ARRAYSIZE(colorAttachment);
+//    vkSubpassDescription.pColorAttachments = &colorRef; // pointer to the color attachment reference
+//    vkSubpassDescription.pResolveAttachments = NULL;
+//    vkSubpassDescription.pDepthStencilAttachment = &depthRef; // pointer to the depth attachment reference
+//    vkSubpassDescription.preserveAttachmentCount = 0;
+//    vkSubpassDescription.pPreserveAttachments = NULL;
+//
+//    ////----------dependancy-----------------------
+//
+//    //// after setting up vkSubpassDescription …
+//    //VkSubpassDependency dependency = {};
+//    //dependency.srcSubpass = VK_SUBPASS_EXTERNAL;
+//    //dependency.dstSubpass = 0;
+//    //dependency.srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+//    //dependency.dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+//    //dependency.srcAccessMask = 0;
+//    //dependency.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+//
+//    ////-------------------------------------------
+//
+//
+//    // sub-step (4) : Declare and initialize VkRenderPassCreateInfo structure and refer above VkAttachmentDescription and VkSubPassDescription into it. Remember: here also we need attachment information in the form of image views which will be used by framebuffer later. We also need to specify inter-dependency between subpasses if needed.
+//
+//    VkAttachmentDescription vkAttachmentDescription_Array[2] = { colorAttachment[0], depthAttachment };
+//
+//    VkRenderPassCreateInfo vkRenderPassCreateInfo;
+//    memset((void*)&vkRenderPassCreateInfo, 0, sizeof(VkRenderPassCreateInfo));
+//
+//    vkRenderPassCreateInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
+//    vkRenderPassCreateInfo.pNext = NULL;
+//    vkRenderPassCreateInfo.attachmentCount = 2; // we are using two attachments: color and depth
+//    vkRenderPassCreateInfo.pAttachments = vkAttachmentDescription_Array; // pointer to the attachment description array
+//    vkRenderPassCreateInfo.subpassCount = 1;
+//    vkRenderPassCreateInfo.pSubpasses = &vkSubpassDescription;
+//    vkRenderPassCreateInfo.dependencyCount = 0;
+//    vkRenderPassCreateInfo.pDependencies = NULL;
+//    //vkRenderPassCreateInfo.dependencyCount = 1;
+//    //vkRenderPassCreateInfo.pDependencies = &dependency;
+//
+//    // sub-step (5) : Now call vkCreateRenderPass() API to create the actual RenderPass.
+//    vkResult = vkCreateRenderPass(vkDevice, &vkRenderPassCreateInfo, NULL, &vkRenderPass);
+//
+//    if (vkResult != VK_SUCCESS)
+//    {
+//        fprintf(gpFILE, "createRenderPass() : vkCreateRenderPass() failed.\n");
+//        return(vkResult);
+//    }
+//
+//    return(vkResult);
+//}
 
-    // code
-    VkAttachmentDescription colorAttachment[1];
-    memset((void*)&colorAttachment, 0, sizeof(VkAttachmentDescription) * _ARRAYSIZE(colorAttachment));
-    colorAttachment[0].format = vkFormat_Color;
-    colorAttachment[0].samples = VK_SAMPLE_COUNT_1_BIT;
-    colorAttachment[0].loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
-    colorAttachment[0].storeOp = VK_ATTACHMENT_STORE_OP_STORE;
-    colorAttachment[0].stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
-    colorAttachment[0].stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
-    colorAttachment[0].initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-    colorAttachment[0].finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
-
-    VkAttachmentDescription depthAttachment;
-    memset((void*)&depthAttachment, 0, sizeof(VkAttachmentDescription));
-    depthAttachment.format = VK_FORMAT_D32_SFLOAT;
-    depthAttachment.samples = VK_SAMPLE_COUNT_1_BIT;
-    depthAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
-    depthAttachment.storeOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
-    depthAttachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
-    depthAttachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
-    depthAttachment.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-    depthAttachment.finalLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
-
-
-    VkAttachmentReference colorRef;
-    memset((void*)&colorRef, 0, sizeof(VkAttachmentReference));
-    colorRef.attachment = 0;
-    colorRef.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-
-    VkAttachmentReference depthRef;
-    memset((void*)&depthRef, 0, sizeof(VkAttachmentReference));
-    depthRef.attachment = 1;
-    depthRef.layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
-
-    // sub-step (3) : Declare and initialize VkSubPassDescription structure and keep reference about VkAttachmentReference structure.
-    VkSubpassDescription vkSubpassDescription;
-    memset((void*)&vkSubpassDescription, 0, sizeof(VkSubpassDescription));
-
-    vkSubpassDescription.flags = 0;
-    vkSubpassDescription.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
-    vkSubpassDescription.inputAttachmentCount = 0;
-    vkSubpassDescription.pInputAttachments = NULL;
-    vkSubpassDescription.colorAttachmentCount = _ARRAYSIZE(colorAttachment);
-    vkSubpassDescription.pColorAttachments = &colorRef; // pointer to the color attachment reference
-    vkSubpassDescription.pResolveAttachments = NULL;
-    vkSubpassDescription.pDepthStencilAttachment = &depthRef; // pointer to the depth attachment reference
-    vkSubpassDescription.preserveAttachmentCount = 0;
-    vkSubpassDescription.pPreserveAttachments = NULL;
-
-    ////----------dependancy-----------------------
-
-    //// after setting up vkSubpassDescription …
-    //VkSubpassDependency dependency = {};
-    //dependency.srcSubpass = VK_SUBPASS_EXTERNAL;
-    //dependency.dstSubpass = 0;
-    //dependency.srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-    //dependency.dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-    //dependency.srcAccessMask = 0;
-    //dependency.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
-
-    ////-------------------------------------------
-
-
-    // sub-step (4) : Declare and initialize VkRenderPassCreateInfo structure and refer above VkAttachmentDescription and VkSubPassDescription into it. Remember: here also we need attachment information in the form of image views which will be used by framebuffer later. We also need to specify inter-dependency between subpasses if needed.
-
-    VkAttachmentDescription vkAttachmentDescription_Array[2] = { colorAttachment[0], depthAttachment };
-
-    VkRenderPassCreateInfo vkRenderPassCreateInfo;
-    memset((void*)&vkRenderPassCreateInfo, 0, sizeof(VkRenderPassCreateInfo));
-
-    vkRenderPassCreateInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
-    vkRenderPassCreateInfo.pNext = NULL;
-    vkRenderPassCreateInfo.attachmentCount = 2; // we are using two attachments: color and depth
-    vkRenderPassCreateInfo.pAttachments = vkAttachmentDescription_Array; // pointer to the attachment description array
-    vkRenderPassCreateInfo.subpassCount = 1;
-    vkRenderPassCreateInfo.pSubpasses = &vkSubpassDescription;
-    vkRenderPassCreateInfo.dependencyCount = 0;
-    vkRenderPassCreateInfo.pDependencies = NULL;
-    //vkRenderPassCreateInfo.dependencyCount = 1;
-    //vkRenderPassCreateInfo.pDependencies = &dependency;
-
-    // sub-step (5) : Now call vkCreateRenderPass() API to create the actual RenderPass.
-    vkResult = vkCreateRenderPass(vkDevice, &vkRenderPassCreateInfo, NULL, &vkRenderPass);
-
-    if (vkResult != VK_SUCCESS)
-    {
-        fprintf(gpFILE, "createRenderPass() : vkCreateRenderPass() failed.\n");
-        return(vkResult);
-    }
-
-    return(vkResult);
-}
-
-VkResult createFramebuffers(void)
-{
-    // local variables
-    VkResult vkResult = VK_SUCCESS;
-
-    VkImageView attachments[2];
-    memset((void*)attachments, 0, sizeof(VkImageView) * _ARRAYSIZE(attachments));
-
-    //attachments[1] = vkImageView_Depth; // depth attachment
-
-    //  Declare and initialize VkFramebufferCreateInfo structure.
-    VkFramebufferCreateInfo vkFramebufferCreateInfo;
-    memset((void*)&vkFramebufferCreateInfo, 0, sizeof(VkFramebufferCreateInfo));
-
-    //  Allocate the framebuffer array by malloc() equal to the size of swapchain image count.
-    vkFramebuffer_Array = (VkFramebuffer*)malloc(sizeof(VkFramebuffer) * gSwapchainImageCount);
-
-    //  Start a loop for swapchain image count and call vkCreateFramebuffer() API to create framebuffers.
-    for (uint32_t i = 0; i < gSwapchainImageCount; i++)
-    {
-
-        attachments[0] = gSwapChainResourceData.swapchainImageView_Array[i]; // color attachment
-        attachments[1] = gSwapChainResourceData.imageData_depthBuffer[i].vkImageView; // depth attachment
-
-        vkFramebufferCreateInfo.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
-        vkFramebufferCreateInfo.pNext = NULL;
-        vkFramebufferCreateInfo.flags = 0;
-        vkFramebufferCreateInfo.renderPass = vkRenderPass;
-        vkFramebufferCreateInfo.attachmentCount = 2; // color and depth attachments
-        vkFramebufferCreateInfo.pAttachments = attachments; // array of attachments 
-        vkFramebufferCreateInfo.width = vkExtent2D_Swapchain.width;
-        vkFramebufferCreateInfo.height = vkExtent2D_Swapchain.height;
-        vkFramebufferCreateInfo.layers = 1;
-
-        vkResult = vkCreateFramebuffer(vkDevice, &vkFramebufferCreateInfo, NULL, &vkFramebuffer_Array[i]);
-        if (vkResult != VK_SUCCESS)
-        {
-            fprintf(gpFILE, "createFramebuffers() : vkCreateFramebuffer() failed for iteration %d.\n", i);
-            return(vkResult);
-        }
-
-    }
-
-    return(vkResult);
-}
+//VkResult createFramebuffers(void)
+//{
+//    // local variables
+//    VkResult vkResult = VK_SUCCESS;
+//
+//    VkImageView attachments[2];
+//    memset((void*)attachments, 0, sizeof(VkImageView) * _ARRAYSIZE(attachments));
+//
+//    //attachments[1] = vkImageView_Depth; // depth attachment
+//
+//    //  Declare and initialize VkFramebufferCreateInfo structure.
+//    VkFramebufferCreateInfo vkFramebufferCreateInfo;
+//    memset((void*)&vkFramebufferCreateInfo, 0, sizeof(VkFramebufferCreateInfo));
+//
+//    //  Allocate the framebuffer array by malloc() equal to the size of swapchain image count.
+//    vkFramebuffer_Array = (VkFramebuffer*)malloc(sizeof(VkFramebuffer) * gSwapchainImageCount);
+//
+//    //  Start a loop for swapchain image count and call vkCreateFramebuffer() API to create framebuffers.
+//    for (uint32_t i = 0; i < gSwapchainImageCount; i++)
+//    {
+//
+//        attachments[0] = gSwapChainResourceData.swapchainImageView_Array[i]; // color attachment
+//        attachments[1] = gSwapChainResourceData.imageData_depthBuffer[i].vkImageView; // depth attachment
+//
+//        vkFramebufferCreateInfo.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
+//        vkFramebufferCreateInfo.pNext = NULL;
+//        vkFramebufferCreateInfo.flags = 0;
+//        vkFramebufferCreateInfo.renderPass = vkRenderPass;
+//        vkFramebufferCreateInfo.attachmentCount = 2; // color and depth attachments
+//        vkFramebufferCreateInfo.pAttachments = attachments; // array of attachments 
+//        vkFramebufferCreateInfo.width = vkExtent2D_Swapchain.width;
+//        vkFramebufferCreateInfo.height = vkExtent2D_Swapchain.height;
+//        vkFramebufferCreateInfo.layers = 1;
+//
+//        vkResult = vkCreateFramebuffer(vkDevice, &vkFramebufferCreateInfo, NULL, &vkFramebuffer_Array[i]);
+//        if (vkResult != VK_SUCCESS)
+//        {
+//            fprintf(gpFILE, "createFramebuffers() : vkCreateFramebuffer() failed for iteration %d.\n", i);
+//            return(vkResult);
+//        }
+//
+//    }
+//
+//    return(vkResult);
+//}
 
 VkResult createSemaphores(void)
 {
@@ -8840,6 +8929,149 @@ void RenderPBR_Skinned(uint32_t curIndex)
 
 }
 
+void transitionImageLayout(
+    VkCommandBuffer cmd,
+    VkImage image,
+    VkImageLayout oldLayout,
+    VkImageLayout newLayout)
+{
+    VkImageMemoryBarrier barrier{};
+    barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+
+    barrier.oldLayout = oldLayout;
+    barrier.newLayout = newLayout;
+
+    barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+    barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+
+    barrier.image = image;
+
+    barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+    barrier.subresourceRange.baseMipLevel = 0;
+    barrier.subresourceRange.levelCount = 1;
+    barrier.subresourceRange.baseArrayLayer = 0;
+    barrier.subresourceRange.layerCount = 1;
+
+    VkPipelineStageFlags srcStage;
+    VkPipelineStageFlags dstStage;
+
+    if (oldLayout == VK_IMAGE_LAYOUT_UNDEFINED &&
+        newLayout == VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL)
+    {
+        barrier.srcAccessMask = 0;
+        barrier.dstAccessMask =
+            VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT |
+            VK_ACCESS_COLOR_ATTACHMENT_READ_BIT;
+
+        srcStage = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
+        dstStage = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+    }
+    else if (oldLayout == VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL &&
+        newLayout == VK_IMAGE_LAYOUT_PRESENT_SRC_KHR)
+    {
+        barrier.srcAccessMask =
+            VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+        barrier.dstAccessMask = 0;
+
+        srcStage = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+        dstStage = VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT;
+    }
+    else
+    {
+        throw std::runtime_error("Unsupported layout transition");
+    }
+
+    vkCmdPipelineBarrier(
+        cmd,
+        srcStage, dstStage,
+        0,
+        0, nullptr,
+        0, nullptr,
+        1, &barrier);
+}
+
+void transitionDepthImageLayout(
+    VkCommandBuffer cmd,
+    VkImage image,
+    VkImageLayout oldLayout,
+    VkImageLayout newLayout)
+{
+    VkImageMemoryBarrier barrier{};
+    barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+
+    barrier.oldLayout = oldLayout;
+    barrier.newLayout = newLayout;
+
+    barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+    barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+
+    barrier.image = image;
+
+    // depth only
+    barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT;
+    barrier.subresourceRange.baseMipLevel = 0;
+    barrier.subresourceRange.levelCount = 1;
+    barrier.subresourceRange.baseArrayLayer = 0;
+    barrier.subresourceRange.layerCount = 1;
+
+    VkPipelineStageFlags srcStage;
+    VkPipelineStageFlags dstStage;
+
+    // UNDEFINED -> DEPTH ATTACHMENT
+    if (oldLayout == VK_IMAGE_LAYOUT_UNDEFINED &&
+        newLayout == VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL)
+    {
+        barrier.srcAccessMask = 0;
+        barrier.dstAccessMask =
+            VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT |
+            VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
+
+        srcStage = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
+        dstStage = VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;
+    }
+    // DEPTH ATTACHMENT -> SHADER READ (shadow maps)
+    else if (oldLayout == VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL &&
+        newLayout == VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL)
+    {
+        barrier.srcAccessMask =
+            VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
+
+        barrier.dstAccessMask =
+            VK_ACCESS_SHADER_READ_BIT;
+
+        srcStage = VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT;
+        dstStage = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
+    }
+    // SHADER READ -> DEPTH ATTACHMENT (reuse)
+    else if (oldLayout == VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL &&
+        newLayout == VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL)
+    {
+        barrier.srcAccessMask =
+            VK_ACCESS_SHADER_READ_BIT;
+
+        barrier.dstAccessMask =
+            VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
+
+        srcStage = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
+        dstStage = VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;
+    }
+    else
+    {
+        throw std::runtime_error("Unsupported depth layout transition");
+    }
+
+    vkCmdPipelineBarrier(
+        cmd,
+        srcStage,
+        dstStage,
+        0,
+        0, nullptr,
+        0, nullptr,
+        1, &barrier);
+}
+
+
+
 VkResult buildCommandBuffers(uint32_t curIndex)
 {
     VkResult vkResult = VK_SUCCESS;
@@ -8870,23 +9102,62 @@ VkResult buildCommandBuffers(uint32_t curIndex)
     //   clearValue.color = vkClearColorValue;
        //clearValue.depthStencil = vkClearDepthStencilValue;
 
-    VkClearValue clearValues[2];
-    clearValues[0].color.float32[0] = 0.01f;
-    clearValues[0].color.float32[1] = 0.01f;
-    clearValues[0].color.float32[2] = 0.01f;
-    clearValues[0].color.float32[3] = 1.0f;
-    clearValues[1].depthStencil.depth = 1.0f;
-    clearValues[1].depthStencil.stencil = 0;
+    //VkClearValue clearValues[2];
+    //clearValues[0].color.float32[0] = 0.01f;
+    //clearValues[0].color.float32[1] = 0.01f;
+    //clearValues[0].color.float32[2] = 0.01f;
+    //clearValues[0].color.float32[3] = 1.0f;
+    //clearValues[1].depthStencil.depth = 1.0f;
+    //clearValues[1].depthStencil.stencil = 0;
 
-    VkRenderPassBeginInfo renderPassInfo = {};
-    renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
-    renderPassInfo.renderPass = vkRenderPass;
-    renderPassInfo.framebuffer = vkFramebuffer_Array[curIndex];
-    renderPassInfo.renderArea.extent = vkExtent2D_Swapchain;
-    renderPassInfo.clearValueCount = 2;
-    renderPassInfo.pClearValues = clearValues;
+    //VkRenderPassBeginInfo renderPassInfo = {};
+    //renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
+    //renderPassInfo.renderPass = vkRenderPass;
+    //renderPassInfo.framebuffer = vkFramebuffer_Array[curIndex];
+    //renderPassInfo.renderArea.extent = vkExtent2D_Swapchain;
+    //renderPassInfo.clearValueCount = 2;
+    //renderPassInfo.pClearValues = clearValues;
 
-    vkCmdBeginRenderPass(vkCommandBuffer_Array[curIndex], &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
+    //vkCmdBeginRenderPass(vkCommandBuffer_Array[curIndex], &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
+
+    //Dynamic Rendering
+
+    transitionImageLayout(
+        vkCommandBuffer_Array[curIndex],
+        gSwapChainResourceData.swapchainImage_Array[curIndex],
+        VK_IMAGE_LAYOUT_UNDEFINED,
+        VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL
+	);
+
+
+	// We can also use dynamic rendering instead of render pass and framebuffer. In that case, we need to declare and initialize VkRenderingInfo structure and call vkCmdBeginRendering() API to begin the dynamic rendering. Remember, if we are using dynamic rendering, then we don't need to create render pass and framebuffer objects at all.
+    VkRenderingAttachmentInfo colorAttachment{};
+    colorAttachment.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO;
+	colorAttachment.imageView = gSwapChainResourceData.swapchainImageView_Array[curIndex];
+    colorAttachment.imageLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+    colorAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+    colorAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+    VkClearValue clearColor = { {{0.01f, 0.01f, 0.02f, 1.0f}} };
+    colorAttachment.clearValue = clearColor;
+
+    VkRenderingAttachmentInfo depthAttachment{};
+    depthAttachment.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO;
+	depthAttachment.imageView = gSwapChainResourceData.imageData_depthBuffer[curIndex].vkImageView;
+    depthAttachment.imageLayout = VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL;
+    depthAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+    depthAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+    depthAttachment.clearValue.depthStencil = { 1.0f, 0 };
+
+	VkRenderingInfo renderingInfo{};
+	renderingInfo.sType = VK_STRUCTURE_TYPE_RENDERING_INFO;
+	renderingInfo.renderArea.offset = { 0, 0 };
+	renderingInfo.renderArea.extent = vkExtent2D_Swapchain;
+	renderingInfo.layerCount = 1;
+	renderingInfo.colorAttachmentCount = 1;
+	renderingInfo.pColorAttachments = &colorAttachment;
+	renderingInfo.pDepthAttachment = &depthAttachment;
+	vkCmdBeginRendering(vkCommandBuffer_Array[curIndex], &renderingInfo);
+
 
     // RenderFullscreenQuad(curIndex); // Render the fullscreen quad
 
@@ -8910,7 +9181,22 @@ VkResult buildCommandBuffers(uint32_t curIndex)
     RenderImGui(curIndex); // Render ImGui UI
 #endif //IMGUI_ENABLE
 
-    vkCmdEndRenderPass(vkCommandBuffer_Array[curIndex]);
+   // vkCmdEndRenderPass(vkCommandBuffer_Array[curIndex]);
+
+	// If we are using dynamic rendering, then we need to call vkCmdEndRendering() API to end the dynamic rendering.
+	vkCmdEndRendering(vkCommandBuffer_Array[curIndex]);
+
+
+    transitionImageLayout(
+        vkCommandBuffer_Array[curIndex],
+        gSwapChainResourceData.swapchainImage_Array[curIndex],
+        VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+        VK_IMAGE_LAYOUT_PRESENT_SRC_KHR
+	);
+
+
+
+
 
     vkResult = vkEndCommandBuffer(vkCommandBuffer_Array[curIndex]);
     if (vkResult != VK_SUCCESS)

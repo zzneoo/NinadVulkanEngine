@@ -527,12 +527,23 @@ VkResult GraphicsPipelines::createGraphicsPipeline_Impostor(VkPipelineLayoutCrea
 		vkPipelineCacheList.push_back(Impostor.vkPipelineCache);
 	}
 
+    VkPipelineRenderingCreateInfo renderingInfo{};
+    renderingInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO;
+
+    VkFormat colorFormat = VK_FORMAT_B8G8R8A8_SRGB;
+    renderingInfo.colorAttachmentCount = 1;
+    renderingInfo.pColorAttachmentFormats = &colorFormat;
+
+    renderingInfo.depthAttachmentFormat = VK_FORMAT_D32_SFLOAT;
+    renderingInfo.stencilAttachmentFormat = VK_FORMAT_UNDEFINED;
+
+
 
     //  Declare and initialize VkGraphicsPipelineCreateInfo structure.
     VkGraphicsPipelineCreateInfo vkGraphicsPipelineCreateInfo;
     memset((void*)&vkGraphicsPipelineCreateInfo, 0, sizeof(VkGraphicsPipelineCreateInfo));
     vkGraphicsPipelineCreateInfo.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
-    vkGraphicsPipelineCreateInfo.pNext = NULL;
+	vkGraphicsPipelineCreateInfo.pNext = &renderingInfo; // pointer to the rendering info structure for dynamic rendering
     vkGraphicsPipelineCreateInfo.flags = 0;
     vkGraphicsPipelineCreateInfo.pVertexInputState = &vkPipelineVertexInputStateCreateInfo;
     vkGraphicsPipelineCreateInfo.pInputAssemblyState = &vkPipelineInputAssemblyStateCreateInfo;
@@ -544,7 +555,7 @@ VkResult GraphicsPipelines::createGraphicsPipeline_Impostor(VkPipelineLayoutCrea
     vkGraphicsPipelineCreateInfo.pColorBlendState = &vkPipelineColorBlendStateCreateInfo;
     vkGraphicsPipelineCreateInfo.pDynamicState = NULL; // no dynamic state
     vkGraphicsPipelineCreateInfo.layout = Impostor.vkPipelineLayout; // pipeline layout
-    vkGraphicsPipelineCreateInfo.renderPass = vkRenderPass; // render pass
+	vkGraphicsPipelineCreateInfo.renderPass = VK_NULL_HANDLE; // no render pass
     vkGraphicsPipelineCreateInfo.subpass = 0; // subpass index
     vkGraphicsPipelineCreateInfo.basePipelineHandle = VK_NULL_HANDLE; // no base pipeline
     vkGraphicsPipelineCreateInfo.basePipelineIndex = -1; // no base pipeline index
@@ -793,12 +804,22 @@ VkResult GraphicsPipelines::createGraphicsPipeline_Phong(VkPipelineLayoutCreateI
 		vkPipelineCacheList.push_back(Phong.vkPipelineCache);
 	}
 
+    VkPipelineRenderingCreateInfo renderingInfo{};
+    renderingInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO;
+
+    VkFormat colorFormat = VK_FORMAT_B8G8R8A8_SRGB;
+    renderingInfo.colorAttachmentCount = 1;
+    renderingInfo.pColorAttachmentFormats = &colorFormat;
+
+    renderingInfo.depthAttachmentFormat = VK_FORMAT_D32_SFLOAT;
+    renderingInfo.stencilAttachmentFormat = VK_FORMAT_UNDEFINED;
+
 
     //  Declare and initialize VkGraphicsPipelineCreateInfo structure.
     VkGraphicsPipelineCreateInfo vkGraphicsPipelineCreateInfo;
     memset((void*)&vkGraphicsPipelineCreateInfo, 0, sizeof(VkGraphicsPipelineCreateInfo));
     vkGraphicsPipelineCreateInfo.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
-    vkGraphicsPipelineCreateInfo.pNext = NULL;
+	vkGraphicsPipelineCreateInfo.pNext = &renderingInfo; // pointer to the rendering info structure for dynamic rendering
     vkGraphicsPipelineCreateInfo.flags = 0;
     vkGraphicsPipelineCreateInfo.pVertexInputState = &vkPipelineVertexInputStateCreateInfo;
     vkGraphicsPipelineCreateInfo.pInputAssemblyState = &vkPipelineInputAssemblyStateCreateInfo;
@@ -810,7 +831,7 @@ VkResult GraphicsPipelines::createGraphicsPipeline_Phong(VkPipelineLayoutCreateI
     vkGraphicsPipelineCreateInfo.pColorBlendState = &vkPipelineColorBlendStateCreateInfo;
     vkGraphicsPipelineCreateInfo.pDynamicState = NULL; // no dynamic state
     vkGraphicsPipelineCreateInfo.layout = Phong.vkPipelineLayout; // pipeline layout
-    vkGraphicsPipelineCreateInfo.renderPass = vkRenderPass; // render pass
+	vkGraphicsPipelineCreateInfo.renderPass = VK_NULL_HANDLE; // no render pass
     vkGraphicsPipelineCreateInfo.subpass = 0; // subpass index
     vkGraphicsPipelineCreateInfo.basePipelineHandle = VK_NULL_HANDLE; // no base pipeline
     vkGraphicsPipelineCreateInfo.basePipelineIndex = -1; // no base pipeline index
@@ -1059,11 +1080,21 @@ VkResult GraphicsPipelines::createGraphicsPipeline_PBR(VkPipelineLayoutCreateInf
 		vkPipelineCacheList.push_back(PBR.vkPipelineCache);
 	}
 
+    VkPipelineRenderingCreateInfo renderingInfo{};
+    renderingInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO;
+
+    VkFormat colorFormat = VK_FORMAT_B8G8R8A8_SRGB;
+    renderingInfo.colorAttachmentCount = 1;
+    renderingInfo.pColorAttachmentFormats = &colorFormat;
+
+    renderingInfo.depthAttachmentFormat = VK_FORMAT_D32_SFLOAT;
+    renderingInfo.stencilAttachmentFormat = VK_FORMAT_UNDEFINED;
+
     //  Declare and initialize VkGraphicsPipelineCreateInfo structure.
     VkGraphicsPipelineCreateInfo vkGraphicsPipelineCreateInfo;
     memset((void*)&vkGraphicsPipelineCreateInfo, 0, sizeof(VkGraphicsPipelineCreateInfo));
     vkGraphicsPipelineCreateInfo.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
-    vkGraphicsPipelineCreateInfo.pNext = NULL;
+	vkGraphicsPipelineCreateInfo.pNext = &renderingInfo; // pointer to the rendering info structure for dynamic rendering
     vkGraphicsPipelineCreateInfo.flags = 0;
     vkGraphicsPipelineCreateInfo.pVertexInputState = &vkPipelineVertexInputStateCreateInfo;
     vkGraphicsPipelineCreateInfo.pInputAssemblyState = &vkPipelineInputAssemblyStateCreateInfo;
@@ -1075,7 +1106,7 @@ VkResult GraphicsPipelines::createGraphicsPipeline_PBR(VkPipelineLayoutCreateInf
     vkGraphicsPipelineCreateInfo.pColorBlendState = &vkPipelineColorBlendStateCreateInfo;
     vkGraphicsPipelineCreateInfo.pDynamicState = NULL; // no dynamic state
     vkGraphicsPipelineCreateInfo.layout = PBR.vkPipelineLayout; // pipeline layout
-    vkGraphicsPipelineCreateInfo.renderPass = vkRenderPass; // render pass
+	vkGraphicsPipelineCreateInfo.renderPass = VK_NULL_HANDLE; // no render pass
     vkGraphicsPipelineCreateInfo.subpass = 0; // subpass index
     vkGraphicsPipelineCreateInfo.basePipelineHandle = VK_NULL_HANDLE; // no base pipeline
     vkGraphicsPipelineCreateInfo.basePipelineIndex = -1; // no base pipeline index
@@ -1338,11 +1369,21 @@ VkResult GraphicsPipelines::createGraphicsPipeline_PBR_Skinned(VkPipelineLayoutC
 		vkPipelineCacheList.push_back(PBR_Skinned.vkPipelineCache);
 	}
 
+    VkPipelineRenderingCreateInfo renderingInfo{};
+    renderingInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO;
+
+    VkFormat colorFormat = VK_FORMAT_B8G8R8A8_SRGB;
+    renderingInfo.colorAttachmentCount = 1;
+    renderingInfo.pColorAttachmentFormats = &colorFormat;
+
+    renderingInfo.depthAttachmentFormat = VK_FORMAT_D32_SFLOAT;
+    renderingInfo.stencilAttachmentFormat = VK_FORMAT_UNDEFINED;
+
     //  Declare and initialize VkGraphicsPipelineCreateInfo structure.
     VkGraphicsPipelineCreateInfo vkGraphicsPipelineCreateInfo;
     memset((void*)&vkGraphicsPipelineCreateInfo, 0, sizeof(VkGraphicsPipelineCreateInfo));
     vkGraphicsPipelineCreateInfo.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
-    vkGraphicsPipelineCreateInfo.pNext = NULL;
+	vkGraphicsPipelineCreateInfo.pNext = &renderingInfo; // pointer to the rendering info structure for dynamic rendering
     vkGraphicsPipelineCreateInfo.flags = 0;
     vkGraphicsPipelineCreateInfo.pVertexInputState = &vkPipelineVertexInputStateCreateInfo;
     vkGraphicsPipelineCreateInfo.pInputAssemblyState = &vkPipelineInputAssemblyStateCreateInfo;
@@ -1354,7 +1395,7 @@ VkResult GraphicsPipelines::createGraphicsPipeline_PBR_Skinned(VkPipelineLayoutC
     vkGraphicsPipelineCreateInfo.pColorBlendState = &vkPipelineColorBlendStateCreateInfo;
     vkGraphicsPipelineCreateInfo.pDynamicState = NULL; // no dynamic state
     vkGraphicsPipelineCreateInfo.layout = PBR_Skinned.vkPipelineLayout; // pipeline layout
-    vkGraphicsPipelineCreateInfo.renderPass = vkRenderPass; // render pass
+	vkGraphicsPipelineCreateInfo.renderPass = VK_NULL_HANDLE; // no render pass
     vkGraphicsPipelineCreateInfo.subpass = 0; // subpass index
     vkGraphicsPipelineCreateInfo.basePipelineHandle = VK_NULL_HANDLE; // no base pipeline
     vkGraphicsPipelineCreateInfo.basePipelineIndex = -1; // no base pipeline index
@@ -1550,11 +1591,21 @@ VkResult GraphicsPipelines::createGraphicsPipeline_PreviewImage(VkPipelineLayout
 		vkPipelineCacheList.push_back(PreviewImage.vkPipelineCache);
 	}
 
+    VkPipelineRenderingCreateInfo renderingInfo{};
+    renderingInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO;
+
+    VkFormat colorFormat = VK_FORMAT_B8G8R8A8_SRGB;
+    renderingInfo.colorAttachmentCount = 1;
+    renderingInfo.pColorAttachmentFormats = &colorFormat;
+
+    renderingInfo.depthAttachmentFormat = VK_FORMAT_D32_SFLOAT;
+    renderingInfo.stencilAttachmentFormat = VK_FORMAT_UNDEFINED;
+
     //  Declare and initialize VkGraphicsPipelineCreateInfo structure.
     VkGraphicsPipelineCreateInfo vkGraphicsPipelineCreateInfo;
     memset((void*)&vkGraphicsPipelineCreateInfo, 0, sizeof(VkGraphicsPipelineCreateInfo));
     vkGraphicsPipelineCreateInfo.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
-    vkGraphicsPipelineCreateInfo.pNext = NULL;
+	vkGraphicsPipelineCreateInfo.pNext = &renderingInfo; // pointer to the rendering info structure for dynamic rendering
     vkGraphicsPipelineCreateInfo.flags = 0;
     vkGraphicsPipelineCreateInfo.pVertexInputState = &vkPipelineVertexInputStateCreateInfo;
     vkGraphicsPipelineCreateInfo.pInputAssemblyState = &vkPipelineInputAssemblyStateCreateInfo;
@@ -1566,7 +1617,7 @@ VkResult GraphicsPipelines::createGraphicsPipeline_PreviewImage(VkPipelineLayout
     vkGraphicsPipelineCreateInfo.pColorBlendState = &vkPipelineColorBlendStateCreateInfo;
     vkGraphicsPipelineCreateInfo.pDynamicState = NULL; // no dynamic state
     vkGraphicsPipelineCreateInfo.layout = PreviewImage.vkPipelineLayout; // pipeline layout
-    vkGraphicsPipelineCreateInfo.renderPass = vkRenderPass; // render pass
+	vkGraphicsPipelineCreateInfo.renderPass = VK_NULL_HANDLE; // no render pass
     vkGraphicsPipelineCreateInfo.subpass = 0; // subpass index
     vkGraphicsPipelineCreateInfo.basePipelineHandle = VK_NULL_HANDLE; // no base pipeline
     vkGraphicsPipelineCreateInfo.basePipelineIndex = -1; // no base pipeline index
@@ -1811,11 +1862,21 @@ VkResult GraphicsPipelines::createGraphicsPipeline_WhiteVertex(VkPipelineLayoutC
 		vkPipelineCacheList.push_back(WhiteVertex.vkPipelineCache);
 	}
 
+    VkPipelineRenderingCreateInfo renderingInfo{};
+    renderingInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO;
+
+    VkFormat colorFormat = VK_FORMAT_B8G8R8A8_SRGB;
+    renderingInfo.colorAttachmentCount = 1;
+    renderingInfo.pColorAttachmentFormats = &colorFormat;
+
+    renderingInfo.depthAttachmentFormat = VK_FORMAT_D32_SFLOAT;
+    renderingInfo.stencilAttachmentFormat = VK_FORMAT_UNDEFINED;
+
     //  Declare and initialize VkGraphicsPipelineCreateInfo structure.
     VkGraphicsPipelineCreateInfo vkGraphicsPipelineCreateInfo;
     memset((void*)&vkGraphicsPipelineCreateInfo, 0, sizeof(VkGraphicsPipelineCreateInfo));
     vkGraphicsPipelineCreateInfo.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
-    vkGraphicsPipelineCreateInfo.pNext = NULL;
+	vkGraphicsPipelineCreateInfo.pNext = &renderingInfo; // pointer to the rendering info structure for dynamic rendering
     vkGraphicsPipelineCreateInfo.flags = 0;
     vkGraphicsPipelineCreateInfo.pVertexInputState = &vkPipelineVertexInputStateCreateInfo;
     vkGraphicsPipelineCreateInfo.pInputAssemblyState = &vkPipelineInputAssemblyStateCreateInfo;
@@ -1827,7 +1888,7 @@ VkResult GraphicsPipelines::createGraphicsPipeline_WhiteVertex(VkPipelineLayoutC
     vkGraphicsPipelineCreateInfo.pColorBlendState = &vkPipelineColorBlendStateCreateInfo;
     vkGraphicsPipelineCreateInfo.pDynamicState = NULL; // no dynamic state
     vkGraphicsPipelineCreateInfo.layout = WhiteVertex.vkPipelineLayout; // pipeline layout
-    vkGraphicsPipelineCreateInfo.renderPass = vkRenderPass; // render pass
+	vkGraphicsPipelineCreateInfo.renderPass = VK_NULL_HANDLE; // no render pass
     vkGraphicsPipelineCreateInfo.subpass = 0; // subpass index
     vkGraphicsPipelineCreateInfo.basePipelineHandle = VK_NULL_HANDLE; // no base pipeline
     vkGraphicsPipelineCreateInfo.basePipelineIndex = -1; // no base pipeline index
@@ -2079,11 +2140,21 @@ VkResult GraphicsPipelines::createGraphicsPipeline_ColoredVertex(VkPipelineLayou
 		vkPipelineCacheList.push_back(ColoredVertex.vkPipelineCache);
 	}
 
+    VkPipelineRenderingCreateInfo renderingInfo{};
+    renderingInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO;
+
+    VkFormat colorFormat = VK_FORMAT_B8G8R8A8_SRGB;
+    renderingInfo.colorAttachmentCount = 1;
+    renderingInfo.pColorAttachmentFormats = &colorFormat;
+
+    renderingInfo.depthAttachmentFormat = VK_FORMAT_D32_SFLOAT;
+    renderingInfo.stencilAttachmentFormat = VK_FORMAT_UNDEFINED;
+
     //  Declare and initialize VkGraphicsPipelineCreateInfo structure.
     VkGraphicsPipelineCreateInfo vkGraphicsPipelineCreateInfo;
     memset((void*)&vkGraphicsPipelineCreateInfo, 0, sizeof(VkGraphicsPipelineCreateInfo));
     vkGraphicsPipelineCreateInfo.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
-    vkGraphicsPipelineCreateInfo.pNext = NULL;
+	vkGraphicsPipelineCreateInfo.pNext = &renderingInfo;
     vkGraphicsPipelineCreateInfo.flags = 0;
     vkGraphicsPipelineCreateInfo.pVertexInputState = &vkPipelineVertexInputStateCreateInfo;
     vkGraphicsPipelineCreateInfo.pInputAssemblyState = &vkPipelineInputAssemblyStateCreateInfo;
@@ -2095,7 +2166,7 @@ VkResult GraphicsPipelines::createGraphicsPipeline_ColoredVertex(VkPipelineLayou
     vkGraphicsPipelineCreateInfo.pColorBlendState = &vkPipelineColorBlendStateCreateInfo;
     vkGraphicsPipelineCreateInfo.pDynamicState = NULL; // no dynamic state
     vkGraphicsPipelineCreateInfo.layout = ColoredVertex.vkPipelineLayout; // pipeline layout
-    vkGraphicsPipelineCreateInfo.renderPass = vkRenderPass; // render pass
+	vkGraphicsPipelineCreateInfo.renderPass = VK_NULL_HANDLE; // no render pass
     vkGraphicsPipelineCreateInfo.subpass = 0; // subpass index
     vkGraphicsPipelineCreateInfo.basePipelineHandle = VK_NULL_HANDLE; // no base pipeline
     vkGraphicsPipelineCreateInfo.basePipelineIndex = -1; // no base pipeline index

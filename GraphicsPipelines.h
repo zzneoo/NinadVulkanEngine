@@ -11,25 +11,10 @@ extern VkViewport vkViewport;
 extern VkRect2D vkScissor;
 extern VkExtent2D vkExtent2D_Swapchain;
 extern VkRect2D vkRect2D_Scissor;
-extern  VkRenderPass vkRenderPass;
-
-//extern VkShaderModule vkShaderModule_impostor_vs;
-//extern VkShaderModule vkShaderModule_impostor_fs;
-//extern VkShaderModule vkShaderModule_previewImage_vs;
-//extern VkShaderModule vkShaderModule_previewImage_fs;
-//extern VkShaderModule vkShaderModule_phong_vs;
-//extern VkShaderModule vkShaderModule_phong_fs;
-//extern VkShaderModule vkShaderModule_PBR_vs;
-//extern VkShaderModule vkShaderModule_PBR_fs;
-//extern VkShaderModule vkShaderModule_PBR_Skinned_vs;
-//extern VkShaderModule vkShaderModule_PBR_Skinned_fs;
-//extern VkShaderModule vkShaderModule_whiteVertex_vs;
-//extern VkShaderModule vkShaderModule_whiteVertex_fs;
-//extern VkShaderModule vkShaderModule_basic_vs;
-//extern VkShaderModule vkShaderModule_basic_fs;
+//extern  VkRenderPass vkRenderPass;
 
 
-struct GraphicsPipelines
+class GraphicsPipelines
 {
 public:
 	GraphicsPipelines();
