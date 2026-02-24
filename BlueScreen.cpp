@@ -153,11 +153,15 @@ VkCommandBuffer* vkCommandBuffer_Array = NULL;
 //VkFramebuffer* vkFramebuffer_Array = NULL;
 
 // Semaphores
+VkSemaphore vkSemaphore_Timeline = VK_NULL_HANDLE;
 VkSemaphore* vkSemaphore_BackBuffer = VK_NULL_HANDLE;
 VkSemaphore* vkSemaphore_RenderComplete = VK_NULL_HANDLE;
 
+uint64_t gTimelineValue = 0;
+uint64_t gFrameTimelineValues[MAX_FRAMES] = {};
+
 // Fences
-VkFence* vkFence_Array = VK_NULL_HANDLE;
+//VkFence* vkFence_Array = VK_NULL_HANDLE;
 
 // Clear Color
 VkClearColorValue vkClearColorValue;
@@ -1773,7 +1777,7 @@ VkResult initialize(void)
     VkResult createDepthResources(void);
     //VkResult createFramebuffers(void);
     VkResult createSemaphores(void);
-    VkResult createFences(void);
+    //VkResult createFences(void);
 
     VkResult loadTextureData(ImageData * imageData, const char* filePath, VkFormat format);
     VkResult loadTextureData_dds_c_bc7(ImageData * imageData, const char* filename, VkFormat format);
@@ -2186,12 +2190,12 @@ VkResult initialize(void)
         return(vkResult);
     }
 
-    vkResult = createFences();
-    if (vkResult != VK_SUCCESS)
-    {
-        fprintf(gpFILE, "initialize() : createFences() failed (%d).\n", vkResult);
-        return(vkResult);
-    }
+    //vkResult = createFences();
+    //if (vkResult != VK_SUCCESS)
+    //{
+    //    fprintf(gpFILE, "initialize() : createFences() failed (%d).\n", vkResult);
+    //    return(vkResult);
+    //}
 
     // initialize clear color values
     memset((void*)&vkClearColorValue, 0, sizeof(VkClearColorValue));
@@ -2721,7 +2725,7 @@ VkResult display_(void)
 
 VkResult display(void)
 {
-    VkResult buildCommandBuffers(uint32_t curIndex);
+    VkResult buildCommandBuffers(uint32_t curIndex, uint32_t currentImageIndex);
     //VkResult updateUniformBuffer_camera(uint32_t curIndex);
     VkResult updateUniformBuffer_frameData(uint32_t curIndex);
 
@@ -2735,15 +2739,31 @@ VkResult display(void)
 
     // Use per-frame index
     static uint32_t currentFrame = 0;
-    uint32_t curIndex = currentFrame % gSwapchainImageCount;
+    uint32_t curIndex = currentFrame % MAX_FRAMES;
 
     // Wait for GPU to finish work on the previous frame
-    vkResult = vkWaitForFences(vkDevice, 1, &vkFence_Array[curIndex], VK_TRUE, UINT64_MAX);
-    if (vkResult != VK_SUCCESS)
+    //vkResult = vkWaitForFences(vkDevice, 1, &vkFence_Array[curIndex], VK_TRUE, UINT64_MAX);
+    //if (vkResult != VK_SUCCESS)
+    //{
+    //    fprintf(gpFILE, "display() : vkWaitForFences() failed (%d).\n", vkResult);
+    //    return vkResult;
+    //}
+
+
+
+    uint64_t waitValue = gFrameTimelineValues[curIndex];
+
+    if (waitValue != 0)
     {
-        fprintf(gpFILE, "display() : vkWaitForFences() failed (%d).\n", vkResult);
-        return vkResult;
+        VkSemaphoreWaitInfo waitInfo{};
+        waitInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_WAIT_INFO;
+        waitInfo.semaphoreCount = 1;
+        waitInfo.pSemaphores = &vkSemaphore_Timeline;
+        waitInfo.pValues = &waitValue;
+
+        vkWaitSemaphores(vkDevice, &waitInfo, UINT64_MAX);
     }
+
 
     // Acquire next image from the swapchain
     vkResult = vkAcquireNextImageKHR(
@@ -2761,20 +2781,20 @@ VkResult display(void)
     }
 
 
-    // Reset the fence for use in the current frame
-    vkResult = vkResetFences(vkDevice, 1, &vkFence_Array[curIndex]);
-    if (vkResult != VK_SUCCESS)
-    {
-        fprintf(gpFILE, "display() : vkResetFences() failed (%d).\n", vkResult);
-        return vkResult;
-    }
+    //// Reset the fence for use in the current frame
+    //vkResult = vkResetFences(vkDevice, 1, &vkFence_Array[curIndex]);
+    //if (vkResult != VK_SUCCESS)
+    //{
+    //    fprintf(gpFILE, "display() : vkResetFences() failed (%d).\n", vkResult);
+    //    return vkResult;
+    //}
 
 
 
     //--------------------------------------------------------------------------------------
         //IMGUI dynamic
     {
-        vkResult = buildCommandBuffers(currentImageIndex);
+        vkResult = buildCommandBuffers(curIndex,currentImageIndex);
         if (vkResult != VK_SUCCESS)
         {
             fprintf(gpFILE, "display() : buildCommandBuffers() failed (%d).\n", vkResult);
@@ -2782,31 +2802,57 @@ VkResult display(void)
         }
     }
 
-    // Submit the command buffer for rendering
-    const VkPipelineStageFlags waitDstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+    uint64_t signalValue = ++gTimelineValue;
+    gFrameTimelineValues[curIndex] = signalValue;
 
-    VkSubmitInfo vkSubmitInfo;
-    memset(&vkSubmitInfo, 0, sizeof(VkSubmitInfo));
-    vkSubmitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
-    vkSubmitInfo.waitSemaphoreCount = 1;
-    vkSubmitInfo.pWaitSemaphores = &vkSemaphore_BackBuffer[curIndex];
-    vkSubmitInfo.pWaitDstStageMask = &waitDstStageMask;
-    vkSubmitInfo.commandBufferCount = 1;
-    vkSubmitInfo.pCommandBuffers = &vkCommandBuffer_Array[currentImageIndex];
-    vkSubmitInfo.signalSemaphoreCount = 1;
-    vkSubmitInfo.pSignalSemaphores = &vkSemaphore_RenderComplete[curIndex];
 
-    vkResult = vkQueueSubmit(
-        vkQueue,
-        1,
-        &vkSubmitInfo,
-        vkFence_Array[curIndex]  // associate fence with this submission
-    );
+    uint64_t signalValues[] =
+    {
+        0,              // ignored for binary semaphore
+        signalValue     // timeline semaphore value
+    };
+
+    VkSemaphore waitSemaphores[] =
+    {
+        vkSemaphore_BackBuffer[curIndex]
+    };
+
+    VkPipelineStageFlags waitStages[] =
+    {
+        VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT
+    };
+
+    VkTimelineSemaphoreSubmitInfo timelineInfo{};
+    timelineInfo.sType =
+        VK_STRUCTURE_TYPE_TIMELINE_SEMAPHORE_SUBMIT_INFO;
+    timelineInfo.signalSemaphoreValueCount = 2;
+    timelineInfo.pSignalSemaphoreValues = signalValues;
+
+    VkSemaphore signalSemaphores[] =
+    {
+        vkSemaphore_RenderComplete[curIndex],
+        vkSemaphore_Timeline
+    };
+
+    VkSubmitInfo submitInfo{};
+    submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+    submitInfo.pNext = &timelineInfo;
+    submitInfo.waitSemaphoreCount = 1;
+    submitInfo.pWaitSemaphores = waitSemaphores;
+    submitInfo.pWaitDstStageMask = waitStages;
+    submitInfo.commandBufferCount = 1;
+    submitInfo.pCommandBuffers = &vkCommandBuffer_Array[curIndex];
+    submitInfo.signalSemaphoreCount = 2;
+    submitInfo.pSignalSemaphores = signalSemaphores;
+
+
+	vkResult = vkQueueSubmit(vkQueue, 1, &submitInfo, VK_NULL_HANDLE);
     if (vkResult != VK_SUCCESS)
     {
         fprintf(gpFILE, "display() : vkQueueSubmit() failed (%d).\n", vkResult);
         return vkResult;
-    }
+	}
+
 
     // Present the rendered image
     VkPresentInfoKHR vkPresentInfoKHR;
@@ -2899,22 +2945,22 @@ void uninitialize(void)
     }
 #endif
 
-    // sub-step 7 for step (18)
-    if (vkFence_Array)
-    {
-        for (uint32_t i = 0; i < gSwapchainImageCount; i++)
-        {
-            vkDestroyFence(vkDevice, vkFence_Array[i], NULL);
-            vkFence_Array[i] = VK_NULL_HANDLE;
+    //// Fences
+    //if (vkFence_Array)
+    //{
+    //    for (uint32_t i = 0; i < gSwapchainImageCount; i++)
+    //    {
+    //        vkDestroyFence(vkDevice, vkFence_Array[i], NULL);
+    //        vkFence_Array[i] = VK_NULL_HANDLE;
 
-        }
+    //    }
 
-        free(vkFence_Array);
-        vkFence_Array = NULL;
+    //    free(vkFence_Array);
+    //    vkFence_Array = NULL;
 
-    }
+    //}
 
-    // sub-step 8 for step (18)
+	//Semaphores
 
     for (size_t i = 0; i < gSwapchainImageCount; i++)
     {
@@ -2938,6 +2984,14 @@ void uninitialize(void)
 
     free(vkSemaphore_RenderComplete);
     vkSemaphore_RenderComplete = NULL;
+
+
+	//timeline semaphore
+    if (vkSemaphore_Timeline)
+    {
+        vkDestroySemaphore(vkDevice, vkSemaphore_Timeline, NULL);
+        vkSemaphore_Timeline = VK_NULL_HANDLE;
+	}
 
 
 
@@ -5051,11 +5105,16 @@ VkResult createVulkanDevice(void)
     dynamicRendering.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DYNAMIC_RENDERING_FEATURES;
     dynamicRendering.dynamicRendering = VK_TRUE;
 
+    VkPhysicalDeviceTimelineSemaphoreFeatures timeline{};
+    timeline.sType =VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_TIMELINE_SEMAPHORE_FEATURES;
+    timeline.timelineSemaphore = VK_TRUE;
+    timeline.pNext = &dynamicRendering;
+
     VkPhysicalDeviceFeatures2 features2{};
     features2.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2;
 	features2.features.samplerAnisotropy = VK_TRUE; // enable anisotropic filtering
 	features2.features.tessellationShader = VK_TRUE; // enable tessellation shader
-    features2.pNext = &dynamicRendering;
+    features2.pNext = &timeline;
 
     VkDeviceCreateInfo vkDeviceCreateInfo;
     memset((void*)&vkDeviceCreateInfo, 0, sizeof(VkDeviceCreateInfo));
@@ -8545,40 +8604,64 @@ VkResult createSemaphores(void)
     }
 
 
+	//timeline semophores
+
+	VkSemaphoreTypeCreateInfo timelineSemaphoreCreateInfo;
+	memset(&timelineSemaphoreCreateInfo, 0, sizeof(VkSemaphoreTypeCreateInfo));
+
+	timelineSemaphoreCreateInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_TYPE_CREATE_INFO;
+	timelineSemaphoreCreateInfo.pNext = NULL;
+	timelineSemaphoreCreateInfo.semaphoreType = VK_SEMAPHORE_TYPE_TIMELINE;
+	timelineSemaphoreCreateInfo.initialValue = 0;
+
+
+    //vkSemaphore_timeline
+	VkSemaphoreCreateInfo vkSemaphoreCreateInfo_Timeline;
+	memset(&vkSemaphoreCreateInfo_Timeline, 0, sizeof(VkSemaphoreCreateInfo));
+	vkSemaphoreCreateInfo_Timeline.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
+	vkSemaphoreCreateInfo_Timeline.pNext = &timelineSemaphoreCreateInfo;
+	vkSemaphoreCreateInfo_Timeline.flags = 0;
+	vkResult = vkCreateSemaphore(vkDevice, &vkSemaphoreCreateInfo_Timeline, NULL, &vkSemaphore_Timeline);
+	if (vkResult != VK_SUCCESS)
+	{
+		fprintf(gpFILE, "createSemaphores() : vkCreateSemaphore() failed for timeline semaphore.\n");
+		return(vkResult);
+	}
+
 
     return(vkResult);
 }
 
-VkResult createFences(void)
-{
-    // local variables
-    VkResult vkResult = VK_SUCCESS;
-
-    // code
-    //  In CreateFences() user-defined function, declare, memset() and initialize VkFenceCreateInfo structure.
-    VkFenceCreateInfo vkFenceCreateInfo;
-    memset((void*)&vkFenceCreateInfo, 0, sizeof(VkFenceCreateInfo));
-
-    vkFenceCreateInfo.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
-    vkFenceCreateInfo.pNext = NULL;
-    vkFenceCreateInfo.flags = VK_FENCE_CREATE_SIGNALED_BIT;
-
-    //  In this function, allocate our global fence array to the size of the swapchain image count using malloc().
-    vkFence_Array = (VkFence*)malloc(sizeof(VkFence) * gSwapchainImageCount); // for the sake of brevity, we are avoiding error checking for malloc()
-
-    //  Now in a loop, call vkCreateFence() to initialize our global fences array.
-    for (uint32_t i = 0; i < gSwapchainImageCount; i++)
-    {
-        vkResult = vkCreateFence(vkDevice, &vkFenceCreateInfo, NULL, &vkFence_Array[i]);
-        if (vkResult != VK_SUCCESS)
-        {
-            fprintf(gpFILE, "createFences() : vkCreateFence() failed for iteration %d.\n", i);
-            return(vkResult);
-        }
-    }
-
-    return(vkResult);
-}
+//VkResult createFences(void)
+//{
+//    // local variables
+//    VkResult vkResult = VK_SUCCESS;
+//
+//    // code
+//    //  In CreateFences() user-defined function, declare, memset() and initialize VkFenceCreateInfo structure.
+//    VkFenceCreateInfo vkFenceCreateInfo;
+//    memset((void*)&vkFenceCreateInfo, 0, sizeof(VkFenceCreateInfo));
+//
+//    vkFenceCreateInfo.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
+//    vkFenceCreateInfo.pNext = NULL;
+//    vkFenceCreateInfo.flags = VK_FENCE_CREATE_SIGNALED_BIT;
+//
+//    //  In this function, allocate our global fence array to the size of the swapchain image count using malloc().
+//    vkFence_Array = (VkFence*)malloc(sizeof(VkFence) * gSwapchainImageCount); // for the sake of brevity, we are avoiding error checking for malloc()
+//
+//    //  Now in a loop, call vkCreateFence() to initialize our global fences array.
+//    for (uint32_t i = 0; i < gSwapchainImageCount; i++)
+//    {
+//        vkResult = vkCreateFence(vkDevice, &vkFenceCreateInfo, NULL, &vkFence_Array[i]);
+//        if (vkResult != VK_SUCCESS)
+//        {
+//            fprintf(gpFILE, "createFences() : vkCreateFence() failed for iteration %d.\n", i);
+//            return(vkResult);
+//        }
+//    }
+//
+//    return(vkResult);
+//}
 
 #ifdef IMGUI_ENABLE
 
@@ -9072,7 +9155,7 @@ void transitionDepthImageLayout(
 
 
 
-VkResult buildCommandBuffers(uint32_t curIndex)
+VkResult buildCommandBuffers(uint32_t curIndex, uint32_t currentImageIndex)
 {
     VkResult vkResult = VK_SUCCESS;
 
@@ -9089,7 +9172,7 @@ VkResult buildCommandBuffers(uint32_t curIndex)
     // Begin recording
     VkCommandBufferBeginInfo beginInfo = {};
     beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-    beginInfo.flags = 0;
+    beginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
 
     vkResult = vkBeginCommandBuffer(vkCommandBuffer_Array[curIndex], &beginInfo);
     if (vkResult != VK_SUCCESS)
@@ -9124,7 +9207,7 @@ VkResult buildCommandBuffers(uint32_t curIndex)
 
     transitionImageLayout(
         vkCommandBuffer_Array[curIndex],
-        gSwapChainResourceData.swapchainImage_Array[curIndex],
+        gSwapChainResourceData.swapchainImage_Array[currentImageIndex],
         VK_IMAGE_LAYOUT_UNDEFINED,
         VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL
 	);
@@ -9133,7 +9216,7 @@ VkResult buildCommandBuffers(uint32_t curIndex)
 	// We can also use dynamic rendering instead of render pass and framebuffer. In that case, we need to declare and initialize VkRenderingInfo structure and call vkCmdBeginRendering() API to begin the dynamic rendering. Remember, if we are using dynamic rendering, then we don't need to create render pass and framebuffer objects at all.
     VkRenderingAttachmentInfo colorAttachment{};
     colorAttachment.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO;
-	colorAttachment.imageView = gSwapChainResourceData.swapchainImageView_Array[curIndex];
+	colorAttachment.imageView = gSwapChainResourceData.swapchainImageView_Array[currentImageIndex];
     colorAttachment.imageLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
     colorAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
     colorAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
@@ -9142,7 +9225,7 @@ VkResult buildCommandBuffers(uint32_t curIndex)
 
     VkRenderingAttachmentInfo depthAttachment{};
     depthAttachment.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO;
-	depthAttachment.imageView = gSwapChainResourceData.imageData_depthBuffer[curIndex].vkImageView;
+	depthAttachment.imageView = gSwapChainResourceData.imageData_depthBuffer[currentImageIndex].vkImageView;
     depthAttachment.imageLayout = VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL;
     depthAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
     depthAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
@@ -9189,7 +9272,7 @@ VkResult buildCommandBuffers(uint32_t curIndex)
 
     transitionImageLayout(
         vkCommandBuffer_Array[curIndex],
-        gSwapChainResourceData.swapchainImage_Array[curIndex],
+        gSwapChainResourceData.swapchainImage_Array[currentImageIndex],
         VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
         VK_IMAGE_LAYOUT_PRESENT_SRC_KHR
 	);
