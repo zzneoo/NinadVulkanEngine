@@ -2270,7 +2270,7 @@ VkResult GraphicsPipelines::createPipelines(void)
 	//--------------------------------------------------------------------------------------------
 
 	//PBR_skinned
-    vkDescriptorSetLayouts = { gpDescriptorSetLayouts->vkDescriptorSetLayout_frameDataBoneData,gpDescriptorSetLayouts->vkDescriptorSetLayout_BasicPBR };
+    vkDescriptorSetLayouts = { gpDescriptorSetLayouts->vkDescriptorSetLayout_frameDataBoneData,gpDescriptorSetLayouts->vkDescriptorSetLayout_BasicPBR,gpDescriptorSetLayouts->vkDescriptorSetLayout_GlobalTextureArray };
 	memset((void*)&vkPipelineLayoutCreateInfo, 0, sizeof(VkPipelineLayoutCreateInfo));
 	vkPipelineLayoutCreateInfo.setLayoutCount = static_cast<uint32_t>(vkDescriptorSetLayouts.size());
 	vkPipelineLayoutCreateInfo.pSetLayouts = vkDescriptorSetLayouts.data();

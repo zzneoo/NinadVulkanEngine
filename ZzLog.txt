@@ -45,6 +45,9 @@ Success: Loaded image 'Resources/StockTextures/border.png' ( 1600 x 941 ), 4 cha
 loadTextureData() : Texture image loaded successfully.
 loadTextureData_dds_c_bc7(): Loaded 'Resources/Impostors/BlackAlder_Field_02/T_Impostor_BaseColor_Field_02_Summer.dds' w=4096 h=4096 mips=1 layers=1 (BC7)
 loadTextureData_dds_c_bc7(): Loaded 'Resources/Impostors/BlackAlder_Field_02/T_Impostor_Normal_Field_02_Summer.dds' w=4096 h=4096 mips=13 layers=1 (BC7)
+loadTextureData_dds_c_bc7(): Loaded 'E:\ZzNeO_Engine_new\ZzNeO_Engine\Everything\Resources\Models\RAT\Textures\Skin_4_White\Albedo.dds' w=4096 h=4096 mips=13 layers=1 (BC7)
+loadTextureData_dds_c_bc5_normal(): Loaded 'E:\ZzNeO_Engine_new\ZzNeO_Engine\Everything\Resources\Models\RAT\Textures\Skin_4_White\Normal.dds' w=4096 h=4096 mips=13 layers=1 (BC5)
+loadTextureData_dds_c_bc7(): Loaded 'E:\ZzNeO_Engine_new\ZzNeO_Engine\Everything\Resources\Models\RAT\Textures\Skin_4_White\ORX.dds' w=4096 h=4096 mips=13 layers=1 (BC7)
 loadTextureData_dds_c_bc7(): Loaded 'Resources/PBR_Materials/T_omfr20_4K/Albedo.dds' w=4096 h=4096 mips=13 layers=1 (BC7)
 loadTextureData_dds_c_bc5_normal(): Loaded 'Resources/PBR_Materials/T_omfr20_4K/Normal.dds' w=4096 h=4096 mips=13 layers=1 (BC5)
 loadTextureData_dds_c_bc7(): Loaded 'Resources/PBR_Materials/T_omfr20_4K/ORX.dds' w=4096 h=4096 mips=13 layers=1 (BC7)

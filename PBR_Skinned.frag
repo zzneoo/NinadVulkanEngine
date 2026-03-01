@@ -1,16 +1,16 @@
 #version 460
 
+#extension GL_EXT_nonuniform_qualifier : require
+
+#define saturate(x) clamp(x, 0.0, 1.0)
+
 layout(location = 0) out vec4 fragColor;
 
 layout(location = 0) in vec2 outTexCoord;
 layout(location = 1) in vec3 outNormal;
 layout(location = 2) in vec3 outColor;
-layout(location = 3) in vec3 outTangent;
+layout(location = 3) in vec4 outTangent;
 layout(location = 4) in vec3 vWorldPos;
-
-layout(set = 1, binding = 0) uniform sampler2D tSampler_albedo;
-layout(set = 1, binding = 1) uniform sampler2D tSampler_normal;
-layout(set = 1, binding = 2) uniform sampler2D tSampler_orx;
 
 layout(std140, set = 0, binding = 0) uniform FrameData 
 {
@@ -22,13 +22,30 @@ layout(std140, set = 0, binding = 0) uniform FrameData
     float _pad;       // offset 156  pad to 160 (multiple of 16)
 }global;
 
-vec3 decodeNormalFromBC5_UNORM(vec2 enc) {
-    // enc = texture(sampler, uv).rg  -> in [0,1]
-    vec2 n = enc * 2.0 - 1.0;        // map -> [-1,1]
-    float z2 = 1.0 - dot(n, n);
-    float z = (z2 > 0.0) ? sqrt(z2) : 0.0;
-    return normalize(vec3(n.x, n.y, z));
+layout(set = 1, binding = 0) uniform sampler2D tSampler_albedo;
+layout(set = 1, binding = 1) uniform sampler2D tSampler_normal;
+layout(set = 1, binding = 2) uniform sampler2D tSampler_orx;
+
+layout(set = 2, binding = 0) uniform sampler2D textures[];
+
+vec3 decodeNormalFromBC5_UNORM(vec2 enc)
+{
+    vec2 n = enc * 2.0 - 1.0;
+
+    float z = sqrt(saturate(1.0 - dot(n, n)));
+
+    return normalize(vec3(n, z));
 }
+
+/*
+vec3 decodeNormalFromBC5_UNORM(vec2 enc)
+{
+    vec2 n = enc * 2.0 - 1.0;
+
+    float z = sqrt(max(1.0 - dot(n, n), 0.0));
+
+    return vec3(n, z); // already unit length in most cases
+}*/
 
 vec3 decodeBC5Normal_fast_robust(vec2 enc)
 {
@@ -51,6 +68,7 @@ layout(push_constant) uniform PushConstants
     mat4 model;
 	vec3 v3Color;
 	float fFactor;
+    uvec4 materialIDs;
 } pc;
 
 //PBR
@@ -96,16 +114,23 @@ void main(void)
 {
     vec2 uv = outTexCoord;
     
+    /*
     vec3 albedo = texture(tSampler_albedo, uv).rgb;
+    vec3 normal_map = decodeNormalFromBC5_UNORM(texture(tSampler_normal,uv).rg);
     vec3 orx = texture(tSampler_orx, uv).rgb;
+    */
+
+    vec3 albedo = texture(textures[pc.materialIDs.x], uv).rgb;
+    vec3 normal_map = decodeNormalFromBC5_UNORM(texture(textures[pc.materialIDs.y],uv).rg);
+    vec3 orx = texture(textures[pc.materialIDs.z], uv).rgb;
 
     float ao = orx.r;
     float roughness= clamp(orx.g, 0.045, 1.0); // avoid 0 to keep denom stable
     float metallic = clamp(orx.b, 0.0, 1.0);
 
 	vec3 normal = normalize(outNormal);
-    vec3 tangent = normalize(outTangent);
-    vec3 bitangent = normalize(cross(normal, tangent));
+    vec3 tangent = normalize(outTangent.xyz);
+    vec3 bitangent = cross(normal, tangent) * outTangent.w;
 
     //reorthogonalize tangent
     //tangent = normalize(tangent - dot(tangent, normal) * normal);
@@ -113,8 +138,6 @@ void main(void)
     mat3 TBN = mat3(tangent, bitangent, normal);
 
     //-------------------------------------------------------------------
-
-    vec3  normal_map = decodeNormalFromBC5_UNORM(texture(tSampler_normal,uv).rg);
 
     vec3 N = normalize(TBN * normal_map);
     vec3 V = normalize(global.cameraPos - vWorldPos);
@@ -126,8 +149,8 @@ void main(void)
     // Base reflectance
     vec3 F0 = mix(vec3(0.04), albedo, metallic);
 
-    float NdotL = max(dot(N, L), 0.001);
-    float NdotV = max(dot(N, V), 0.001);
+    float NdotL = max(dot(N, L), 0.0);
+    float NdotV = max(dot(N, V), 0.0);
     float NdotH = max(dot(N, H), 0.0);
     float HdotV = max(dot(H, V), 0.0);
 
@@ -135,9 +158,11 @@ void main(void)
     float G = GeometrySmith(NdotV, NdotL, roughness);
     vec3 F = FresnelSchlick(HdotV, F0);
 
+    // Specular term (Cook-Torrance microfacet BRDF)
     vec3 numerator = D * G * F;
     float denom = max(4.0 * NdotV * NdotL, 1e-4);
     vec3 specular = numerator / denom;
+    specular = min(specular, vec3(10.0));// avoid extreme highlights from very small roughness
 
 
     // Energy-conserving diffuse term (Lambert)
@@ -152,5 +177,7 @@ void main(void)
     finalColor = Tonemap_ACES(finalColor);
 
 	fragColor = vec4(finalColor,1.0);
+
+    //fragColor = vec4(texture(textures[1], uv).rgb, 1.0);
 
 }

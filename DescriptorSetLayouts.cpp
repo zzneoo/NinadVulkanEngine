@@ -233,6 +233,41 @@ VkResult DescriptorSetLayouts::createDescriptorSetLayout_BasicPBR(void)
 
 }
 
+VkResult DescriptorSetLayouts::createDescriptorSetLayout_GlobalTextureArray(void)
+{
+    const uint32_t MAX_TEXTURES = 1024;
+    VkResult vkResult = VK_SUCCESS;
+
+    VkDescriptorSetLayoutBinding textureBinding{};
+    textureBinding.binding = 0;
+    textureBinding.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+    textureBinding.descriptorCount = MAX_TEXTURES;
+    textureBinding.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
+
+    VkDescriptorBindingFlags bindingFlags = VK_DESCRIPTOR_BINDING_PARTIALLY_BOUND_BIT | VK_DESCRIPTOR_BINDING_VARIABLE_DESCRIPTOR_COUNT_BIT;
+
+    VkDescriptorSetLayoutBindingFlagsCreateInfo extendedInfo{};
+    extendedInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_BINDING_FLAGS_CREATE_INFO;
+    extendedInfo.bindingCount = 1;
+    extendedInfo.pBindingFlags = &bindingFlags;
+
+    VkDescriptorSetLayoutCreateInfo layoutInfo{};
+    layoutInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
+    layoutInfo.pNext = &extendedInfo;
+    layoutInfo.bindingCount = 1;
+    layoutInfo.pBindings = &textureBinding;
+
+
+    vkResult = vkCreateDescriptorSetLayout(vkDevice, &layoutInfo, nullptr, &vkDescriptorSetLayout_GlobalTextureArray);
+    if (vkResult != VK_SUCCESS)
+    {
+        fprintf(gpFILE, "createTextureIndexing() : vkCreateDescriptorSetLayout() failed (%d).\n", vkResult);
+        return vkResult;
+    }
+
+	return vkResult;
+}
+
 //--------------------------------------------------------------------------------------------
 
 VkResult DescriptorSetLayouts::createDescriptorSetLayouts(void)
@@ -278,6 +313,14 @@ VkResult DescriptorSetLayouts::createDescriptorSetLayouts(void)
         return(vkResult);
     }
 
+	//descriptor set layout for global texture array
+	vkResult = createDescriptorSetLayout_GlobalTextureArray();
+    if (vkResult != VK_SUCCESS)
+    {
+        fprintf(gpFILE, "initialize() : createDescriptorSetLayout_GlobalTextureArray() failed (%d).\n", vkResult);
+        return vkResult;
+    }
+
     return vkResult;
 }
 
@@ -316,4 +359,11 @@ void DescriptorSetLayouts::destroyDescriptorSetLayouts(void)
         vkDestroyDescriptorSetLayout(vkDevice, vkDescriptorSetLayout_BasicPBR, NULL);
         vkDescriptorSetLayout_BasicPBR = VK_NULL_HANDLE;
     }
+
+	//descriptor set layout for global texture array
+    if (vkDescriptorSetLayout_GlobalTextureArray)
+    {
+        vkDestroyDescriptorSetLayout(vkDevice, vkDescriptorSetLayout_GlobalTextureArray, NULL);
+        vkDescriptorSetLayout_GlobalTextureArray = VK_NULL_HANDLE;
+	}
 }

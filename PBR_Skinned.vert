@@ -3,7 +3,7 @@
 layout(location = 0) in vec3  vPosition;
 layout(location = 1) in vec2  vTexCoord;
 layout(location = 2) in vec3  vNormal;
-layout(location = 3) in vec3  vTangent;
+layout(location = 3) in vec4  vTangent;
 layout(location = 4) in ivec4 vBoneIDs;
 layout(location = 5) in vec4  vBoneWeights;
 
@@ -35,12 +35,13 @@ layout(push_constant) uniform PushConstants
 layout(location = 0) out vec2 outTexCoord;
 layout(location = 1) out vec3 outNormal;
 layout(location = 2) out vec3 outColor;
-layout(location = 3) out vec3 outTangent;
+layout(location = 3) out vec4 outTangent;
 layout(location = 4) out vec3 vWorldPos;
 
 void main()
 {
     outTexCoord = vTexCoord;
+    outTexCoord.y = 1.0 - outTexCoord.y; // Flip Y for texture coordinates
 
     // -------------------------------
     // Skinning
@@ -53,7 +54,7 @@ void main()
 
     vec4 skinnedPos     = skinMatrix * vec4(vPosition, 1.0);
     vec3 skinnedNormal  = mat3(skinMatrix) * vNormal;
-    vec3 skinnedTangent = mat3(skinMatrix) * vTangent;
+    vec3 skinnedTangent = mat3(skinMatrix) * vTangent.xyz;
 
     // -------------------------------
     // Model transform
@@ -64,7 +65,8 @@ void main()
     mat3 normalMatrix = transpose(inverse(mat3(pc.model)));
 
     outNormal  = normalize(normalMatrix * skinnedNormal);
-    outTangent = normalize(normalMatrix * skinnedTangent);
+    outTangent.xyz = normalize(normalMatrix * skinnedTangent);
+    outTangent.w = vTangent.w; // Preserve the handedness of the tangent space
 
     outColor = vec3(outNormal);
 

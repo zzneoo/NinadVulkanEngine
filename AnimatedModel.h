@@ -8,6 +8,9 @@
 #include <assimp/Importer.hpp>
 #include <assimp/scene.h>
 #include <assimp/postprocess.h>
+//filesystem
+#include <filesystem>
+#include "Material_BasicPBR.h"
 
 extern FILE* gpFILE;
 extern VkDevice vkDevice;
@@ -17,17 +20,33 @@ extern VkPhysicalDeviceMemoryProperties vkPhysicalDeviceMemoryProperties;
 extern VkQueue vkQueue;
 extern VkPhysicalDevice vkPhysicalDevice_Selected;
 
+struct MaterialInfo {
+    std::string materialName;
+    std::string path;
+    Material_BasicPBR* data;
+};
+
 
 class AnimatedModel
 {
 public:
-    AnimatedModel(const char* modelPath, bool index32);
+    AnimatedModel(const char* modelPath, bool index32, VkDescriptorSetLayout vkDescriptorSetLayout);
     ~AnimatedModel();
 
 	const uint16_t GetNumBones() const { return numBones; }
     void UpdateAnimation(float deltaTime, uint16_t currFrame);
 	const VulkanComboData* GetVulkanComboData() const { return &vulkanComboData; }
 	const VulkanSSBO* GetBoneSSBOs() const { return boneSSBO; }
+    VkDescriptorSet GetMaterialDescriptorSet(uint32_t materialIndex) const 
+    {
+        if (materialIndex >= PBR_Materials.size()) 
+        {
+            fprintf(gpFILE, "GetMaterialDescriptorSet: Invalid material index %u\n", materialIndex);
+            return VK_NULL_HANDLE;
+        }
+        return PBR_Materials[materialIndex].data->getDescriptorSet();
+	}
+
 
 private:
     static glm::mat4 aiMat4ToGlm(const aiMatrix4x4& m);
@@ -35,7 +54,7 @@ private:
     uint32_t FindMemoryType(VkPhysicalDevice physicalDevice, uint32_t typeFilter, VkMemoryPropertyFlags properties);
 
     void AddBoneDataToVertex(VertexData_Skinned& v, int boneIndex, float weight);
-    VkResult LoadModel_Animated_PBR(const char* modelPath, bool index32);
+    VkResult LoadModel_Animated_PBR(const char* modelPath, bool index32, VkDescriptorSetLayout vkDescriptorSetLayout);
 
     const aiNodeAnim* FindNodeAnim(const aiAnimation* anim, const std::string& name);
 
@@ -87,6 +106,8 @@ private:
 	uint16_t numBones = 0;
 
 	VulkanComboData vulkanComboData;
+
+    std::vector<MaterialInfo> PBR_Materials;
 
     VulkanSSBO boneSSBO[2];
 

@@ -10,30 +10,33 @@ Material_BasicPBR::Material_BasicPBR(VkDescriptorSetLayout layout,const char* pa
 
     char albedoPath[512]; // make sure it's big enough
     std::snprintf(albedoPath, sizeof(albedoPath), "%s%s", path, "Albedo.dds");
-	res = loadTextureData_dds_c_bc7(&Albedo, albedoPath, VK_FORMAT_BC7_SRGB_BLOCK);
+	res = loadTextureData_dds_c_bc7(&Albedo, albedoPath, vkSampler_LinearClampAniso, VK_FORMAT_BC7_SRGB_BLOCK);
     if (res != VK_SUCCESS && vkResult == VK_SUCCESS)
     {
         fprintf(gpFILE, "Failed to load albedo texture\n");
         vkResult = res;
 	}
+                                            
 
     char normalPath[512]; // make sure it's big enough
     std::snprintf(normalPath, sizeof(normalPath), "%s%s", path, "Normal.dds");
-    res = loadTextureData_dds_c_bc5_normal(&Normal, normalPath, VK_FORMAT_BC5_UNORM_BLOCK);
+    res = loadTextureData_dds_c_bc5_normal(&Normal, normalPath, vkSampler_LinearClampAniso, VK_FORMAT_BC5_UNORM_BLOCK);
     if (res != VK_SUCCESS && vkResult == VK_SUCCESS)
     {
         fprintf(gpFILE, "Failed to load normal texture\n");
         vkResult = res;
 	}
 
+
     char PathORX[512]; // make sure it's big enough
     std::snprintf(PathORX, sizeof(PathORX), "%s%s", path, "ORX.dds");
-    res = loadTextureData_dds_c_bc7(&ORX, PathORX, VK_FORMAT_BC7_UNORM_BLOCK);
+    res = loadTextureData_dds_c_bc7(&ORX, PathORX, vkSampler_LinearClampAniso, VK_FORMAT_BC7_UNORM_BLOCK);
     if (res != VK_SUCCESS && vkResult == VK_SUCCESS)
     {
         fprintf(gpFILE, "Failed to load ORM texture\n");
         vkResult = res;
 	}
+
 
 	// create descriptor set
     res = createDescriptorSet();
@@ -223,7 +226,7 @@ static inline uint64_t bc5_subresource_size(uint32_t width, uint32_t height)
     return (uint64_t)blocksX * (uint64_t)blocksY * 16ULL; // BC5 uses 16 bytes per 4x4 block (two 8-byte channels)
 }
 
-VkResult Material_BasicPBR::loadTextureData_dds_c_bc7(ImageData* imageData, const char* filename, VkFormat format)
+VkResult Material_BasicPBR::loadTextureData_dds_c_bc7(ImageData* imageData, const char* filename,VkSampler vkSampler, VkFormat format)
 {
     if (!imageData || !filename) return VK_ERROR_INITIALIZATION_FAILED;
 
@@ -639,6 +642,11 @@ VkResult Material_BasicPBR::loadTextureData_dds_c_bc7(ImageData* imageData, cons
     imageData->vkImage = image;
     imageData->vkDeviceMemory = imageMemory;
     imageData->vkImageView = imageView;
+	imageData->vkSampler = vkSampler;
+    imageData->globalTextureArrayIndex = (uint32_t)global_textureArray.size();
+	global_textureArray.push_back(imageData);
+
+
     // imageData->width = baseWidth;
     // imageData->height = baseHeight;
     // imageData->mipLevels = mipCount;
@@ -655,7 +663,7 @@ VkResult Material_BasicPBR::loadTextureData_dds_c_bc7(ImageData* imageData, cons
 }
 
 
-VkResult Material_BasicPBR::loadTextureData_dds_c_bc5_normal(ImageData* imageData, const char* filename, VkFormat format)
+VkResult Material_BasicPBR::loadTextureData_dds_c_bc5_normal(ImageData* imageData, const char* filename, VkSampler vkSampler, VkFormat format)
 {
     if (!imageData || !filename) return VK_ERROR_INITIALIZATION_FAILED;
 
@@ -1071,6 +1079,9 @@ VkResult Material_BasicPBR::loadTextureData_dds_c_bc5_normal(ImageData* imageDat
     imageData->vkImage = image;
     imageData->vkDeviceMemory = imageMemory;
     imageData->vkImageView = imageView;
+	imageData->vkSampler = vkSampler;
+	imageData->globalTextureArrayIndex = (uint32_t)global_textureArray.size();
+	global_textureArray.push_back(imageData);
     // imageData->width = baseWidth;
     // imageData->height = baseHeight;
     // imageData->mipLevels = mipCount;

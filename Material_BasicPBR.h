@@ -11,6 +11,7 @@ extern VkDescriptorPool vkDescriptorPool;
 extern VkSampler vkSampler_LinearClamp;
 extern VkSampler vkSampler_LinearClampAniso;
 
+extern std::vector<ImageData*> global_textureArray;
 
 extern FILE* gpFILE;
 
@@ -27,8 +28,8 @@ public:
 private:
 
 	uint32_t findMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties);
-	VkResult loadTextureData_dds_c_bc7(ImageData* imageData, const char* filename, VkFormat format);
-	VkResult loadTextureData_dds_c_bc5_normal(ImageData* imageData, const char* filename, VkFormat format);
+	VkResult loadTextureData_dds_c_bc7(ImageData* imageData, const char* filename, VkSampler vkSampler, VkFormat format);
+	VkResult loadTextureData_dds_c_bc5_normal(ImageData* imageData, const char* filename, VkSampler vkSampler, VkFormat format);
 
 	VkResult createDescriptorSet(void);
 

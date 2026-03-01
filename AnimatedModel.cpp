@@ -1,7 +1,7 @@
 #include "AnimatedModel.h"
 #include <iostream>
 
-AnimatedModel::AnimatedModel(const char* modelPath, bool index32)
+AnimatedModel::AnimatedModel(const char* modelPath, bool index32,VkDescriptorSetLayout vkDescriptorSetLayout)
 {
     // Always start clean
     memset(&vulkanComboData, 0, sizeof(VulkanComboData));
@@ -10,7 +10,7 @@ AnimatedModel::AnimatedModel(const char* modelPath, bool index32)
     boneOffsetMatrices.clear();
     finalBoneMatrices.clear();
 
-	VkResult vkResult = LoadModel_Animated_PBR(modelPath, index32);
+	VkResult vkResult = LoadModel_Animated_PBR(modelPath, index32, vkDescriptorSetLayout);
     if(vkResult != VK_SUCCESS)
     {
         fprintf(gpFILE, "AnimatedModel::AnimatedModel() : LoadModel_Animated_PBR() failed (%d).\n", vkResult);
@@ -41,6 +41,16 @@ AnimatedModel::~AnimatedModel()
         }
 	}
 
+	//PBR materials
+    for (auto& matInfo : PBR_Materials) {
+        if (matInfo.data) {
+            delete matInfo.data;
+            matInfo.data = nullptr;
+        }
+	}
+
+
+
     importer.FreeScene();
 
     scene = nullptr;
@@ -51,7 +61,7 @@ AnimatedModel::~AnimatedModel()
     finalBoneMatrices.clear();
 }
 
-VkResult AnimatedModel::LoadModel_Animated_PBR(const char* modelPath, bool index32)
+VkResult AnimatedModel::LoadModel_Animated_PBR(const char* modelPath, bool index32, VkDescriptorSetLayout vkDescriptorSetLayout_PBR)
 {
     VkResult vkResult = VK_SUCCESS;
     // Similar implementation as LoadModel_Phong but for PBR-specific vertex structure
@@ -74,7 +84,46 @@ VkResult AnimatedModel::LoadModel_Animated_PBR(const char* modelPath, bool index
         fprintf(gpFILE, "LoadModel_PBR_Skinned() : Assimp Importer::ReadFile() failed.\n");
         return VK_ERROR_INITIALIZATION_FAILED;
     }
-    //std::cout << "Meshes: " << scene->mNumMeshes << std::endl;
+
+	//number of materials
+	uint16_t numMaterials = scene->mNumMaterials;
+
+    for (unsigned int i = 0; i < numMaterials; ++i) 
+    {
+        const aiMaterial* mat = scene->mMaterials[i];
+
+        // Try to get material name (optional)
+        aiString matName;
+        std::string materialName = "(unnamed)";
+        if (AI_SUCCESS == mat->Get(AI_MATKEY_NAME, matName)) materialName = matName.C_Str();
+
+        //std::cout << "Meshes: " << scene->mNumMeshes << std::endl;
+
+        aiString tex;
+        // We only ask for the path here; other args are optional
+        if (AI_SUCCESS == mat->GetTexture(aiTextureType_DIFFUSE, 0, &tex)) {
+            MaterialInfo info;
+
+            std::string directory = std::filesystem::path(tex.C_Str()).parent_path().string();
+            if (!directory.empty())
+                directory += std::filesystem::path::preferred_separator;
+
+            info.materialName = materialName;
+            info.path = directory;
+            info.data = new Material_BasicPBR(vkDescriptorSetLayout_PBR, directory.c_str());
+            PBR_Materials.push_back(info);
+        }
+
+
+        //    for (unsigned i = 0; i < mat->mNumProperties; i++)
+        //    {
+        //        aiMaterialProperty* prop = mat->mProperties[i];
+        //        
+        //        fprintf(gpFILE, "Property %d: key=%s, semantic=%u, index=%u, dataLength=%u, type=%u\n",
+                   //i, prop->mKey.C_Str(), prop->mSemantic, prop->mIndex, prop->mDataLength, prop->mType);
+        //    }
+
+	}
 
 	//Global inverse transform
 	globalInverseTransform = glm::inverse(aiMat4ToGlm(scene->mRootNode->mTransformation));

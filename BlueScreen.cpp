@@ -190,7 +190,7 @@ VulkanComboData  ImpostorBufferData;
 VulkanComboData  CubeBufferData;
 VulkanComboData  SuzanneBufferData;
 VulkanComboData  SphereBufferData;
-VulkanComboData  RatBufferData;
+//VulkanComboData  RatBufferData;
 
 AnimatedModel* pModel_Rat = NULL;
 
@@ -231,6 +231,10 @@ VkDescriptorSet  vkDescriptorSet_AlbedoNormal;
 
 Material_BasicPBR* pMaterial_BasicPBR_RockyGround = NULL;
 Material_BasicPBR* pMaterial_BasicPBR_GrassyGround = NULL;
+
+std::vector<ImageData*> global_textureArray;
+VkDescriptorPool global_textureArray_vkDescriptorPool;
+VkDescriptorSet global_textureArray_vkDescriptorSet;
 
 //desccriptor set layouts 
 DescriptorSetLayouts* gpDescriptorSetLayouts = NULL;
@@ -1150,523 +1154,523 @@ VkResult LoadModel_PBR(const char* modelPath, VulkanComboData* vulkanComboData, 
 
 //Skeleton animation utilities
 
-// Convert aiMatrix4x4 to glm::mat4 (Assimp row-major)
-static glm::mat4 aiMat4ToGlm(const aiMatrix4x4& m) {
-    // Assimp stores row-major; glm::mat4 expects column-major when accessed with ptr.
-    glm::mat4 out;
-    out[0][0] = m.a1; out[1][0] = m.a2; out[2][0] = m.a3; out[3][0] = m.a4;
-    out[0][1] = m.b1; out[1][1] = m.b2; out[2][1] = m.b3; out[3][1] = m.b4;
-    out[0][2] = m.c1; out[1][2] = m.c2; out[2][2] = m.c3; out[3][2] = m.c4;
-    out[0][3] = m.d1; out[1][3] = m.d2; out[2][3] = m.d3; out[3][3] = m.d4;
-    return out;
-}
-
-// Utility: add bone influence to a vertex (keep up to 4 influences; replace smallest if needed)
-static void AddBoneDataToVertex(VertexData_Skinned& v, int boneIndex, float weight) {
-    // Find first zero-weight slot
-    for (int i = 0; i < 4; ++i) {
-        if (v.boneWeights[i] == 0.0f) {
-            v.boneIDs[i] = boneIndex;
-            v.boneWeights[i] = weight;
-            return;
-        }
-    }
-    // All slots taken: find smallest weight slot and replace if this weight is larger
-    int minIdx = 0;
-    float minVal = v.boneWeights[0];
-    for (int i = 1; i < 4; ++i) {
-        if (v.boneWeights[i] < minVal) {
-            minVal = v.boneWeights[i];
-            minIdx = i;
-        }
-    }
-    if (weight > minVal) {
-        v.boneIDs[minIdx] = boneIndex;
-        v.boneWeights[minIdx] = weight;
-    }
-}
-
-double TicksPerSecond(const aiAnimation* anim)
-{
-    return anim->mTicksPerSecond != 0.0
-        ? anim->mTicksPerSecond
-        : 25.0f;
-}
-
-double AnimationTime(const aiAnimation* anim, float timeInSeconds)
-{
-    float timeInTicks = timeInSeconds * (float)TicksPerSecond(anim);
-    return fmod(timeInTicks, anim->mDuration);
-}
-
-uint32_t FindPositionKey(float animationTime, const aiNodeAnim* channel)
-{
-    for (uint32_t i = 0; i < channel->mNumPositionKeys - 1; i++)
-    {
-        if (animationTime < channel->mPositionKeys[i + 1].mTime)
-            return i;
-    }
-    return channel->mNumPositionKeys - 2;
-}
-
-uint32_t FindRotationKey(float animationTime, const aiNodeAnim* channel)
-{
-    for (uint32_t i = 0; i < channel->mNumRotationKeys - 1; i++)
-    {
-        if (animationTime < channel->mRotationKeys[i + 1].mTime)
-            return i;
-    }
-    return channel->mNumRotationKeys - 2;
-}
-
-uint32_t FindScalingKey(float animationTime, const aiNodeAnim* channel)
-{
-    for (uint32_t i = 0; i < channel->mNumScalingKeys - 1; i++)
-    {
-        if (animationTime < channel->mScalingKeys[i + 1].mTime)
-            return i;
-    }
-    return channel->mNumScalingKeys - 2;
-}
-
-glm::vec3 InterpolatePosition(float time, const aiNodeAnim* channel)
-{
-    if (channel->mNumPositionKeys == 1)
-        return glm::vec3(channel->mPositionKeys[0].mValue.x,
-            channel->mPositionKeys[0].mValue.y,
-            channel->mPositionKeys[0].mValue.z);
-
-    int index = FindPositionKey(time, channel);
-    int next = index + 1;
-
-    float delta =
-        (float)channel->mPositionKeys[next].mTime -
-        (float)channel->mPositionKeys[index].mTime;
-
-    float factor =
-        (float)(time - channel->mPositionKeys[index].mTime) / delta;
-
-    auto& a = channel->mPositionKeys[index].mValue;
-    auto& b = channel->mPositionKeys[next].mValue;
-
-    return glm::mix(
-        glm::vec3(a.x, a.y, a.z),
-        glm::vec3(b.x, b.y, b.z),
-        factor
-    );
-}
-
-glm::quat InterpolateRotation(float time, const aiNodeAnim* channel)
-{
-    if (channel->mNumRotationKeys == 1)
-    {
-        auto& q = channel->mRotationKeys[0].mValue;
-        return glm::quat(q.w, q.x, q.y, q.z);
-    }
-
-    int index = FindRotationKey(time, channel);
-    int next = index + 1;
-
-    float delta =
-        (float)channel->mRotationKeys[next].mTime -
-        (float)channel->mRotationKeys[index].mTime;
-
-    float factor =
-        (float)(time - channel->mRotationKeys[index].mTime) / delta;
-
-    auto& a = channel->mRotationKeys[index].mValue;
-    auto& b = channel->mRotationKeys[next].mValue;
-
-    return glm::normalize(glm::slerp(
-        glm::quat(a.w, a.x, a.y, a.z),
-        glm::quat(b.w, b.x, b.y, b.z),
-        factor
-    ));
-}
-
-glm::vec3 InterpolateScale(float animationTime, const aiNodeAnim* channel)
-{
-    // Only one key no interpolation needed
-    if (channel->mNumScalingKeys == 1)
-    {
-        const aiVector3D& v = channel->mScalingKeys[0].mValue;
-        return glm::vec3(v.x, v.y, v.z);
-    }
-
-    uint32_t index = FindScalingKey(animationTime, channel);
-    uint32_t nextIndex = index + 1;
-
-    float t1 = (float)channel->mScalingKeys[index].mTime;
-    float t2 = (float)channel->mScalingKeys[nextIndex].mTime;
-
-    float factor = (animationTime - t1) / (t2 - t1);
-    factor = glm::clamp(factor, 0.0f, 1.0f);
-
-    const aiVector3D& start = channel->mScalingKeys[index].mValue;
-    const aiVector3D& end = channel->mScalingKeys[nextIndex].mValue;
-
-    return glm::mix(
-        glm::vec3(start.x, start.y, start.z),
-        glm::vec3(end.x, end.y, end.z),
-        factor
-    );
-}
-
-const aiNodeAnim* FindNodeAnim(const aiAnimation* anim,
-    const std::string& name)
-{
-    for (uint32_t i = 0; i < anim->mNumChannels; i++)
-    {
-        const aiNodeAnim* channel = anim->mChannels[i];
-        if (name == channel->mNodeName.C_Str())
-            return channel;
-    }
-    return nullptr;
-}
-
-
-// for skinned mesh
-std::unordered_map<std::string, uint32_t> boneMapping; // bone name -> index
-std::vector<glm::mat4> boneOffsetMatrices;// indexed by bone index
-
-
-
-void ReadNodeHierarchy(float animationTime,
-    const aiAnimation* animation,
-    aiNode* node,
-    const glm::mat4& parentTransform)
-{
-    std::string nodeName(node->mName.C_Str());
-
-    // Node's default transform (bind pose)
-    glm::mat4 nodeTransform =
-        aiMat4ToGlm(node->mTransformation);
-
-    const aiNodeAnim* channel = FindNodeAnim(animation, nodeName);
-
-    // If animated, override bind transform
-    if (channel)
-    {
-        glm::vec3 T = InterpolatePosition(animationTime, channel);
-        glm::quat R = InterpolateRotation(animationTime, channel);
-        glm::vec3 S = InterpolateScale(animationTime, channel);
-
-        nodeTransform =
-            glm::translate(glm::mat4(1.0f), T) *
-            glm::mat4_cast(R) *
-            glm::scale(glm::mat4(1.0f), S);
-    }
-
-    glm::mat4 globalTransform = parentTransform * nodeTransform;
-
-    // If this node corresponds to a bone, update final matrix
-    auto it = boneMapping.find(nodeName);
-    if (it != boneMapping.end())
-    {
-        uint32_t boneIndex = it->second;
-
-       // glm::mat4 finalTransformation = globalInverseTransform * globalTransform * boneOffsetMatrices[boneIndex];
-
-    }
-
-    // Recurse
-    for (uint32_t i = 0; i < node->mNumChildren; i++)
-    {
-        ReadNodeHierarchy(animationTime,
-            animation,
-            node->mChildren[i],
-            globalTransform);
-    }
-}
-
-VkResult LoadModel_Animated_PBR(const char* modelPath, VulkanComboData* vulkanComboData, bool index32)
-{
-    VkResult vkResult = VK_SUCCESS;
-    // Similar implementation as LoadModel_Phong but for PBR-specific vertex structure
-    // This function is a placeholder and should be implemented similarly to LoadModel_Phong
-    VkResult ZzCreateVertexAndIndex16Buffer(
-        const float* vertices, VkDeviceSize vertexBufferSize,
-        const uint16_t * indices, VkDeviceSize indexBufferSize,
-        VulkanComboData * vulkanComboData
-    );
-    VkResult ZzCreateVertexAndIndex32Buffer(
-        const float* vertices, VkDeviceSize vertexBufferSize,
-        const uint32_t * indices, VkDeviceSize indexBufferSize,
-        VulkanComboData * vulkanComboData
-    );
-
-    Assimp::Importer importer;
-    const aiScene* scene = importer.ReadFile(modelPath,
-          aiProcess_Triangulate             // ensure all faces are triangles
-        | aiProcess_JoinIdenticalVertices   // remove duplicates (safe, keeps indices consistent)
-        | aiProcess_GenSmoothNormals        // generate normals if missing
-        | aiProcess_CalcTangentSpace        // tangents for normal mapping
-        | aiProcess_LimitBoneWeights        // clamp to 4 bone weights per vertex (required for GPU skinning)
-        | aiProcess_ImproveCacheLocality    // optimize vertex cache locality
-        | aiProcess_SortByPType             // separate points/lines/triangles (we only want triangles)
-		| aiProcess_FlipWindingOrder        // convert to Vulkan's right-handed coordinate system
-    );
-
-    if (!scene || scene->mFlags & AI_SCENE_FLAGS_INCOMPLETE)
-    {
-        std::cerr << "Assimp Error: " << importer.GetErrorString() << std::endl;
-        fprintf(gpFILE, "LoadModel_PBR_Skinned() : Assimp Importer::ReadFile() failed.\n");
-        return VK_ERROR_INITIALIZATION_FAILED;
-    }
-    //std::cout << "Meshes: " << scene->mNumMeshes << std::endl;
-
-    std::vector<VertexData_Skinned> vkVertices;
-
-	// for skinned mesh
-    uint32_t numBones = 0;
-
-    if (index32)
-    {
-        std::vector<uint32_t> vkIndices;
-        // before looping meshes:
-        boneMapping.clear();
-        boneOffsetMatrices.clear();
-        numBones = 0;
-
-        if (scene && scene->mRootNode) {
-            for (unsigned int meshIndex = 0; meshIndex < scene->mNumMeshes; meshIndex++) {
-                aiMesh* mesh = scene->mMeshes[meshIndex];
-
-                // Vertices
-                for (unsigned int i = 0; i < mesh->mNumVertices; i++) {
-                    VertexData_Skinned v{};
-                    v.boneIDs = glm::ivec4(0);
-                    v.boneWeights = glm::vec4(0.0f);
-
-                    // Position
-                    if (mesh->HasPositions()) {
-                        v.pos = glm::vec3(
-                            mesh->mVertices[i].x,
-                            mesh->mVertices[i].y,
-                            mesh->mVertices[i].z
-                        );
-                    }
-
-                    // Normal
-                    if (mesh->HasNormals())
-                    {
-                        v.normal = glm::vec3(
-                            mesh->mNormals[i].x,
-                            mesh->mNormals[i].y,
-                            mesh->mNormals[i].z
-                        );
-                    }
-                    else {
-                        v.normal = glm::vec3(0.0f, 0.0f, 1.0f); // default fallback
-                    }
-
-                    // TexCoords (Assimp supports 8 UV channels; we use channel 0)
-                    if (mesh->HasTextureCoords(0))
-                    {
-                        v.texCoord = glm::vec2(
-                            mesh->mTextureCoords[0][i].x,
-                            mesh->mTextureCoords[0][i].y
-                        );
-                    }
-                    else {
-                        v.texCoord = glm::vec2(0.0f);
-                    }
-
-                    // Vertex Tangents 
-                    if (mesh->HasTangentsAndBitangents())
-                    {
-                        glm::vec3 tangent(
-                            mesh->mTangents[i].x,
-                            mesh->mTangents[i].y,
-                            mesh->mTangents[i].z
-                        );
-
-                        glm::vec3 bitangent(
-                            mesh->mBitangents[i].x,
-                            mesh->mBitangents[i].y,
-                            mesh->mBitangents[i].z
-                        );
-
-                        glm::vec3 normal = glm::normalize(v.normal);
-                        tangent = glm::normalize(tangent);
-
-                        float handedness = (glm::dot(glm::cross(tangent, normal), bitangent) < 0.0f)? -1.0f: 1.0f;
-                        v.tangent = glm::vec4(tangent, handedness);
-                    }
-                    else {
-                        // Fallback: X-axis tangent, right-handed
-                        v.tangent = glm::vec4(1.0f, 0.0f, 0.0f, 1.0f);
-                    }
-
-                    vkVertices.push_back(v);
-                }
-
-                // Indices (faces are always triangles if aiProcess_Triangulate is used)
-                for (unsigned int f = 0; f < mesh->mNumFaces; f++) {
-                    const aiFace& face = mesh->mFaces[f];
-                    for (unsigned int j = 0; j < face.mNumIndices; j++) {
-                        vkIndices.push_back(face.mIndices[j]);
-                    }
-                }
-
-                //bones
-
-                // inside mesh loop, after creating a temporary vertices[] array for this mesh:
-                if (mesh->mNumBones > 0) {
-                    for (unsigned int i = 0; i < mesh->mNumBones; ++i) {
-                        std::string boneName(mesh->mBones[i]->mName.C_Str());
-                        uint32_t boneIndex = 0;
-                        if (boneMapping.find(boneName) == boneMapping.end()) {
-                            boneIndex = numBones++;
-                            boneMapping[boneName] = boneIndex;
-
-                            glm::mat4 offsetMatrix = aiMat4ToGlm(mesh->mBones[i]->mOffsetMatrix);
-                            boneOffsetMatrices.push_back(offsetMatrix);
-                        }
-                        else {
-                            boneIndex = boneMapping[boneName];
-                        }
-
-                        // assign weights to the affected vertices (vertex indices are mesh-local)
-                        for (unsigned int w = 0; w < mesh->mBones[i]->mNumWeights; ++w) {
-                            unsigned int vertexID = mesh->mBones[i]->mWeights[w].mVertexId;
-                            float weight = mesh->mBones[i]->mWeights[w].mWeight;
-                            // make sure the vertex array exists and has the vertexID
-                            //tmpVertices[vertexID].AddBoneData(boneIndex, weight);
-
-                            AddBoneDataToVertex(vkVertices[vertexID], boneIndex, weight);
-
-
-                        }
-                    }
-                }
-
-                assert(boneOffsetMatrices.size() == numBones);
-            }
-
-
-        }
-
-        vulkanComboData->indicesCount = static_cast<uint32_t>(vkIndices.size());
-
-        //PBR model
-        vkResult = ZzCreateVertexAndIndex32Buffer(
-            (float*)vkVertices.data(), vkVertices.size() * sizeof(VertexData_Skinned),
-            vkIndices.data(), vkIndices.size() * sizeof(uint32_t),
-            vulkanComboData
-        );
-        if (vkResult != VK_SUCCESS)
-        {
-            fprintf(gpFILE, "initialize() : ZzCreateVetexAndIndexBuffer() for Animated PBR model failed (%d).\n", vkResult);
-            return(vkResult);
-        }
-    }
-    else
-    {
-        std::vector<uint16_t> vkIndices;
-
-        if (scene && scene->mRootNode) {
-            for (unsigned int meshIndex = 0; meshIndex < scene->mNumMeshes; meshIndex++) {
-                aiMesh* mesh = scene->mMeshes[meshIndex];
-
-                // Vertices
-                for (unsigned int i = 0; i < mesh->mNumVertices; i++) {
-                    VertexData_Skinned v{};
-
-                    // Position
-                    if (mesh->HasPositions()) {
-                        v.pos = glm::vec3(
-                            mesh->mVertices[i].x,
-                            mesh->mVertices[i].y,
-                            mesh->mVertices[i].z
-                        );
-                    }
-
-                    // Normal
-                    if (mesh->HasNormals())
-                    {
-                        v.normal = glm::vec3(
-                            mesh->mNormals[i].x,
-                            mesh->mNormals[i].y,
-                            mesh->mNormals[i].z
-                        );
-                    }
-                    else {
-                        v.normal = glm::vec3(0.0f, 0.0f, 1.0f); // default fallback
-                    }
-
-                    // TexCoords (Assimp supports 8 UV channels; we use channel 0)
-                    if (mesh->HasTextureCoords(0))
-                    {
-                        v.texCoord = glm::vec2(
-                            mesh->mTextureCoords[0][i].x,
-                            mesh->mTextureCoords[0][i].y
-                        );
-                    }
-                    else {
-                        v.texCoord = glm::vec2(0.0f);
-                    }
-
-                    // Vertex Tangents 
-                    if (mesh->HasTangentsAndBitangents())
-                    {
-                        glm::vec3 tangent(
-                            mesh->mTangents[i].x,
-                            mesh->mTangents[i].y,
-                            mesh->mTangents[i].z
-                        );
-
-                        glm::vec3 bitangent(
-                            mesh->mBitangents[i].x,
-                            mesh->mBitangents[i].y,
-                            mesh->mBitangents[i].z
-                        );
-
-                        glm::vec3 normal = glm::normalize(v.normal);
-                        tangent = glm::normalize(tangent);
-
-                        float handedness = (glm::dot(glm::cross(tangent, normal), bitangent) < 0.0f) ? -1.0f : 1.0f;
-                        v.tangent = glm::vec4(tangent, handedness);
-                    }
-                    else{
-                        // Fallback: X-axis tangent, right-handed
-                        v.tangent = glm::vec4(1.0f, 0.0f, 0.0f, 1.0f);
-                    }
-
-                    vkVertices.push_back(v);
-                }
-
-                // Indices (faces are always triangles if aiProcess_Triangulate is used)
-                for (unsigned int f = 0; f < mesh->mNumFaces; f++) {
-                    const aiFace& face = mesh->mFaces[f];
-                    for (unsigned int j = 0; j < face.mNumIndices; j++) {
-                        vkIndices.push_back(face.mIndices[j]);
-                    }
-                }
-            }
-        }
-
-        vulkanComboData->indicesCount = static_cast<uint32_t>(vkIndices.size());
-
-        //Suzanne
-        vkResult = ZzCreateVertexAndIndex16Buffer(
-            (float*)vkVertices.data(), vkVertices.size() * sizeof(VertexData_Skinned),
-            vkIndices.data(), vkIndices.size() * sizeof(uint16_t),
-            vulkanComboData
-        );
-        if (vkResult != VK_SUCCESS)
-        {
-            fprintf(gpFILE, "initialize() : ZzCreateVetexAndIndexBuffer() for Animated PBR model failed (%d).\n", vkResult);
-            return(vkResult);
-        }
-    }
-
-    return VK_SUCCESS;
-}
+//// Convert aiMatrix4x4 to glm::mat4 (Assimp row-major)
+//static glm::mat4 aiMat4ToGlm(const aiMatrix4x4& m) {
+//    // Assimp stores row-major; glm::mat4 expects column-major when accessed with ptr.
+//    glm::mat4 out;
+//    out[0][0] = m.a1; out[1][0] = m.a2; out[2][0] = m.a3; out[3][0] = m.a4;
+//    out[0][1] = m.b1; out[1][1] = m.b2; out[2][1] = m.b3; out[3][1] = m.b4;
+//    out[0][2] = m.c1; out[1][2] = m.c2; out[2][2] = m.c3; out[3][2] = m.c4;
+//    out[0][3] = m.d1; out[1][3] = m.d2; out[2][3] = m.d3; out[3][3] = m.d4;
+//    return out;
+//}
+//
+//// Utility: add bone influence to a vertex (keep up to 4 influences; replace smallest if needed)
+//static void AddBoneDataToVertex(VertexData_Skinned& v, int boneIndex, float weight) {
+//    // Find first zero-weight slot
+//    for (int i = 0; i < 4; ++i) {
+//        if (v.boneWeights[i] == 0.0f) {
+//            v.boneIDs[i] = boneIndex;
+//            v.boneWeights[i] = weight;
+//            return;
+//        }
+//    }
+//    // All slots taken: find smallest weight slot and replace if this weight is larger
+//    int minIdx = 0;
+//    float minVal = v.boneWeights[0];
+//    for (int i = 1; i < 4; ++i) {
+//        if (v.boneWeights[i] < minVal) {
+//            minVal = v.boneWeights[i];
+//            minIdx = i;
+//        }
+//    }
+//    if (weight > minVal) {
+//        v.boneIDs[minIdx] = boneIndex;
+//        v.boneWeights[minIdx] = weight;
+//    }
+//}
+//
+//double TicksPerSecond(const aiAnimation* anim)
+//{
+//    return anim->mTicksPerSecond != 0.0
+//        ? anim->mTicksPerSecond
+//        : 25.0f;
+//}
+//
+//double AnimationTime(const aiAnimation* anim, float timeInSeconds)
+//{
+//    float timeInTicks = timeInSeconds * (float)TicksPerSecond(anim);
+//    return fmod(timeInTicks, anim->mDuration);
+//}
+//
+//uint32_t FindPositionKey(float animationTime, const aiNodeAnim* channel)
+//{
+//    for (uint32_t i = 0; i < channel->mNumPositionKeys - 1; i++)
+//    {
+//        if (animationTime < channel->mPositionKeys[i + 1].mTime)
+//            return i;
+//    }
+//    return channel->mNumPositionKeys - 2;
+//}
+//
+//uint32_t FindRotationKey(float animationTime, const aiNodeAnim* channel)
+//{
+//    for (uint32_t i = 0; i < channel->mNumRotationKeys - 1; i++)
+//    {
+//        if (animationTime < channel->mRotationKeys[i + 1].mTime)
+//            return i;
+//    }
+//    return channel->mNumRotationKeys - 2;
+//}
+//
+//uint32_t FindScalingKey(float animationTime, const aiNodeAnim* channel)
+//{
+//    for (uint32_t i = 0; i < channel->mNumScalingKeys - 1; i++)
+//    {
+//        if (animationTime < channel->mScalingKeys[i + 1].mTime)
+//            return i;
+//    }
+//    return channel->mNumScalingKeys - 2;
+//}
+//
+//glm::vec3 InterpolatePosition(float time, const aiNodeAnim* channel)
+//{
+//    if (channel->mNumPositionKeys == 1)
+//        return glm::vec3(channel->mPositionKeys[0].mValue.x,
+//            channel->mPositionKeys[0].mValue.y,
+//            channel->mPositionKeys[0].mValue.z);
+//
+//    int index = FindPositionKey(time, channel);
+//    int next = index + 1;
+//
+//    float delta =
+//        (float)channel->mPositionKeys[next].mTime -
+//        (float)channel->mPositionKeys[index].mTime;
+//
+//    float factor =
+//        (float)(time - channel->mPositionKeys[index].mTime) / delta;
+//
+//    auto& a = channel->mPositionKeys[index].mValue;
+//    auto& b = channel->mPositionKeys[next].mValue;
+//
+//    return glm::mix(
+//        glm::vec3(a.x, a.y, a.z),
+//        glm::vec3(b.x, b.y, b.z),
+//        factor
+//    );
+//}
+//
+//glm::quat InterpolateRotation(float time, const aiNodeAnim* channel)
+//{
+//    if (channel->mNumRotationKeys == 1)
+//    {
+//        auto& q = channel->mRotationKeys[0].mValue;
+//        return glm::quat(q.w, q.x, q.y, q.z);
+//    }
+//
+//    int index = FindRotationKey(time, channel);
+//    int next = index + 1;
+//
+//    float delta =
+//        (float)channel->mRotationKeys[next].mTime -
+//        (float)channel->mRotationKeys[index].mTime;
+//
+//    float factor =
+//        (float)(time - channel->mRotationKeys[index].mTime) / delta;
+//
+//    auto& a = channel->mRotationKeys[index].mValue;
+//    auto& b = channel->mRotationKeys[next].mValue;
+//
+//    return glm::normalize(glm::slerp(
+//        glm::quat(a.w, a.x, a.y, a.z),
+//        glm::quat(b.w, b.x, b.y, b.z),
+//        factor
+//    ));
+//}
+//
+//glm::vec3 InterpolateScale(float animationTime, const aiNodeAnim* channel)
+//{
+//    // Only one key no interpolation needed
+//    if (channel->mNumScalingKeys == 1)
+//    {
+//        const aiVector3D& v = channel->mScalingKeys[0].mValue;
+//        return glm::vec3(v.x, v.y, v.z);
+//    }
+//
+//    uint32_t index = FindScalingKey(animationTime, channel);
+//    uint32_t nextIndex = index + 1;
+//
+//    float t1 = (float)channel->mScalingKeys[index].mTime;
+//    float t2 = (float)channel->mScalingKeys[nextIndex].mTime;
+//
+//    float factor = (animationTime - t1) / (t2 - t1);
+//    factor = glm::clamp(factor, 0.0f, 1.0f);
+//
+//    const aiVector3D& start = channel->mScalingKeys[index].mValue;
+//    const aiVector3D& end = channel->mScalingKeys[nextIndex].mValue;
+//
+//    return glm::mix(
+//        glm::vec3(start.x, start.y, start.z),
+//        glm::vec3(end.x, end.y, end.z),
+//        factor
+//    );
+//}
+//
+//const aiNodeAnim* FindNodeAnim(const aiAnimation* anim,
+//    const std::string& name)
+//{
+//    for (uint32_t i = 0; i < anim->mNumChannels; i++)
+//    {
+//        const aiNodeAnim* channel = anim->mChannels[i];
+//        if (name == channel->mNodeName.C_Str())
+//            return channel;
+//    }
+//    return nullptr;
+//}
+
+
+//// for skinned mesh
+//std::unordered_map<std::string, uint32_t> boneMapping; // bone name -> index
+//std::vector<glm::mat4> boneOffsetMatrices;// indexed by bone index
+//
+//
+//
+//void ReadNodeHierarchy(float animationTime,
+//    const aiAnimation* animation,
+//    aiNode* node,
+//    const glm::mat4& parentTransform)
+//{
+//    std::string nodeName(node->mName.C_Str());
+//
+//    // Node's default transform (bind pose)
+//    glm::mat4 nodeTransform =
+//        aiMat4ToGlm(node->mTransformation);
+//
+//    const aiNodeAnim* channel = FindNodeAnim(animation, nodeName);
+//
+//    // If animated, override bind transform
+//    if (channel)
+//    {
+//        glm::vec3 T = InterpolatePosition(animationTime, channel);
+//        glm::quat R = InterpolateRotation(animationTime, channel);
+//        glm::vec3 S = InterpolateScale(animationTime, channel);
+//
+//        nodeTransform =
+//            glm::translate(glm::mat4(1.0f), T) *
+//            glm::mat4_cast(R) *
+//            glm::scale(glm::mat4(1.0f), S);
+//    }
+//
+//    glm::mat4 globalTransform = parentTransform * nodeTransform;
+//
+//    // If this node corresponds to a bone, update final matrix
+//    auto it = boneMapping.find(nodeName);
+//    if (it != boneMapping.end())
+//    {
+//        uint32_t boneIndex = it->second;
+//
+//       // glm::mat4 finalTransformation = globalInverseTransform * globalTransform * boneOffsetMatrices[boneIndex];
+//
+//    }
+//
+//    // Recurse
+//    for (uint32_t i = 0; i < node->mNumChildren; i++)
+//    {
+//        ReadNodeHierarchy(animationTime,
+//            animation,
+//            node->mChildren[i],
+//            globalTransform);
+//    }
+//}
+//
+//VkResult LoadModel_Animated_PBR(const char* modelPath, VulkanComboData* vulkanComboData, bool index32)
+//{
+//    VkResult vkResult = VK_SUCCESS;
+//    // Similar implementation as LoadModel_Phong but for PBR-specific vertex structure
+//    // This function is a placeholder and should be implemented similarly to LoadModel_Phong
+//    VkResult ZzCreateVertexAndIndex16Buffer(
+//        const float* vertices, VkDeviceSize vertexBufferSize,
+//        const uint16_t * indices, VkDeviceSize indexBufferSize,
+//        VulkanComboData * vulkanComboData
+//    );
+//    VkResult ZzCreateVertexAndIndex32Buffer(
+//        const float* vertices, VkDeviceSize vertexBufferSize,
+//        const uint32_t * indices, VkDeviceSize indexBufferSize,
+//        VulkanComboData * vulkanComboData
+//    );
+//
+//    Assimp::Importer importer;
+//    const aiScene* scene = importer.ReadFile(modelPath,
+//          aiProcess_Triangulate             // ensure all faces are triangles
+//        | aiProcess_JoinIdenticalVertices   // remove duplicates (safe, keeps indices consistent)
+//        | aiProcess_GenSmoothNormals        // generate normals if missing
+//        | aiProcess_CalcTangentSpace        // tangents for normal mapping
+//        | aiProcess_LimitBoneWeights        // clamp to 4 bone weights per vertex (required for GPU skinning)
+//        | aiProcess_ImproveCacheLocality    // optimize vertex cache locality
+//        | aiProcess_SortByPType             // separate points/lines/triangles (we only want triangles)
+//		| aiProcess_FlipWindingOrder        // convert to Vulkan's right-handed coordinate system
+//    );
+//
+//    if (!scene || scene->mFlags & AI_SCENE_FLAGS_INCOMPLETE)
+//    {
+//        std::cerr << "Assimp Error: " << importer.GetErrorString() << std::endl;
+//        fprintf(gpFILE, "LoadModel_PBR_Skinned() : Assimp Importer::ReadFile() failed.\n");
+//        return VK_ERROR_INITIALIZATION_FAILED;
+//    }
+//    //std::cout << "Meshes: " << scene->mNumMeshes << std::endl;
+//
+//    std::vector<VertexData_Skinned> vkVertices;
+//
+//	// for skinned mesh
+//    uint32_t numBones = 0;
+//
+//    if (index32)
+//    {
+//        std::vector<uint32_t> vkIndices;
+//        // before looping meshes:
+//        boneMapping.clear();
+//        boneOffsetMatrices.clear();
+//        numBones = 0;
+//
+//        if (scene && scene->mRootNode) {
+//            for (unsigned int meshIndex = 0; meshIndex < scene->mNumMeshes; meshIndex++) {
+//                aiMesh* mesh = scene->mMeshes[meshIndex];
+//
+//                // Vertices
+//                for (unsigned int i = 0; i < mesh->mNumVertices; i++) {
+//                    VertexData_Skinned v{};
+//                    v.boneIDs = glm::ivec4(0);
+//                    v.boneWeights = glm::vec4(0.0f);
+//
+//                    // Position
+//                    if (mesh->HasPositions()) {
+//                        v.pos = glm::vec3(
+//                            mesh->mVertices[i].x,
+//                            mesh->mVertices[i].y,
+//                            mesh->mVertices[i].z
+//                        );
+//                    }
+//
+//                    // Normal
+//                    if (mesh->HasNormals())
+//                    {
+//                        v.normal = glm::vec3(
+//                            mesh->mNormals[i].x,
+//                            mesh->mNormals[i].y,
+//                            mesh->mNormals[i].z
+//                        );
+//                    }
+//                    else {
+//                        v.normal = glm::vec3(0.0f, 0.0f, 1.0f); // default fallback
+//                    }
+//
+//                    // TexCoords (Assimp supports 8 UV channels; we use channel 0)
+//                    if (mesh->HasTextureCoords(0))
+//                    {
+//                        v.texCoord = glm::vec2(
+//                            mesh->mTextureCoords[0][i].x,
+//                            mesh->mTextureCoords[0][i].y
+//                        );
+//                    }
+//                    else {
+//                        v.texCoord = glm::vec2(0.0f);
+//                    }
+//
+//                    // Vertex Tangents 
+//                    if (mesh->HasTangentsAndBitangents())
+//                    {
+//                        glm::vec3 tangent(
+//                            mesh->mTangents[i].x,
+//                            mesh->mTangents[i].y,
+//                            mesh->mTangents[i].z
+//                        );
+//
+//                        glm::vec3 bitangent(
+//                            mesh->mBitangents[i].x,
+//                            mesh->mBitangents[i].y,
+//                            mesh->mBitangents[i].z
+//                        );
+//
+//                        glm::vec3 normal = glm::normalize(v.normal);
+//                        tangent = glm::normalize(tangent);
+//
+//                        float handedness = (glm::dot(glm::cross(tangent, normal), bitangent) < 0.0f)? -1.0f: 1.0f;
+//                        v.tangent = glm::vec4(tangent, handedness);
+//                    }
+//                    else {
+//                        // Fallback: X-axis tangent, right-handed
+//                        v.tangent = glm::vec4(1.0f, 0.0f, 0.0f, 1.0f);
+//                    }
+//
+//                    vkVertices.push_back(v);
+//                }
+//
+//                // Indices (faces are always triangles if aiProcess_Triangulate is used)
+//                for (unsigned int f = 0; f < mesh->mNumFaces; f++) {
+//                    const aiFace& face = mesh->mFaces[f];
+//                    for (unsigned int j = 0; j < face.mNumIndices; j++) {
+//                        vkIndices.push_back(face.mIndices[j]);
+//                    }
+//                }
+//
+//                //bones
+//
+//                // inside mesh loop, after creating a temporary vertices[] array for this mesh:
+//                if (mesh->mNumBones > 0) {
+//                    for (unsigned int i = 0; i < mesh->mNumBones; ++i) {
+//                        std::string boneName(mesh->mBones[i]->mName.C_Str());
+//                        uint32_t boneIndex = 0;
+//                        if (boneMapping.find(boneName) == boneMapping.end()) {
+//                            boneIndex = numBones++;
+//                            boneMapping[boneName] = boneIndex;
+//
+//                            glm::mat4 offsetMatrix = aiMat4ToGlm(mesh->mBones[i]->mOffsetMatrix);
+//                            boneOffsetMatrices.push_back(offsetMatrix);
+//                        }
+//                        else {
+//                            boneIndex = boneMapping[boneName];
+//                        }
+//
+//                        // assign weights to the affected vertices (vertex indices are mesh-local)
+//                        for (unsigned int w = 0; w < mesh->mBones[i]->mNumWeights; ++w) {
+//                            unsigned int vertexID = mesh->mBones[i]->mWeights[w].mVertexId;
+//                            float weight = mesh->mBones[i]->mWeights[w].mWeight;
+//                            // make sure the vertex array exists and has the vertexID
+//                            //tmpVertices[vertexID].AddBoneData(boneIndex, weight);
+//
+//                            AddBoneDataToVertex(vkVertices[vertexID], boneIndex, weight);
+//
+//
+//                        }
+//                    }
+//                }
+//
+//                assert(boneOffsetMatrices.size() == numBones);
+//            }
+//
+//
+//        }
+//
+//        vulkanComboData->indicesCount = static_cast<uint32_t>(vkIndices.size());
+//
+//        //PBR model
+//        vkResult = ZzCreateVertexAndIndex32Buffer(
+//            (float*)vkVertices.data(), vkVertices.size() * sizeof(VertexData_Skinned),
+//            vkIndices.data(), vkIndices.size() * sizeof(uint32_t),
+//            vulkanComboData
+//        );
+//        if (vkResult != VK_SUCCESS)
+//        {
+//            fprintf(gpFILE, "initialize() : ZzCreateVetexAndIndexBuffer() for Animated PBR model failed (%d).\n", vkResult);
+//            return(vkResult);
+//        }
+//    }
+//    else
+//    {
+//        std::vector<uint16_t> vkIndices;
+//
+//        if (scene && scene->mRootNode) {
+//            for (unsigned int meshIndex = 0; meshIndex < scene->mNumMeshes; meshIndex++) {
+//                aiMesh* mesh = scene->mMeshes[meshIndex];
+//
+//                // Vertices
+//                for (unsigned int i = 0; i < mesh->mNumVertices; i++) {
+//                    VertexData_Skinned v{};
+//
+//                    // Position
+//                    if (mesh->HasPositions()) {
+//                        v.pos = glm::vec3(
+//                            mesh->mVertices[i].x,
+//                            mesh->mVertices[i].y,
+//                            mesh->mVertices[i].z
+//                        );
+//                    }
+//
+//                    // Normal
+//                    if (mesh->HasNormals())
+//                    {
+//                        v.normal = glm::vec3(
+//                            mesh->mNormals[i].x,
+//                            mesh->mNormals[i].y,
+//                            mesh->mNormals[i].z
+//                        );
+//                    }
+//                    else {
+//                        v.normal = glm::vec3(0.0f, 0.0f, 1.0f); // default fallback
+//                    }
+//
+//                    // TexCoords (Assimp supports 8 UV channels; we use channel 0)
+//                    if (mesh->HasTextureCoords(0))
+//                    {
+//                        v.texCoord = glm::vec2(
+//                            mesh->mTextureCoords[0][i].x,
+//                            mesh->mTextureCoords[0][i].y
+//                        );
+//                    }
+//                    else {
+//                        v.texCoord = glm::vec2(0.0f);
+//                    }
+//
+//                    // Vertex Tangents 
+//                    if (mesh->HasTangentsAndBitangents())
+//                    {
+//                        glm::vec3 tangent(
+//                            mesh->mTangents[i].x,
+//                            mesh->mTangents[i].y,
+//                            mesh->mTangents[i].z
+//                        );
+//
+//                        glm::vec3 bitangent(
+//                            mesh->mBitangents[i].x,
+//                            mesh->mBitangents[i].y,
+//                            mesh->mBitangents[i].z
+//                        );
+//
+//                        glm::vec3 normal = glm::normalize(v.normal);
+//                        tangent = glm::normalize(tangent);
+//
+//                        float handedness = (glm::dot(glm::cross(tangent, normal), bitangent) < 0.0f) ? -1.0f : 1.0f;
+//                        v.tangent = glm::vec4(tangent, handedness);
+//                    }
+//                    else{
+//                        // Fallback: X-axis tangent, right-handed
+//                        v.tangent = glm::vec4(1.0f, 0.0f, 0.0f, 1.0f);
+//                    }
+//
+//                    vkVertices.push_back(v);
+//                }
+//
+//                // Indices (faces are always triangles if aiProcess_Triangulate is used)
+//                for (unsigned int f = 0; f < mesh->mNumFaces; f++) {
+//                    const aiFace& face = mesh->mFaces[f];
+//                    for (unsigned int j = 0; j < face.mNumIndices; j++) {
+//                        vkIndices.push_back(face.mIndices[j]);
+//                    }
+//                }
+//            }
+//        }
+//
+//        vulkanComboData->indicesCount = static_cast<uint32_t>(vkIndices.size());
+//
+//        //Suzanne
+//        vkResult = ZzCreateVertexAndIndex16Buffer(
+//            (float*)vkVertices.data(), vkVertices.size() * sizeof(VertexData_Skinned),
+//            vkIndices.data(), vkIndices.size() * sizeof(uint16_t),
+//            vulkanComboData
+//        );
+//        if (vkResult != VK_SUCCESS)
+//        {
+//            fprintf(gpFILE, "initialize() : ZzCreateVetexAndIndexBuffer() for Animated PBR model failed (%d).\n", vkResult);
+//            return(vkResult);
+//        }
+//    }
+//
+//    return VK_SUCCESS;
+//}
 
 static VkResult initialLayoutTransitions(void)
 {
-    void transitionDepthImageLayout(VkCommandBuffer commandBuffer, VkImage image, VkImageLayout oldLayout, VkImageLayout newLayout);
+    void transitionDepthLayout(VkCommandBuffer commandBuffer, VkImage image, VkImageLayout oldLayout, VkImageLayout newLayout);
 
     VkResult vkResult = VK_SUCCESS;
 
@@ -1697,13 +1701,13 @@ static VkResult initialLayoutTransitions(void)
         return vkResult;
     }
 
-    transitionDepthImageLayout(
+    transitionDepthLayout(
         commandBuffer,
         gSwapChainResourceData.imageData_depthBuffer[0].vkImage,
         VK_IMAGE_LAYOUT_UNDEFINED,
         VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL
     );
-    transitionDepthImageLayout(
+    transitionDepthLayout(
         commandBuffer,
         gSwapChainResourceData.imageData_depthBuffer[1].vkImage,
         VK_IMAGE_LAYOUT_UNDEFINED,
@@ -1757,6 +1761,7 @@ VkResult initialize(void)
     VkResult LoadModel_Phong(const char* modelPath, VulkanComboData * vulkanComboData, bool index32);
     VkResult LoadModel_PBR(const char* modelPath, VulkanComboData * vulkanComboData, bool index32);
     VkResult LoadModel_Animated_PBR(const char* modelPath, VulkanComboData * vulkanComboData, bool index32);
+	VkResult createGlobalTextureDescriptorArray(void);
 
     //VkResult createVertexBuffer_uvQuad(void);
     VkResult createUniformBuffer(void);
@@ -2276,8 +2281,6 @@ VkResult initialize(void)
     pipelineRenderingInfo.depthAttachmentFormat = VK_FORMAT_D32_SFLOAT;
     pipelineRenderingInfo.stencilAttachmentFormat = VK_FORMAT_UNDEFINED;
 
-
-
 	init_info.UseDynamicRendering = VK_TRUE; // Enable dynamic rendering support
 	init_info.PipelineRenderingCreateInfo = pipelineRenderingInfo;
   
@@ -2308,14 +2311,14 @@ VkResult initialize(void)
     }
 
     //Rat
-    vkResult = LoadModel_Animated_PBR("Resources/Models/Test/Anim_Rat_Walk.FBX", &RatBufferData, true);
-    if (vkResult != VK_SUCCESS)
-    {
-        fprintf(gpFILE, "initialize() : Rat LoadModel_Animated_PBR()  failed (%d).\n", vkResult);
-        return(vkResult);
-    }
+    //vkResult = LoadModel_Animated_PBR("Resources/Models/Test/Anim_Rat_Walk.FBX", &RatBufferData, true);
+    //if (vkResult != VK_SUCCESS)
+    //{
+    //    fprintf(gpFILE, "initialize() : Rat LoadModel_Animated_PBR()  failed (%d).\n", vkResult);
+    //    return(vkResult);
+    //}
 
-    pModel_Rat = new AnimatedModel("Resources/Models/Test/Anim_Rat_Walk.FBX", true);
+    pModel_Rat = new AnimatedModel("Resources/Models/Test/RatWithMat.FBX", true, gpDescriptorSetLayouts->vkDescriptorSetLayout_BasicPBR);
 
     //createDescriptorSet_FrameDataBoneData
 	vkResult = createDescriptorSet_FrameDataBoneData();
@@ -2347,8 +2350,6 @@ VkResult initialize(void)
     }
 
 
-
-
     //--------------------------------------------------------------------------------------------------
 
 
@@ -2360,7 +2361,19 @@ VkResult initialize(void)
     );
     MyWin32::gProjectionMatrix[1][1] *= -1.0f; // flip the Y axis for Vulkan
 
+    //---------------------------------GlobalTextureDescriptorArray-----------------------------------
+
+	vkResult = createGlobalTextureDescriptorArray();
+    if (vkResult != VK_SUCCESS)
+    {
+        fprintf(gpFILE, "initialize() : createGlobalTextureDescriptorArray() failed (%d).\n", vkResult);
+        return(vkResult);
+	}
+
     //-------------------------------------------------------------------------------------
+
+
+    
 
     bInitialized = TRUE;
     fprintf(gpFILE, "initialize() : initialize complete.\n");
@@ -2369,6 +2382,7 @@ VkResult initialize(void)
 
 
     //-----------------------------------------------------------------------------
+
 
     return(vkResult);
 }
@@ -2918,6 +2932,8 @@ void uninitialize(void)
     void ZzDestroyIndexBuffer(VulkanData * vulkanData);
     void ZzDestroyVertexAndIndexBuffer(VulkanComboData * vulkanComboData);
 
+    VkResult destroyGlobalTextureDescriptorArray(void);
+
     // code
     // if application is exitting in fullscreen
     if (gbFullscreen == TRUE)
@@ -3076,7 +3092,7 @@ void uninitialize(void)
     ZzDestroyVertexAndIndexBuffer(&CubeBufferData);
     ZzDestroyVertexAndIndexBuffer(&SuzanneBufferData);
     ZzDestroyVertexAndIndexBuffer(&SphereBufferData);
-    ZzDestroyVertexAndIndexBuffer(&RatBufferData);
+    //ZzDestroyVertexAndIndexBuffer(&RatBufferData);
 
 	delete pModel_Rat;
 
@@ -3150,6 +3166,9 @@ void uninitialize(void)
 
     // Destroy swapchain resources
     destroySwapchainResources();
+
+	//global texture descriptor array
+	destroyGlobalTextureDescriptorArray();
 
 
     // Destroy Vulkan swapchain
@@ -4779,7 +4798,7 @@ VkResult getPhysicalDevice(void)
     /*
      * sub-step 9 : Declare a local structure variable VkPhysicalDeviceFeatures, memset() it and
      *              initialize it by calling vkGetPhysicalDeviceFeatures().
-     */
+     */ 
     VkPhysicalDeviceFeatures vkPhysicalDeviceFeatures;
     memset((void*)&vkPhysicalDeviceFeatures, 0, sizeof(VkPhysicalDeviceFeatures));
 
@@ -5110,11 +5129,31 @@ VkResult createVulkanDevice(void)
     timeline.timelineSemaphore = VK_TRUE;
     timeline.pNext = &dynamicRendering;
 
+    VkPhysicalDeviceDescriptorIndexingFeatures indexing{};
+    indexing.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_INDEXING_FEATURES;
+    indexing.runtimeDescriptorArray = VK_TRUE;
+    indexing.descriptorBindingPartiallyBound = VK_TRUE;
+    indexing.descriptorBindingVariableDescriptorCount = VK_TRUE;
+    indexing.shaderSampledImageArrayNonUniformIndexing = VK_TRUE; 
+    indexing.descriptorBindingSampledImageUpdateAfterBind = VK_TRUE;
+    indexing.descriptorBindingUpdateUnusedWhilePending = VK_TRUE;
+	indexing.pNext = &timeline;
+
+	//synchronization2
+
+	VkPhysicalDeviceSynchronization2Features sync2{};
+	sync2.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SYNCHRONIZATION_2_FEATURES;
+	sync2.synchronization2 = VK_TRUE;
+	sync2.pNext = &indexing;
+
+    //descriptorBindingSampledImageUpdateAfterBind
+    //descriptorBindingUpdateUnusedWhilePending
+
     VkPhysicalDeviceFeatures2 features2{};
     features2.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2;
 	features2.features.samplerAnisotropy = VK_TRUE; // enable anisotropic filtering
 	features2.features.tessellationShader = VK_TRUE; // enable tessellation shader
-    features2.pNext = &timeline;
+	features2.pNext = &sync2;
 
     VkDeviceCreateInfo vkDeviceCreateInfo;
     memset((void*)&vkDeviceCreateInfo, 0, sizeof(VkDeviceCreateInfo));
@@ -5338,6 +5377,90 @@ VkResult getPhysicalDevicePresentMode(void)
     }
 
     return(vkResult);
+}
+
+VkResult createGlobalTextureDescriptorArray(void)
+{
+    const uint32_t MAX_TEXTURES = 1024;
+    
+	VkResult vkResult = VK_SUCCESS; 
+
+    VkDescriptorPoolSize poolSize{};
+    poolSize.type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+    poolSize.descriptorCount = MAX_TEXTURES;
+
+    VkDescriptorPoolCreateInfo poolInfo{};
+    poolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
+    poolInfo.maxSets = 1;
+    poolInfo.poolSizeCount = 1;
+    poolInfo.pPoolSizes = &poolSize;
+
+
+    vkResult = vkCreateDescriptorPool(vkDevice, &poolInfo, nullptr, &global_textureArray_vkDescriptorPool);
+    if(vkResult != VK_SUCCESS)
+    {
+        fprintf(gpFILE, "createTextureIndexing() : vkCreateDescriptorPool() failed (%d).\n", vkResult);
+		return vkResult;
+	}
+
+
+    uint32_t variableCount = MAX_TEXTURES;
+
+    VkDescriptorSetVariableDescriptorCountAllocateInfo countInfo{};
+    countInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_VARIABLE_DESCRIPTOR_COUNT_ALLOCATE_INFO;
+    countInfo.descriptorSetCount = 1;
+    countInfo.pDescriptorCounts = &variableCount;
+
+    VkDescriptorSetAllocateInfo allocInfo{};
+    allocInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
+    allocInfo.pNext = &countInfo;
+    allocInfo.descriptorPool = global_textureArray_vkDescriptorPool;
+    allocInfo.descriptorSetCount = 1;
+    allocInfo.pSetLayouts = &gpDescriptorSetLayouts->vkDescriptorSetLayout_GlobalTextureArray;
+
+
+    vkResult = vkAllocateDescriptorSets(vkDevice, &allocInfo, &global_textureArray_vkDescriptorSet);
+    if (vkResult != VK_SUCCESS)
+    {
+        fprintf(gpFILE, "createTextureIndexing() : vkAllocateDescriptorSets() failed (%d).\n", vkResult);
+		return vkResult;
+
+    }
+
+
+	std::vector<VkDescriptorImageInfo> infos(global_textureArray.size());
+    for (size_t i = 0; i < global_textureArray.size(); i++)
+    {
+        infos[i].imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+        infos[i].imageView = global_textureArray[i]->vkImageView;
+		infos[i].sampler = global_textureArray[i]->vkSampler;
+    }
+
+    VkWriteDescriptorSet write{};
+    write.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+    write.dstSet = global_textureArray_vkDescriptorSet;
+    write.dstBinding = 0;
+    write.dstArrayElement = 0;
+    write.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+    write.descriptorCount = static_cast<uint32_t>(infos.size());
+    write.pImageInfo = infos.data();
+
+	vkUpdateDescriptorSets(vkDevice, 1, &write, 0, nullptr);
+
+
+	return vkResult;
+}
+
+VkResult destroyGlobalTextureDescriptorArray(void)
+{
+    if (global_textureArray_vkDescriptorPool)
+    {
+        vkDestroyDescriptorPool(vkDevice, global_textureArray_vkDescriptorPool, nullptr);
+        global_textureArray_vkDescriptorPool = VK_NULL_HANDLE;
+    }
+
+	return VK_SUCCESS;
+
 }
 
 VkResult createSamplers(void)
@@ -7854,7 +7977,7 @@ VkResult createDescriptorPool(void)
     VkDescriptorPoolSize vkDescriptorPoolSizes[] =
     {
         {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1 * MAX_FRAMES}, // descriptor type and descriptor count
-        {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 6 + 3 }, // descriptor type and descriptor count for combined image sampler
+        {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 6 + 3 +3}, // descriptor type and descriptor count for combined image sampler
 		{VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1 * MAX_FRAMES}, // descriptor type and descriptor count for storage buffer//bones
     };
 
@@ -7865,7 +7988,7 @@ VkResult createDescriptorPool(void)
     vkDescriptorPoolCreateInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
     vkDescriptorPoolCreateInfo.pNext = NULL;
     vkDescriptorPoolCreateInfo.flags = 0; // no flags
-    vkDescriptorPoolCreateInfo.maxSets = (2 * MAX_FRAMES) + 2 + 2; // maximum number of descriptor sets that can be allocated from this pool
+    vkDescriptorPoolCreateInfo.maxSets = (2 * MAX_FRAMES) + 2 + 2 + 1; // maximum number of descriptor sets that can be allocated from this pool
     vkDescriptorPoolCreateInfo.poolSizeCount = _ARRAYSIZE(vkDescriptorPoolSizes); // number of descriptor pool sizes
     vkDescriptorPoolCreateInfo.pPoolSizes = vkDescriptorPoolSizes;
 
@@ -8977,6 +9100,8 @@ void RenderPBR_Skinned(uint32_t curIndex)
     //pushConstants.model = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.0f, 0.0f));
     //ushConstants.model = glm::mat4(1.0f); // Identity matrix for no transformation
 
+	pushConstants.materialIDs = glm::uvec4(0, 1, 2, 0);
+    
 #ifdef IMGUI_ENABLE
     pushConstants.v3Color = v3Color;
     pushConstants.fFactor = fFactor;
@@ -8989,7 +9114,8 @@ void RenderPBR_Skinned(uint32_t curIndex)
     // Bind the pipeline and descriptor sets
     vkCmdBindPipeline(vkCommandBuffer_Array[curIndex], VK_PIPELINE_BIND_POINT_GRAPHICS, gpGraphicsPipelines->PBR_Skinned.vkPipeline);
 
-    VkDescriptorSet vkLocalDescriptorSets[] = { vkDescriptorSets_frameDataBoneData[curIndex],pMaterial_BasicPBR_GrassyGround->getDescriptorSet() };
+    VkDescriptorSet vkLocalDescriptorSets[] = { vkDescriptorSets_frameDataBoneData[curIndex],pModel_Rat->GetMaterialDescriptorSet(0),global_textureArray_vkDescriptorSet };
+  //  VkDescriptorSet vkLocalDescriptorSets[] = { vkDescriptorSets_frameDataBoneData[curIndex],pMaterial_BasicPBR_GrassyGround->getDescriptorSet() };
     vkCmdBindDescriptorSets(vkCommandBuffer_Array[curIndex], VK_PIPELINE_BIND_POINT_GRAPHICS, gpGraphicsPipelines->PBR_Skinned.vkPipelineLayout, 0, _ARRAYSIZE(vkLocalDescriptorSets), vkLocalDescriptorSets, 0, NULL);
 
     // Push the model matrix
@@ -9018,141 +9144,96 @@ void transitionImageLayout(
     VkImageLayout oldLayout,
     VkImageLayout newLayout)
 {
-    VkImageMemoryBarrier barrier{};
-    barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
-
-    barrier.oldLayout = oldLayout;
-    barrier.newLayout = newLayout;
+    VkImageMemoryBarrier2 barrier{
+        VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2
+    };
 
     barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
     barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+
+    barrier.oldLayout = oldLayout;
+    barrier.newLayout = newLayout;
 
     barrier.image = image;
 
     barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
     barrier.subresourceRange.baseMipLevel = 0;
-    barrier.subresourceRange.levelCount = 1;
+    barrier.subresourceRange.levelCount = VK_REMAINING_MIP_LEVELS;
     barrier.subresourceRange.baseArrayLayer = 0;
-    barrier.subresourceRange.layerCount = 1;
+    barrier.subresourceRange.layerCount = VK_REMAINING_ARRAY_LAYERS;
 
-    VkPipelineStageFlags srcStage;
-    VkPipelineStageFlags dstStage;
+    // ---- Transition logic ----
 
     if (oldLayout == VK_IMAGE_LAYOUT_UNDEFINED &&
         newLayout == VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL)
     {
-        barrier.srcAccessMask = 0;
-        barrier.dstAccessMask =
-            VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT |
-            VK_ACCESS_COLOR_ATTACHMENT_READ_BIT;
+        barrier.srcStageMask = VK_PIPELINE_STAGE_2_NONE;
+        barrier.srcAccessMask = VK_ACCESS_2_NONE;
 
-        srcStage = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
-        dstStage = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+        barrier.dstStageMask = VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT;
+        barrier.dstAccessMask =
+            VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT |
+            VK_ACCESS_2_COLOR_ATTACHMENT_READ_BIT;
     }
     else if (oldLayout == VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL &&
         newLayout == VK_IMAGE_LAYOUT_PRESENT_SRC_KHR)
     {
-        barrier.srcAccessMask =
-            VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
-        barrier.dstAccessMask = 0;
+        barrier.srcStageMask = VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT;
+        barrier.srcAccessMask = VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT;
 
-        srcStage = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-        dstStage = VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT;
+        barrier.dstStageMask = VK_PIPELINE_STAGE_2_NONE;
+        barrier.dstAccessMask = VK_ACCESS_2_NONE;
     }
     else
     {
         throw std::runtime_error("Unsupported layout transition");
     }
 
-    vkCmdPipelineBarrier(
-        cmd,
-        srcStage, dstStage,
-        0,
-        0, nullptr,
-        0, nullptr,
-        1, &barrier);
+    VkDependencyInfo dep{
+        VK_STRUCTURE_TYPE_DEPENDENCY_INFO
+    };
+    dep.imageMemoryBarrierCount = 1;
+    dep.pImageMemoryBarriers = &barrier;
+
+    vkCmdPipelineBarrier2(cmd, &dep);
 }
 
-void transitionDepthImageLayout(
+void transitionDepthLayout(
     VkCommandBuffer cmd,
     VkImage image,
     VkImageLayout oldLayout,
     VkImageLayout newLayout)
 {
-    VkImageMemoryBarrier barrier{};
-    barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+    VkImageMemoryBarrier2 barrier{
+        VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2
+    };
+
+    barrier.srcStageMask = VK_PIPELINE_STAGE_2_NONE;
+    barrier.srcAccessMask = VK_ACCESS_2_NONE;
+
+    barrier.dstStageMask =
+        VK_PIPELINE_STAGE_2_EARLY_FRAGMENT_TESTS_BIT |
+        VK_PIPELINE_STAGE_2_LATE_FRAGMENT_TESTS_BIT;
+
+    barrier.dstAccessMask =
+        VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
 
     barrier.oldLayout = oldLayout;
     barrier.newLayout = newLayout;
 
-    barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-    barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-
     barrier.image = image;
 
-    // depth only
-    barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT;
-    barrier.subresourceRange.baseMipLevel = 0;
-    barrier.subresourceRange.levelCount = 1;
-    barrier.subresourceRange.baseArrayLayer = 0;
-    barrier.subresourceRange.layerCount = 1;
+    barrier.subresourceRange.aspectMask =
+        VK_IMAGE_ASPECT_DEPTH_BIT;
+    barrier.subresourceRange.levelCount = VK_REMAINING_MIP_LEVELS;
+    barrier.subresourceRange.layerCount = VK_REMAINING_ARRAY_LAYERS;
 
-    VkPipelineStageFlags srcStage;
-    VkPipelineStageFlags dstStage;
+    VkDependencyInfo dep{ VK_STRUCTURE_TYPE_DEPENDENCY_INFO };
+    dep.imageMemoryBarrierCount = 1;
+    dep.pImageMemoryBarriers = &barrier;
 
-    // UNDEFINED -> DEPTH ATTACHMENT
-    if (oldLayout == VK_IMAGE_LAYOUT_UNDEFINED &&
-        newLayout == VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL)
-    {
-        barrier.srcAccessMask = 0;
-        barrier.dstAccessMask =
-            VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT |
-            VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
-
-        srcStage = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
-        dstStage = VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;
-    }
-    // DEPTH ATTACHMENT -> SHADER READ (shadow maps)
-    else if (oldLayout == VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL &&
-        newLayout == VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL)
-    {
-        barrier.srcAccessMask =
-            VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
-
-        barrier.dstAccessMask =
-            VK_ACCESS_SHADER_READ_BIT;
-
-        srcStage = VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT;
-        dstStage = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
-    }
-    // SHADER READ -> DEPTH ATTACHMENT (reuse)
-    else if (oldLayout == VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL &&
-        newLayout == VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL)
-    {
-        barrier.srcAccessMask =
-            VK_ACCESS_SHADER_READ_BIT;
-
-        barrier.dstAccessMask =
-            VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
-
-        srcStage = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
-        dstStage = VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;
-    }
-    else
-    {
-        throw std::runtime_error("Unsupported depth layout transition");
-    }
-
-    vkCmdPipelineBarrier(
-        cmd,
-        srcStage,
-        dstStage,
-        0,
-        0, nullptr,
-        0, nullptr,
-        1, &barrier);
+    vkCmdPipelineBarrier2(cmd, &dep);
 }
-
 
 
 VkResult buildCommandBuffers(uint32_t curIndex, uint32_t currentImageIndex)

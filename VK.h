@@ -77,6 +77,7 @@ struct PushConstants
 	glm::mat4 model;
 	glm::vec3 v3Color;
 	float fFactor;
+	glm::uvec4 materialIDs;
 };
 
 //win32
@@ -132,6 +133,8 @@ typedef struct
 	VkImage        vkImage;
 	VkDeviceMemory vkDeviceMemory;
 	VkImageView    vkImageView;
+	uint32_t       globalTextureArrayIndex; // index in the global texture array, used for descriptor sets
+	VkSampler	   vkSampler; // sampler for this image (if needed)
 }ImageData;
 
 typedef struct
