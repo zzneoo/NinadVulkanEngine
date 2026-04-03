@@ -1,4 +1,18 @@
-# VulkanPerspectiveTriangle
+# ModernVulkanEngine
+
+An in-progress Vulkan-based real-time rendering engine focused on exploring modern GPU-driven rendering techniques, physically based shading, and scalable engine architecture. The project is actively evolving with ongoing integration of advanced rendering features.
+
+---
+
+
+
+
+
+
+
+
+
+//------------------------------------------------------------------------------------------------//
 
 glslangValidator.exe -V -H -o shader.vert.spv "C:\Users\Ninad\source\repos\BlueScreen\shader.vert"
 
@@ -7,19 +21,8 @@ glslangValidator.exe -V -H -o shader.vert.spv "C:\Users\Ninad\source\repos\BlueS
 .\texconv.exe "FilePath" -f BC7_UNORM -w 4096 -h 4096 -m 0 -y  -o .
 
 //-----------------------------------------------------------------------------------------------//
-vkDescriptorPool -->VkDescriptorSet   
-VkDescriptorSetLayout -->VkDescriptorSet  
-
-VkWriteDescriptorSet(VkDescriptorSet)
-
-VkDescriptorSetLayout(VkDescriptorSetLayoutBinding)
-VkPipelineLayout(VkDescriptorSetLayout)
 
 
-//-----------------------------------------------------------------------------------------------//
 
-Next to do...
-0) convert coloredQuad to uvQuad(pipeline + uv attribute)
-1) group together pipeline and pipelineLayout
-2) Billboard(start with uv quad)
+
 
