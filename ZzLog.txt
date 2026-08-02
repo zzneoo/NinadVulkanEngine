@@ -21,7 +21,7 @@ getPhysicalDevice() : Selected physical device supports tessellation shader.
 getPhysicalDevice() : Selected physical device supports geometry shader.
 --------------------------Vulkan Info--------------------------
 -------------------------------------------------------------------------------------
-printVkInfo() : API Version = 1.4.325
+printVkInfo() : API Version = 1.4.341
 printVkInfo() : Device Name = NVIDIA GeForce RTX 4090
 printVkInfo() : Device Type = Discrete GPU (dGPU)
 printVkInfo() : Vendor ID   = 0x10de

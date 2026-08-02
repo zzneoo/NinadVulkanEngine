@@ -3,8 +3,9 @@
 #include "DescriptorSetLayouts.h"
 #include <windows.h>
 #include <vector>
+#include "VulkanContext.h"
 
-extern VkDevice vkDevice;
+//extern VkDevice vkDevice;
 extern DescriptorSetLayouts* gpDescriptorSetLayouts;
 extern FILE* gpFILE;
 extern VkViewport vkViewport;

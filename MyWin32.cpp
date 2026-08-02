@@ -1,7 +1,6 @@
 #pragma once
 #include"MyWin32.h"
 
-	HWND MyWin32::hwnd = nullptr;
 
 	CamStruct MyWin32::myCamStruct = {};
 	ClientSize  MyWin32::myClientSize = {};

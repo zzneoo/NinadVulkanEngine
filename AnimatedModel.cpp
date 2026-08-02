@@ -18,7 +18,7 @@ AnimatedModel::AnimatedModel(const char* modelPath, bool index32,VkDescriptorSet
 
     for (uint32_t i = 0; i < 2; ++i)
     {
-        VkResult res = createSSBO(vkDevice, vkPhysicalDevice_Selected, boneSSBO[i]);
+        VkResult res = createSSBO(gVulkanContext.vkDevice, gVulkanContext.vkPhysicalDevice, boneSSBO[i]);
         if (res != VK_SUCCESS)
             throw std::runtime_error("Failed to create bone SSBO");
     }
@@ -32,9 +32,9 @@ AnimatedModel::~AnimatedModel()
     {
         if (boneSSBO[i].vkBuffer != VK_NULL_HANDLE)
         {
-            vkUnmapMemory(vkDevice, boneSSBO[i].vkDeviceMemory);
-            vkDestroyBuffer(vkDevice, boneSSBO[i].vkBuffer, nullptr);
-            vkFreeMemory(vkDevice, boneSSBO[i].vkDeviceMemory, nullptr);
+            vkUnmapMemory(gVulkanContext.vkDevice, boneSSBO[i].vkDeviceMemory);
+            vkDestroyBuffer(gVulkanContext.vkDevice, boneSSBO[i].vkBuffer, nullptr);
+            vkFreeMemory(gVulkanContext.vkDevice, boneSSBO[i].vkDeviceMemory, nullptr);
             boneSSBO[i].vkBuffer = VK_NULL_HANDLE;
             boneSSBO[i].vkDeviceMemory = VK_NULL_HANDLE;
             boneSSBO[i].mapped = nullptr;
@@ -730,7 +730,7 @@ VkResult AnimatedModel::ZzCreateVertexBuffer(const float* vertices, VkDeviceSize
     vkBufferCreateInfo_stagingBuffer.sharingMode = VK_SHARING_MODE_EXCLUSIVE; // not sharing with other queues
 
     // Call vkCreateBuffer() to create the staging buffer
-    vkResult = vkCreateBuffer(vkDevice, &vkBufferCreateInfo_stagingBuffer, NULL, &vertexData_stagingBffer_position.vkBuffer);
+    vkResult = vkCreateBuffer(gVulkanContext.vkDevice, &vkBufferCreateInfo_stagingBuffer, NULL, &vertexData_stagingBffer_position.vkBuffer);
     if (vkResult != VK_SUCCESS)
     {
         fprintf(gpFILE, "createVertexBuffer() -> vkCreateBuffer():  failed.\n");
@@ -742,7 +742,7 @@ VkResult AnimatedModel::ZzCreateVertexBuffer(const float* vertices, VkDeviceSize
     VkMemoryRequirements vkMemoryRequirements_stagingBuffer;
     memset((void*)&vkMemoryRequirements_stagingBuffer, 0, sizeof(vkMemoryRequirements_stagingBuffer));
 
-    vkGetBufferMemoryRequirements(vkDevice, vertexData_stagingBffer_position.vkBuffer, &vkMemoryRequirements_stagingBuffer);
+    vkGetBufferMemoryRequirements(gVulkanContext.vkDevice, vertexData_stagingBffer_position.vkBuffer, &vkMemoryRequirements_stagingBuffer);
     //------------
     // Allocate memory for the staging buffer
     VkMemoryAllocateInfo vkMemoryAllocateInfo_stagingBuffer;
@@ -753,11 +753,11 @@ VkResult AnimatedModel::ZzCreateVertexBuffer(const float* vertices, VkDeviceSize
     vkMemoryAllocateInfo_stagingBuffer.memoryTypeIndex = 0;
     //-------------
     // Find a suitable memory type for the staging buffer
-    for (uint32_t i = 0; i < vkPhysicalDeviceMemoryProperties.memoryTypeCount; i++)
+    for (uint32_t i = 0; i < gVulkanContext.vkPhysicalDeviceMemoryProperties.memoryTypeCount; i++)
     {
         if ((vkMemoryRequirements_stagingBuffer.memoryTypeBits & 1) == 1)
         {
-            if (vkPhysicalDeviceMemoryProperties.memoryTypes[i].propertyFlags & (VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT)) // host visible and coherent memory(no need to manage vulkan cache  for flushing or mapping)
+            if (gVulkanContext.vkPhysicalDeviceMemoryProperties.memoryTypes[i].propertyFlags & (VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT)) // host visible and coherent memory(no need to manage vulkan cache  for flushing or mapping)
             {
                 vkMemoryAllocateInfo_stagingBuffer.memoryTypeIndex = i;
                 break;
@@ -769,7 +769,7 @@ VkResult AnimatedModel::ZzCreateVertexBuffer(const float* vertices, VkDeviceSize
 
     //--------------  
     // Allocate memory for the staging buffer
-    vkResult = vkAllocateMemory(vkDevice, &vkMemoryAllocateInfo_stagingBuffer, NULL, &vertexData_stagingBffer_position.vkDeviceMemory);
+    vkResult = vkAllocateMemory(gVulkanContext.vkDevice, &vkMemoryAllocateInfo_stagingBuffer, NULL, &vertexData_stagingBffer_position.vkDeviceMemory);
     if (vkResult != VK_SUCCESS)
     {
         fprintf(gpFILE, "createVertexBuffer() -> vkAllocateMemory() :  failed.\n");
@@ -778,7 +778,7 @@ VkResult AnimatedModel::ZzCreateVertexBuffer(const float* vertices, VkDeviceSize
 
     //---------------
     // Bind the staging buffer memory to the staging buffer
-    vkResult = vkBindBufferMemory(vkDevice, vertexData_stagingBffer_position.vkBuffer, vertexData_stagingBffer_position.vkDeviceMemory, 0);
+    vkResult = vkBindBufferMemory(gVulkanContext.vkDevice, vertexData_stagingBffer_position.vkBuffer, vertexData_stagingBffer_position.vkDeviceMemory, 0);
     if (vkResult != VK_SUCCESS)
     {
         fprintf(gpFILE, "createVertexBuffer() -> vkBindBufferMemory() :  failed.\n");
@@ -787,7 +787,7 @@ VkResult AnimatedModel::ZzCreateVertexBuffer(const float* vertices, VkDeviceSize
 
     //----------------
     void* data = NULL;
-    vkResult = vkMapMemory(vkDevice, vertexData_stagingBffer_position.vkDeviceMemory, 0, vkMemoryAllocateInfo_stagingBuffer.allocationSize, 0, &data);
+    vkResult = vkMapMemory(gVulkanContext.vkDevice, vertexData_stagingBffer_position.vkDeviceMemory, 0, vkMemoryAllocateInfo_stagingBuffer.allocationSize, 0, &data);
     if (vkResult != VK_SUCCESS)
     {
         fprintf(gpFILE, "createVertexBuffer() -> vkMapMemory() :  failed.\n");
@@ -798,7 +798,7 @@ VkResult AnimatedModel::ZzCreateVertexBuffer(const float* vertices, VkDeviceSize
     //-------actual memory mapped io
     memcpy(data, vertices, vertexBufferSize);
     //-------unmap memory
-    vkUnmapMemory(vkDevice, vertexData_stagingBffer_position.vkDeviceMemory);
+    vkUnmapMemory(gVulkanContext.vkDevice, vertexData_stagingBffer_position.vkDeviceMemory);
 
     //-----------------------------------------------------------------------------------
 
@@ -813,7 +813,7 @@ VkResult AnimatedModel::ZzCreateVertexBuffer(const float* vertices, VkDeviceSize
     vkBufferCreateInfo_deviceBuffer.usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT; // device buffer is used for vertex buffer and transfer destination
     vkBufferCreateInfo_deviceBuffer.sharingMode = VK_SHARING_MODE_EXCLUSIVE; // not sharing with other queues
 
-    vkResult = vkCreateBuffer(vkDevice, &vkBufferCreateInfo_deviceBuffer, NULL, &vulkanData->vkBuffer);
+    vkResult = vkCreateBuffer(gVulkanContext.vkDevice, &vkBufferCreateInfo_deviceBuffer, NULL, &vulkanData->vkBuffer);
     if (vkResult != VK_SUCCESS)
     {
         fprintf(gpFILE, "createVertexBuffer() -> vkCreateBuffer():  failed.\n");
@@ -825,7 +825,7 @@ VkResult AnimatedModel::ZzCreateVertexBuffer(const float* vertices, VkDeviceSize
     // Get memory requirements for the device local buffer
     VkMemoryRequirements vkMemoryRequirements_deviceBuffer;
     memset((void*)&vkMemoryRequirements_deviceBuffer, 0, sizeof(vkMemoryRequirements_deviceBuffer));
-    vkGetBufferMemoryRequirements(vkDevice, vulkanData->vkBuffer, &vkMemoryRequirements_deviceBuffer);
+    vkGetBufferMemoryRequirements(gVulkanContext.vkDevice, vulkanData->vkBuffer, &vkMemoryRequirements_deviceBuffer);
     //------------
     // Allocate memory for the device local buffer
     VkMemoryAllocateInfo vkMemoryAllocateInfo_deviceBuffer;
@@ -837,11 +837,11 @@ VkResult AnimatedModel::ZzCreateVertexBuffer(const float* vertices, VkDeviceSize
     //-------------
     // Find a suitable memory type for the device local buffer
 
-    for (uint32_t i = 0; i < vkPhysicalDeviceMemoryProperties.memoryTypeCount; i++)
+    for (uint32_t i = 0; i < gVulkanContext.vkPhysicalDeviceMemoryProperties.memoryTypeCount; i++)
     {
         if ((vkMemoryRequirements_deviceBuffer.memoryTypeBits & 1) == 1)
         {
-            if (vkPhysicalDeviceMemoryProperties.memoryTypes[i].propertyFlags & VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT) // device local memory
+            if (gVulkanContext.vkPhysicalDeviceMemoryProperties.memoryTypes[i].propertyFlags & VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT) // device local memory
             {
                 vkMemoryAllocateInfo_deviceBuffer.memoryTypeIndex = i;
                 break;
@@ -853,7 +853,7 @@ VkResult AnimatedModel::ZzCreateVertexBuffer(const float* vertices, VkDeviceSize
 
     //--------------
     // Allocate memory for the device local buffer
-    vkResult = vkAllocateMemory(vkDevice, &vkMemoryAllocateInfo_deviceBuffer, NULL, &vulkanData->vkDeviceMemory);
+    vkResult = vkAllocateMemory(gVulkanContext.vkDevice, &vkMemoryAllocateInfo_deviceBuffer, NULL, &vulkanData->vkDeviceMemory);
 
     if (vkResult != VK_SUCCESS)
     {
@@ -863,7 +863,7 @@ VkResult AnimatedModel::ZzCreateVertexBuffer(const float* vertices, VkDeviceSize
 
     //---------------
     // Bind the device local buffer memory to the device local buffer
-    vkResult = vkBindBufferMemory(vkDevice, vulkanData->vkBuffer, vulkanData->vkDeviceMemory, 0);
+    vkResult = vkBindBufferMemory(gVulkanContext.vkDevice, vulkanData->vkBuffer, vulkanData->vkDeviceMemory, 0);
     if (vkResult != VK_SUCCESS)
     {
         fprintf(gpFILE, "createVertexBuffer() -> vkBindBufferMemory() :  failed.\n");
@@ -877,12 +877,12 @@ VkResult AnimatedModel::ZzCreateVertexBuffer(const float* vertices, VkDeviceSize
     memset((void*)&vkCommandBufferAllocateInfo, 0, sizeof(VkCommandBufferAllocateInfo));
     vkCommandBufferAllocateInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
     vkCommandBufferAllocateInfo.pNext = NULL;
-    vkCommandBufferAllocateInfo.commandPool = vkCommandPool;
+    vkCommandBufferAllocateInfo.commandPool = gVulkanContext.vkCommandPool;
     vkCommandBufferAllocateInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
     vkCommandBufferAllocateInfo.commandBufferCount = 1;
 
     VkCommandBuffer vkCommandBuffer_Copy = VK_NULL_HANDLE;
-    vkResult = vkAllocateCommandBuffers(vkDevice, &vkCommandBufferAllocateInfo, &vkCommandBuffer_Copy);
+    vkResult = vkAllocateCommandBuffers(gVulkanContext.vkDevice, &vkCommandBufferAllocateInfo, &vkCommandBuffer_Copy);
     if (vkResult != VK_SUCCESS)
     {
         fprintf(gpFILE, "createVertexBuffer() -> vkAllocateCommandBuffers() :  failed.\n");
@@ -940,7 +940,7 @@ VkResult AnimatedModel::ZzCreateVertexBuffer(const float* vertices, VkDeviceSize
     vkSubmitInfo.pSignalSemaphores = NULL; // no signal semaphores
 
 
-    vkResult = vkQueueSubmit(vkQueue, 1, &vkSubmitInfo, VK_NULL_HANDLE);
+    vkResult = vkQueueSubmit(gVulkanContext.vkGraphicsQueue, 1, &vkSubmitInfo, VK_NULL_HANDLE);
     if (vkResult != VK_SUCCESS)
     {
         fprintf(gpFILE, "createVertexBuffer() -> vkQueueSubmit() :  failed.\n");
@@ -948,7 +948,7 @@ VkResult AnimatedModel::ZzCreateVertexBuffer(const float* vertices, VkDeviceSize
     }
 
     // Wait for the queue to finish processing
-    vkResult = vkQueueWaitIdle(vkQueue);
+    vkResult = vkQueueWaitIdle(gVulkanContext.vkGraphicsQueue);
     if (vkResult != VK_SUCCESS)
     {
         fprintf(gpFILE, "createVertexBuffer() -> vkQueueWaitIdle() :  failed.\n");
@@ -960,7 +960,7 @@ VkResult AnimatedModel::ZzCreateVertexBuffer(const float* vertices, VkDeviceSize
     // Free the staging buffer
     if (vertexData_stagingBffer_position.vkBuffer)
     {
-        vkDestroyBuffer(vkDevice, vertexData_stagingBffer_position.vkBuffer, NULL);
+        vkDestroyBuffer(gVulkanContext.vkDevice, vertexData_stagingBffer_position.vkBuffer, NULL);
         vertexData_stagingBffer_position.vkBuffer = VK_NULL_HANDLE;
     }
 
@@ -968,7 +968,7 @@ VkResult AnimatedModel::ZzCreateVertexBuffer(const float* vertices, VkDeviceSize
     // Free the staging buffer memory
     if (vertexData_stagingBffer_position.vkDeviceMemory)
     {
-        vkFreeMemory(vkDevice, vertexData_stagingBffer_position.vkDeviceMemory, NULL);
+        vkFreeMemory(gVulkanContext.vkDevice, vertexData_stagingBffer_position.vkDeviceMemory, NULL);
         vertexData_stagingBffer_position.vkDeviceMemory = VK_NULL_HANDLE;
     }
 
@@ -978,7 +978,7 @@ VkResult AnimatedModel::ZzCreateVertexBuffer(const float* vertices, VkDeviceSize
 
     if (vkCommandBuffer_Copy)
     {
-        vkFreeCommandBuffers(vkDevice, vkCommandPool, 1, &vkCommandBuffer_Copy);
+        vkFreeCommandBuffers(gVulkanContext.vkDevice, gVulkanContext.vkCommandPool, 1, &vkCommandBuffer_Copy);
         vkCommandBuffer_Copy = VK_NULL_HANDLE;
     }
 
@@ -1002,7 +1002,7 @@ VkResult AnimatedModel::ZzCreateIndex16Buffer(const uint16_t* indices, VkDeviceS
     vkBufferCreateInfo.size = indexBufferSize;
     vkBufferCreateInfo.usage = VK_BUFFER_USAGE_INDEX_BUFFER_BIT;
 
-    vkResult = vkCreateBuffer(vkDevice, &vkBufferCreateInfo, NULL, &vulkanData->vkBuffer);
+    vkResult = vkCreateBuffer(gVulkanContext.vkDevice, &vkBufferCreateInfo, NULL, &vulkanData->vkBuffer);
 
     if (vkResult != VK_SUCCESS)
     {
@@ -1014,7 +1014,7 @@ VkResult AnimatedModel::ZzCreateIndex16Buffer(const uint16_t* indices, VkDeviceS
     VkMemoryRequirements vkMemoryRequirements;
     memset((void*)&vkMemoryRequirements, 0, sizeof(vkMemoryRequirements));
 
-    vkGetBufferMemoryRequirements(vkDevice, vulkanData->vkBuffer, &vkMemoryRequirements);
+    vkGetBufferMemoryRequirements(gVulkanContext.vkDevice, vulkanData->vkBuffer, &vkMemoryRequirements);
 
     //------------
     VkMemoryAllocateInfo vkMemoryAllocateInfo;
@@ -1026,11 +1026,11 @@ VkResult AnimatedModel::ZzCreateIndex16Buffer(const uint16_t* indices, VkDeviceS
     vkMemoryAllocateInfo.memoryTypeIndex = 0;
 
     //-------------
-    for (uint32_t i = 0; i < vkPhysicalDeviceMemoryProperties.memoryTypeCount; i++)
+    for (uint32_t i = 0; i < gVulkanContext.vkPhysicalDeviceMemoryProperties.memoryTypeCount; i++)
     {
         if ((vkMemoryRequirements.memoryTypeBits & 1) == 1)
         {
-            if (vkPhysicalDeviceMemoryProperties.memoryTypes[i].propertyFlags & VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT)
+            if (gVulkanContext.vkPhysicalDeviceMemoryProperties.memoryTypes[i].propertyFlags & VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT)
             {
                 vkMemoryAllocateInfo.memoryTypeIndex = i;
                 break;
@@ -1041,7 +1041,7 @@ VkResult AnimatedModel::ZzCreateIndex16Buffer(const uint16_t* indices, VkDeviceS
     }
 
     //--------------
-    vkResult = vkAllocateMemory(vkDevice, &vkMemoryAllocateInfo, NULL, &vulkanData->vkDeviceMemory);
+    vkResult = vkAllocateMemory(gVulkanContext.vkDevice, &vkMemoryAllocateInfo, NULL, &vulkanData->vkDeviceMemory);
     if (vkResult != VK_SUCCESS)
     {
         fprintf(gpFILE, "createVertexBuffer() -> vkAllocateMemory() :  failed.\n");
@@ -1050,7 +1050,7 @@ VkResult AnimatedModel::ZzCreateIndex16Buffer(const uint16_t* indices, VkDeviceS
 
 
     //---------------
-    vkResult = vkBindBufferMemory(vkDevice, vulkanData->vkBuffer, vulkanData->vkDeviceMemory, 0);
+    vkResult = vkBindBufferMemory(gVulkanContext.vkDevice, vulkanData->vkBuffer, vulkanData->vkDeviceMemory, 0);
     if (vkResult != VK_SUCCESS)
     {
         fprintf(gpFILE, "createVertexBuffer() -> vkBindBufferMemory() :  failed.\n");
@@ -1060,7 +1060,7 @@ VkResult AnimatedModel::ZzCreateIndex16Buffer(const uint16_t* indices, VkDeviceS
 
     //----------------
     void* dataIndex = NULL;
-    vkResult = vkMapMemory(vkDevice, vulkanData->vkDeviceMemory, 0, vkMemoryAllocateInfo.allocationSize, 0, &dataIndex);
+    vkResult = vkMapMemory(gVulkanContext.vkDevice, vulkanData->vkDeviceMemory, 0, vkMemoryAllocateInfo.allocationSize, 0, &dataIndex);
     if (vkResult != VK_SUCCESS)
     {
         fprintf(gpFILE, "createVertexBuffer() -> vkMapMemory() :  failed.\n");
@@ -1072,7 +1072,7 @@ VkResult AnimatedModel::ZzCreateIndex16Buffer(const uint16_t* indices, VkDeviceS
     memcpy(dataIndex, indices, indexBufferSize);
 
     //-------unmap memory
-    vkUnmapMemory(vkDevice, vulkanData->vkDeviceMemory);
+    vkUnmapMemory(gVulkanContext.vkDevice, vulkanData->vkDeviceMemory);
 
     return vkResult;
 }
@@ -1094,7 +1094,7 @@ VkResult AnimatedModel::ZzCreateIndex32Buffer(const uint32_t* indices, VkDeviceS
     vkBufferCreateInfo.size = indexBufferSize;
     vkBufferCreateInfo.usage = VK_BUFFER_USAGE_INDEX_BUFFER_BIT;
 
-    vkResult = vkCreateBuffer(vkDevice, &vkBufferCreateInfo, NULL, &vulkanData->vkBuffer);
+    vkResult = vkCreateBuffer(gVulkanContext.vkDevice, &vkBufferCreateInfo, NULL, &vulkanData->vkBuffer);
 
     if (vkResult != VK_SUCCESS)
     {
@@ -1106,7 +1106,7 @@ VkResult AnimatedModel::ZzCreateIndex32Buffer(const uint32_t* indices, VkDeviceS
     VkMemoryRequirements vkMemoryRequirements;
     memset((void*)&vkMemoryRequirements, 0, sizeof(vkMemoryRequirements));
 
-    vkGetBufferMemoryRequirements(vkDevice, vulkanData->vkBuffer, &vkMemoryRequirements);
+    vkGetBufferMemoryRequirements(gVulkanContext.vkDevice, vulkanData->vkBuffer, &vkMemoryRequirements);
 
     //------------
     VkMemoryAllocateInfo vkMemoryAllocateInfo;
@@ -1118,11 +1118,11 @@ VkResult AnimatedModel::ZzCreateIndex32Buffer(const uint32_t* indices, VkDeviceS
     vkMemoryAllocateInfo.memoryTypeIndex = 0;
 
     //-------------
-    for (uint32_t i = 0; i < vkPhysicalDeviceMemoryProperties.memoryTypeCount; i++)
+    for (uint32_t i = 0; i < gVulkanContext.vkPhysicalDeviceMemoryProperties.memoryTypeCount; i++)
     {
         if ((vkMemoryRequirements.memoryTypeBits & 1) == 1)
         {
-            if (vkPhysicalDeviceMemoryProperties.memoryTypes[i].propertyFlags & VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT)
+            if (gVulkanContext.vkPhysicalDeviceMemoryProperties.memoryTypes[i].propertyFlags & VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT)
             {
                 vkMemoryAllocateInfo.memoryTypeIndex = i;
                 break;
@@ -1133,7 +1133,7 @@ VkResult AnimatedModel::ZzCreateIndex32Buffer(const uint32_t* indices, VkDeviceS
     }
 
     //--------------
-    vkResult = vkAllocateMemory(vkDevice, &vkMemoryAllocateInfo, NULL, &vulkanData->vkDeviceMemory);
+    vkResult = vkAllocateMemory(gVulkanContext.vkDevice, &vkMemoryAllocateInfo, NULL, &vulkanData->vkDeviceMemory);
     if (vkResult != VK_SUCCESS)
     {
         fprintf(gpFILE, "createVertexBuffer() -> vkAllocateMemory() :  failed.\n");
@@ -1142,7 +1142,7 @@ VkResult AnimatedModel::ZzCreateIndex32Buffer(const uint32_t* indices, VkDeviceS
 
 
     //---------------
-    vkResult = vkBindBufferMemory(vkDevice, vulkanData->vkBuffer, vulkanData->vkDeviceMemory, 0);
+    vkResult = vkBindBufferMemory(gVulkanContext.vkDevice, vulkanData->vkBuffer, vulkanData->vkDeviceMemory, 0);
     if (vkResult != VK_SUCCESS)
     {
         fprintf(gpFILE, "createVertexBuffer() -> vkBindBufferMemory() :  failed.\n");
@@ -1152,7 +1152,7 @@ VkResult AnimatedModel::ZzCreateIndex32Buffer(const uint32_t* indices, VkDeviceS
 
     //----------------
     void* dataIndex = NULL;
-    vkResult = vkMapMemory(vkDevice, vulkanData->vkDeviceMemory, 0, vkMemoryAllocateInfo.allocationSize, 0, &dataIndex);
+    vkResult = vkMapMemory(gVulkanContext.vkDevice, vulkanData->vkDeviceMemory, 0, vkMemoryAllocateInfo.allocationSize, 0, &dataIndex);
     if (vkResult != VK_SUCCESS)
     {
         fprintf(gpFILE, "createVertexBuffer() -> vkMapMemory() :  failed.\n");
@@ -1164,7 +1164,7 @@ VkResult AnimatedModel::ZzCreateIndex32Buffer(const uint32_t* indices, VkDeviceS
     memcpy(dataIndex, indices, indexBufferSize);
 
     //-------unmap memory
-    vkUnmapMemory(vkDevice, vulkanData->vkDeviceMemory);
+    vkUnmapMemory(gVulkanContext.vkDevice, vulkanData->vkDeviceMemory);
 
     return vkResult;
 }
@@ -1222,13 +1222,13 @@ void AnimatedModel::ZzDestroyVertexBuffer(VulkanData* vulkanData)
     // Destroy the vertex buffer
     if (vulkanData->vkBuffer)
     {
-        vkDestroyBuffer(vkDevice, vulkanData->vkBuffer, NULL);
+        vkDestroyBuffer(gVulkanContext.vkDevice, vulkanData->vkBuffer, NULL);
         vulkanData->vkBuffer = VK_NULL_HANDLE;
     }
     // Free the vertex buffer memory
     if (vulkanData->vkDeviceMemory)
     {
-        vkFreeMemory(vkDevice, vulkanData->vkDeviceMemory, NULL);
+        vkFreeMemory(gVulkanContext.vkDevice, vulkanData->vkDeviceMemory, NULL);
         vulkanData->vkDeviceMemory = VK_NULL_HANDLE;
     }
 }
@@ -1237,13 +1237,13 @@ void AnimatedModel::ZzDestroyIndexBuffer(VulkanData* vulkanData)
     // Destroy the index buffer
     if (vulkanData->vkBuffer)
     {
-        vkDestroyBuffer(vkDevice, vulkanData->vkBuffer, NULL);
+        vkDestroyBuffer(gVulkanContext.vkDevice, vulkanData->vkBuffer, NULL);
         vulkanData->vkBuffer = VK_NULL_HANDLE;
     }
     // Free the index buffer memory
     if (vulkanData->vkDeviceMemory)
     {
-        vkFreeMemory(vkDevice, vulkanData->vkDeviceMemory, NULL);
+        vkFreeMemory(gVulkanContext.vkDevice, vulkanData->vkDeviceMemory, NULL);
         vulkanData->vkDeviceMemory = VK_NULL_HANDLE;
     }
 }

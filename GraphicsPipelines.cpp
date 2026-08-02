@@ -84,7 +84,7 @@ VkResult GraphicsPipelines::createShaderModule(VkShaderModule* shaderModule, con
     vkShaderModuleCreateInfo.codeSize = size;
     vkShaderModuleCreateInfo.pCode = (uint32_t*)shaderData;
 
-    vkResult = vkCreateShaderModule(vkDevice, &vkShaderModuleCreateInfo, NULL, shaderModule);
+    vkResult = vkCreateShaderModule(gVulkanContext.vkDevice, &vkShaderModuleCreateInfo, NULL, shaderModule);
 
     if (vkResult != VK_SUCCESS)
     {
@@ -229,7 +229,7 @@ void GraphicsPipelines::destroyShaderModules(void)
     {
         if (vkShaderModuleList[i])
         {
-            vkDestroyShaderModule(vkDevice, vkShaderModuleList[i], NULL);
+            vkDestroyShaderModule(gVulkanContext.vkDevice, vkShaderModuleList[i], NULL);
             vkShaderModuleList[i] = VK_NULL_HANDLE;
         }
     }
@@ -245,7 +245,7 @@ void GraphicsPipelines::destroyPipelineCaches(void)
     {
         if (vkPipelineCacheList[i])
         {
-            vkDestroyPipelineCache(vkDevice, vkPipelineCacheList[i], NULL);
+            vkDestroyPipelineCache(gVulkanContext.vkDevice, vkPipelineCacheList[i], NULL);
             vkPipelineCacheList[i] = VK_NULL_HANDLE;
         }
     }
@@ -281,7 +281,7 @@ VkResult GraphicsPipelines::createPipelineLayout(VkPipelineLayoutCreateInfo vkPi
     vkPipelineLayoutCreateInfo.pushConstantRangeCount = 1; // one push constant range for imposter pipeline layout
     vkPipelineLayoutCreateInfo.pPushConstantRanges = &vkPushConstantRange; // pointer to the push constant range
 
-    vkResult = vkCreatePipelineLayout(vkDevice, &vkPipelineLayoutCreateInfo, NULL, vkPipelineLayout);
+    vkResult = vkCreatePipelineLayout(gVulkanContext.vkDevice, &vkPipelineLayoutCreateInfo, NULL, vkPipelineLayout);
     if (vkResult != VK_SUCCESS)
     {
         fprintf(gpFILE, "createPipelinnLayout_PBR_Skinned() -> vkCreatePipelineLayout() :  failed: %d.\n", vkResult);
@@ -301,7 +301,7 @@ void GraphicsPipelines::destroyPipelineLayouts(void)
     {
         if (vkPipelineLayoutList[i])
         {
-            vkDestroyPipelineLayout(vkDevice, vkPipelineLayoutList[i], NULL);
+            vkDestroyPipelineLayout(gVulkanContext.vkDevice, vkPipelineLayoutList[i], NULL);
             vkPipelineLayoutList[i] = VK_NULL_HANDLE;
         }
 	}
@@ -518,7 +518,7 @@ VkResult GraphicsPipelines::createGraphicsPipeline_Impostor(VkPipelineLayoutCrea
         vkPipelineCacheCreateInfo.flags = 0;
         vkPipelineCacheCreateInfo.initialDataSize = 0;
         vkPipelineCacheCreateInfo.pInitialData = NULL;
-        vkResult = vkCreatePipelineCache(vkDevice, &vkPipelineCacheCreateInfo, NULL, &Impostor.vkPipelineCache);
+        vkResult = vkCreatePipelineCache(gVulkanContext.vkDevice, &vkPipelineCacheCreateInfo, NULL, &Impostor.vkPipelineCache);
         if (vkResult != VK_SUCCESS)
         {
             fprintf(gpFILE, "createGraphicsPipeline_Impostor() : vkCreatePipelineCache() failed (%d).\n", vkResult);
@@ -564,7 +564,7 @@ VkResult GraphicsPipelines::createGraphicsPipeline_Impostor(VkPipelineLayoutCrea
 
 
     //  Call vkCreateGraphicsPipelines() API to create the graphics pipeline.
-    vkResult = vkCreateGraphicsPipelines(vkDevice, Impostor.vkPipelineCache, 1, &vkGraphicsPipelineCreateInfo, NULL, &Impostor.vkPipeline);
+    vkResult = vkCreateGraphicsPipelines(gVulkanContext.vkDevice, Impostor.vkPipelineCache, 1, &vkGraphicsPipelineCreateInfo, NULL, &Impostor.vkPipeline);
 
     if (vkResult != VK_SUCCESS)
     {
@@ -795,7 +795,7 @@ VkResult GraphicsPipelines::createGraphicsPipeline_Phong(VkPipelineLayoutCreateI
         vkPipelineCacheCreateInfo.flags = 0;
         vkPipelineCacheCreateInfo.initialDataSize = 0;
         vkPipelineCacheCreateInfo.pInitialData = NULL;
-        vkResult = vkCreatePipelineCache(vkDevice, &vkPipelineCacheCreateInfo, NULL, &Phong.vkPipelineCache);
+        vkResult = vkCreatePipelineCache(gVulkanContext.vkDevice, &vkPipelineCacheCreateInfo, NULL, &Phong.vkPipelineCache);
         if (vkResult != VK_SUCCESS)
         {
             fprintf(gpFILE, "createGraphicsPipeline_Phong() : vkCreatePipelineCache() failed (%d).\n", vkResult);
@@ -840,7 +840,7 @@ VkResult GraphicsPipelines::createGraphicsPipeline_Phong(VkPipelineLayoutCreateI
 
 
     //  Call vkCreateGraphicsPipelines() API to create the graphics pipeline.
-    vkResult = vkCreateGraphicsPipelines(vkDevice, Phong.vkPipelineCache, 1, &vkGraphicsPipelineCreateInfo, NULL, &Phong.vkPipeline);
+    vkResult = vkCreateGraphicsPipelines(gVulkanContext.vkDevice, Phong.vkPipelineCache, 1, &vkGraphicsPipelineCreateInfo, NULL, &Phong.vkPipeline);
 
     if (vkResult != VK_SUCCESS)
     {
@@ -1071,7 +1071,7 @@ VkResult GraphicsPipelines::createGraphicsPipeline_PBR(VkPipelineLayoutCreateInf
         vkPipelineCacheCreateInfo.flags = 0;
         vkPipelineCacheCreateInfo.initialDataSize = 0;
         vkPipelineCacheCreateInfo.pInitialData = NULL;
-        vkResult = vkCreatePipelineCache(vkDevice, &vkPipelineCacheCreateInfo, NULL, &PBR.vkPipelineCache);
+        vkResult = vkCreatePipelineCache(gVulkanContext.vkDevice, &vkPipelineCacheCreateInfo, NULL, &PBR.vkPipelineCache);
         if (vkResult != VK_SUCCESS)
         {
             fprintf(gpFILE, "createGraphicsPipeline_PBR() : vkCreatePipelineCache() failed (%d).\n", vkResult);
@@ -1115,7 +1115,7 @@ VkResult GraphicsPipelines::createGraphicsPipeline_PBR(VkPipelineLayoutCreateInf
 
 
     //  Call vkCreateGraphicsPipelines() API to create the graphics pipeline.
-    vkResult = vkCreateGraphicsPipelines(vkDevice, PBR.vkPipelineCache, 1, &vkGraphicsPipelineCreateInfo, NULL, &PBR.vkPipeline);
+    vkResult = vkCreateGraphicsPipelines(gVulkanContext.vkDevice, PBR.vkPipelineCache, 1, &vkGraphicsPipelineCreateInfo, NULL, &PBR.vkPipeline);
 
     if (vkResult != VK_SUCCESS)
     {
@@ -1360,7 +1360,7 @@ VkResult GraphicsPipelines::createGraphicsPipeline_PBR_Skinned(VkPipelineLayoutC
         vkPipelineCacheCreateInfo.flags = 0;
         vkPipelineCacheCreateInfo.initialDataSize = 0;
         vkPipelineCacheCreateInfo.pInitialData = NULL;
-        vkResult = vkCreatePipelineCache(vkDevice, &vkPipelineCacheCreateInfo, NULL, &PBR_Skinned.vkPipelineCache);
+        vkResult = vkCreatePipelineCache(gVulkanContext.vkDevice, &vkPipelineCacheCreateInfo, NULL, &PBR_Skinned.vkPipelineCache);
         if (vkResult != VK_SUCCESS)
         {
             fprintf(gpFILE, "createGraphicsPipeline_PBR_Skinned() : vkCreatePipelineCache() failed (%d).\n", vkResult);
@@ -1404,7 +1404,7 @@ VkResult GraphicsPipelines::createGraphicsPipeline_PBR_Skinned(VkPipelineLayoutC
 
 
     //  Call vkCreateGraphicsPipelines() API to create the graphics pipeline.
-    vkResult = vkCreateGraphicsPipelines(vkDevice, PBR_Skinned.vkPipelineCache, 1, &vkGraphicsPipelineCreateInfo, NULL, &PBR_Skinned.vkPipeline);
+    vkResult = vkCreateGraphicsPipelines(gVulkanContext.vkDevice, PBR_Skinned.vkPipelineCache, 1, &vkGraphicsPipelineCreateInfo, NULL, &PBR_Skinned.vkPipeline);
 
     if (vkResult != VK_SUCCESS)
     {
@@ -1582,7 +1582,7 @@ VkResult GraphicsPipelines::createGraphicsPipeline_PreviewImage(VkPipelineLayout
         vkPipelineCacheCreateInfo.flags = 0;
         vkPipelineCacheCreateInfo.initialDataSize = 0;
         vkPipelineCacheCreateInfo.pInitialData = NULL;
-        vkResult = vkCreatePipelineCache(vkDevice, &vkPipelineCacheCreateInfo, NULL, &PreviewImage.vkPipelineCache);
+        vkResult = vkCreatePipelineCache(gVulkanContext.vkDevice, &vkPipelineCacheCreateInfo, NULL, &PreviewImage.vkPipelineCache);
         if (vkResult != VK_SUCCESS)
         {
 			fprintf(gpFILE, "createGraphicsPipeline_PreviewImage() : vkCreatePipelineCache() failed (%d).\n", vkResult);
@@ -1626,7 +1626,7 @@ VkResult GraphicsPipelines::createGraphicsPipeline_PreviewImage(VkPipelineLayout
 
 
     //  Call vkCreateGraphicsPipelines() API to create the graphics pipeline.
-    vkResult = vkCreateGraphicsPipelines(vkDevice, PreviewImage.vkPipelineCache, 1, &vkGraphicsPipelineCreateInfo, NULL, &PreviewImage.vkPipeline);
+    vkResult = vkCreateGraphicsPipelines(gVulkanContext.vkDevice, PreviewImage.vkPipelineCache, 1, &vkGraphicsPipelineCreateInfo, NULL, &PreviewImage.vkPipeline);
 
     if (vkResult != VK_SUCCESS)
     {
@@ -1853,7 +1853,7 @@ VkResult GraphicsPipelines::createGraphicsPipeline_WhiteVertex(VkPipelineLayoutC
         vkPipelineCacheCreateInfo.flags = 0;
         vkPipelineCacheCreateInfo.initialDataSize = 0;
         vkPipelineCacheCreateInfo.pInitialData = NULL;
-        vkResult = vkCreatePipelineCache(vkDevice, &vkPipelineCacheCreateInfo, NULL, &WhiteVertex.vkPipelineCache);
+        vkResult = vkCreatePipelineCache(gVulkanContext.vkDevice, &vkPipelineCacheCreateInfo, NULL, &WhiteVertex.vkPipelineCache);
         if (vkResult != VK_SUCCESS)
         {
 			fprintf(gpFILE, "createGraphicsPipeline_WhiteVertex() : vkCreatePipelineCache() failed (%d).\n", vkResult);
@@ -1897,7 +1897,7 @@ VkResult GraphicsPipelines::createGraphicsPipeline_WhiteVertex(VkPipelineLayoutC
 
 
     //  Call vkCreateGraphicsPipelines() API to create the graphics pipeline.
-    vkResult = vkCreateGraphicsPipelines(vkDevice, WhiteVertex.vkPipelineCache, 1, &vkGraphicsPipelineCreateInfo, NULL, &WhiteVertex.vkPipeline);
+    vkResult = vkCreateGraphicsPipelines(gVulkanContext.vkDevice, WhiteVertex.vkPipelineCache, 1, &vkGraphicsPipelineCreateInfo, NULL, &WhiteVertex.vkPipeline);
 
     if (vkResult != VK_SUCCESS)
     {
@@ -2131,7 +2131,7 @@ VkResult GraphicsPipelines::createGraphicsPipeline_ColoredVertex(VkPipelineLayou
         vkPipelineCacheCreateInfo.flags = 0;
         vkPipelineCacheCreateInfo.initialDataSize = 0;
         vkPipelineCacheCreateInfo.pInitialData = NULL;
-        vkResult = vkCreatePipelineCache(vkDevice, &vkPipelineCacheCreateInfo, NULL, &ColoredVertex.vkPipelineCache);
+        vkResult = vkCreatePipelineCache(gVulkanContext.vkDevice, &vkPipelineCacheCreateInfo, NULL, &ColoredVertex.vkPipelineCache);
         if (vkResult != VK_SUCCESS)
 		{
 			fprintf(gpFILE, "createGraphicsPipeline_ColoredVertex() : vkCreatePipelineCache() failed (%d).\n", vkResult);
@@ -2175,7 +2175,7 @@ VkResult GraphicsPipelines::createGraphicsPipeline_ColoredVertex(VkPipelineLayou
 
 
     //  Call vkCreateGraphicsPipelines() API to create the graphics pipeline.
-    vkResult = vkCreateGraphicsPipelines(vkDevice, ColoredVertex.vkPipelineCache, 1, &vkGraphicsPipelineCreateInfo, NULL, &ColoredVertex.vkPipeline);
+    vkResult = vkCreateGraphicsPipelines(gVulkanContext.vkDevice, ColoredVertex.vkPipelineCache, 1, &vkGraphicsPipelineCreateInfo, NULL, &ColoredVertex.vkPipeline);
 
     if (vkResult != VK_SUCCESS)
     {
@@ -2328,7 +2328,7 @@ void GraphicsPipelines::destroyPipelines(void)
     {
         if (vkPipelineList[i])
         {
-            vkDestroyPipeline(vkDevice, vkPipelineList[i], NULL);
+            vkDestroyPipeline(gVulkanContext.vkDevice, vkPipelineList[i], NULL);
             vkPipelineList[i] = VK_NULL_HANDLE;
         }
     }

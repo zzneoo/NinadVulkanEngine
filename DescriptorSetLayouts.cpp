@@ -1,6 +1,6 @@
 #include "DescriptorSetLayouts.h"
 
-extern VkDevice vkDevice;
+//extern VkDevice vkDevice;
 extern FILE* gpFILE;
 
 DescriptorSetLayouts::DescriptorSetLayouts()
@@ -35,7 +35,7 @@ VkResult DescriptorSetLayouts::createDescriptorSetLayout(const VkDescriptorSetLa
 	vkDescriptorSetLayoutCreateInfo.bindingCount = bindingCount;
 	vkDescriptorSetLayoutCreateInfo.pBindings = DescriptorSetLayoutBinding; // pointer to the descriptor set layout binding array
 
-	vkResult = vkCreateDescriptorSetLayout(vkDevice, &vkDescriptorSetLayoutCreateInfo, NULL, DescriptorSetLayout);
+	vkResult = vkCreateDescriptorSetLayout(gVulkanContext.vkDevice, &vkDescriptorSetLayoutCreateInfo, NULL, DescriptorSetLayout);
     if (vkResult != VK_SUCCESS)
     {
         fprintf(gpFILE, "createDiscriptorSetLayout() -> vkCreateDescriptorSetLayout() :  failed: %d.\n", vkResult);
@@ -72,7 +72,7 @@ VkResult DescriptorSetLayouts::createDescriptorSetLayout_FrameData(void)
     vkDescriptorSetLayoutCreateInfo.pBindings = vkDescriptorSetLayoutBinding_Array; // pointer to the descriptor set layout binding array
 
 
-    vkResult = vkCreateDescriptorSetLayout(vkDevice, &vkDescriptorSetLayoutCreateInfo, NULL, &vkDescriptorSetLayout_frameData);
+    vkResult = vkCreateDescriptorSetLayout(gVulkanContext.vkDevice, &vkDescriptorSetLayoutCreateInfo, NULL, &vkDescriptorSetLayout_frameData);
     if (vkResult != VK_SUCCESS)
     {
         fprintf(gpFILE, "createDiscriptorSetLayout() -> vkCreateDescriptorSetLayout() :  failed: %d.\n", vkResult);
@@ -114,7 +114,7 @@ VkResult DescriptorSetLayouts::createDescriptorSetLayout_FrameDataBoneData(void)
     vkDescriptorSetLayoutCreateInfo.pBindings = vkDescriptorSetLayoutBinding_Array; // pointer to the descriptor set layout binding array
 
 
-    vkResult = vkCreateDescriptorSetLayout(vkDevice, &vkDescriptorSetLayoutCreateInfo, NULL, &vkDescriptorSetLayout_frameDataBoneData);
+    vkResult = vkCreateDescriptorSetLayout(gVulkanContext.vkDevice, &vkDescriptorSetLayoutCreateInfo, NULL, &vkDescriptorSetLayout_frameDataBoneData);
     if (vkResult != VK_SUCCESS)
     {
         fprintf(gpFILE, "createDiscriptorSetLayout() -> vkCreateDescriptorSetLayout() :  failed: %d.\n", vkResult);
@@ -145,7 +145,7 @@ VkResult DescriptorSetLayouts::createDescriptorSetLayout_SingleImage(void)
     vkDescriptorSetLayoutCreateInfo.flags = 0;
     vkDescriptorSetLayoutCreateInfo.bindingCount = 1;
     vkDescriptorSetLayoutCreateInfo.pBindings = vkDescriptorSetLayoutBinding_Array; // pointer to the descriptor set layout binding array
-    vkResult = vkCreateDescriptorSetLayout(vkDevice, &vkDescriptorSetLayoutCreateInfo, NULL, &vkDescriptorSetLayout_SingleImage);
+    vkResult = vkCreateDescriptorSetLayout(gVulkanContext.vkDevice, &vkDescriptorSetLayoutCreateInfo, NULL, &vkDescriptorSetLayout_SingleImage);
     if (vkResult != VK_SUCCESS)
     {
         fprintf(gpFILE, "createDiscriptorSetLayout_Impostor() -> vkCreateDescriptorSetLayout() :  failed: %d.\n", vkResult);
@@ -181,7 +181,7 @@ VkResult DescriptorSetLayouts::createDescriptorSetLayout_AlbedoNormal(void)
     vkDescriptorSetLayoutCreateInfo.flags = 0;
     vkDescriptorSetLayoutCreateInfo.bindingCount = 2;
     vkDescriptorSetLayoutCreateInfo.pBindings = vkDescriptorSetLayoutBinding_Array; // pointer to the descriptor set layout binding array
-    vkResult = vkCreateDescriptorSetLayout(vkDevice, &vkDescriptorSetLayoutCreateInfo, NULL, &vkDescriptorSetLayout_AlbedoNormal);
+    vkResult = vkCreateDescriptorSetLayout(gVulkanContext.vkDevice, &vkDescriptorSetLayoutCreateInfo, NULL, &vkDescriptorSetLayout_AlbedoNormal);
     if (vkResult != VK_SUCCESS)
     {
         fprintf(gpFILE, "createDiscriptorSetLayout_AlbedoNormal() -> vkCreateDescriptorSetLayout() :  failed: %d.\n", vkResult);
@@ -223,7 +223,7 @@ VkResult DescriptorSetLayouts::createDescriptorSetLayout_BasicPBR(void)
     vkDescriptorSetLayoutCreateInfo.bindingCount = 3;
     vkDescriptorSetLayoutCreateInfo.pBindings = vkDescriptorSetLayoutBinding_Array; // pointer to the descriptor set layout binding array
 
-    vkResult = vkCreateDescriptorSetLayout(vkDevice, &vkDescriptorSetLayoutCreateInfo, NULL, &vkDescriptorSetLayout_BasicPBR);
+    vkResult = vkCreateDescriptorSetLayout(gVulkanContext.vkDevice, &vkDescriptorSetLayoutCreateInfo, NULL, &vkDescriptorSetLayout_BasicPBR);
     if (vkResult != VK_SUCCESS)
     {
         fprintf(gpFILE, "createDescriptorSetLayout_BasicPBR() -> vkCreateDescriptorSetLayout() :  failed: %d.\n", vkResult);
@@ -258,7 +258,7 @@ VkResult DescriptorSetLayouts::createDescriptorSetLayout_GlobalTextureArray(void
     layoutInfo.pBindings = &textureBinding;
 
 
-    vkResult = vkCreateDescriptorSetLayout(vkDevice, &layoutInfo, nullptr, &vkDescriptorSetLayout_GlobalTextureArray);
+    vkResult = vkCreateDescriptorSetLayout(gVulkanContext.vkDevice, &layoutInfo, nullptr, &vkDescriptorSetLayout_GlobalTextureArray);
     if (vkResult != VK_SUCCESS)
     {
         fprintf(gpFILE, "createTextureIndexing() : vkCreateDescriptorSetLayout() failed (%d).\n", vkResult);
@@ -329,41 +329,41 @@ void DescriptorSetLayouts::destroyDescriptorSetLayouts(void)
     //descriptorSetLayout for frameData
     if (vkDescriptorSetLayout_frameData)
     {
-        vkDestroyDescriptorSetLayout(vkDevice, vkDescriptorSetLayout_frameData, NULL);
+        vkDestroyDescriptorSetLayout(gVulkanContext.vkDevice, vkDescriptorSetLayout_frameData, NULL);
         vkDescriptorSetLayout_frameData = VK_NULL_HANDLE;
     }
 
     if (vkDescriptorSetLayout_frameDataBoneData)
     {
-        vkDestroyDescriptorSetLayout(vkDevice, vkDescriptorSetLayout_frameDataBoneData, NULL);
+        vkDestroyDescriptorSetLayout(gVulkanContext.vkDevice, vkDescriptorSetLayout_frameDataBoneData, NULL);
         vkDescriptorSetLayout_frameDataBoneData = VK_NULL_HANDLE;
 	}
 
     //descriptor set layout for impostor
     if (vkDescriptorSetLayout_SingleImage)
     {
-        vkDestroyDescriptorSetLayout(vkDevice, vkDescriptorSetLayout_SingleImage, NULL);
+        vkDestroyDescriptorSetLayout(gVulkanContext.vkDevice, vkDescriptorSetLayout_SingleImage, NULL);
         vkDescriptorSetLayout_SingleImage = VK_NULL_HANDLE;
     }
 
     //descriptor set layout for Albedo Normal
     if (vkDescriptorSetLayout_AlbedoNormal)
     {
-        vkDestroyDescriptorSetLayout(vkDevice, vkDescriptorSetLayout_AlbedoNormal, NULL);
+        vkDestroyDescriptorSetLayout(gVulkanContext.vkDevice, vkDescriptorSetLayout_AlbedoNormal, NULL);
         vkDescriptorSetLayout_AlbedoNormal = VK_NULL_HANDLE;
     }
 
     //descriptor set layout for PBR
     if (vkDescriptorSetLayout_BasicPBR)
     {
-        vkDestroyDescriptorSetLayout(vkDevice, vkDescriptorSetLayout_BasicPBR, NULL);
+        vkDestroyDescriptorSetLayout(gVulkanContext.vkDevice, vkDescriptorSetLayout_BasicPBR, NULL);
         vkDescriptorSetLayout_BasicPBR = VK_NULL_HANDLE;
     }
 
 	//descriptor set layout for global texture array
     if (vkDescriptorSetLayout_GlobalTextureArray)
     {
-        vkDestroyDescriptorSetLayout(vkDevice, vkDescriptorSetLayout_GlobalTextureArray, NULL);
+        vkDestroyDescriptorSetLayout(gVulkanContext.vkDevice, vkDescriptorSetLayout_GlobalTextureArray, NULL);
         vkDescriptorSetLayout_GlobalTextureArray = VK_NULL_HANDLE;
 	}
 }

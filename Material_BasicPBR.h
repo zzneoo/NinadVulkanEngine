@@ -2,11 +2,12 @@
 #include "VK.h"
 #include <tinyddsloader.h>
 #include <Windows.h>
+#include "VulkanContext.h"
 
-extern VkPhysicalDevice vkPhysicalDevice_Selected;
-extern VkDevice vkDevice;
-extern VkQueue vkQueue;
-extern VkCommandPool vkCommandPool;
+//extern VkPhysicalDevice vkPhysicalDevice_Selected;
+//extern VkDevice vkDevice;
+//extern VkQueue vkQueue;
+//extern VkCommandPool vkCommandPool;
 extern VkDescriptorPool vkDescriptorPool;
 extern VkSampler vkSampler_LinearClamp;
 extern VkSampler vkSampler_LinearClampAniso;

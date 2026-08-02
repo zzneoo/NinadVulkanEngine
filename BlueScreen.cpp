@@ -43,6 +43,9 @@ using namespace tinyddsloader;
 #include <windowsx.h>
 #include <iostream>
 
+#include "Win32Window.h"
+#include "VulkanContext.h"
+
 // Vulkan related libraries
 #pragma comment(lib, "vulkan-1.lib")
 #pragma comment(lib, "assimp-vc143-mt.lib")
@@ -78,11 +81,6 @@ static glm::vec3 v3Color = glm::vec3(0.0f);
 
 // global variable declarations
 const char* gpszAppName = "ARTR";
-HWND            ghwnd = NULL;
-BOOL            gbFullscreen = FALSE;
-BOOL            gbActive = FALSE;
-WINDOWPLACEMENT wpPrev;
-DWORD           dwStyle;
 
 // for file IO
 FILE* gpFILE = NULL;
@@ -98,18 +96,9 @@ uint32_t enabledInstanceExtensionCount = 0;
 // 3. VK_EXT_DEBUG_REPORT_EXTENSION_NAME
 const char* enabledInstanceExtensionNames_Array[3];
 
-// Vulkan Instance
-VkInstance vkInstance = VK_NULL_HANDLE;
-
-// Vulkan Presentation Surface
-VkSurfaceKHR vkSurfaceKHR = VK_NULL_HANDLE;
 
 // Vulkan Physical Device related global variables
-VkPhysicalDevice                 vkPhysicalDevice_Selected = VK_NULL_HANDLE;
-uint32_t                         graphicsQueueFamilyIndex_Selected = UINT32_MAX;
-uint32_t                         physicalDeviceCount = 0;
-VkPhysicalDevice* vkPhysicalDevice_Array = NULL;
-VkPhysicalDeviceMemoryProperties vkPhysicalDeviceMemoryProperties;
+uint32_t physicalDeviceCount = 0;
 
 // Vulkan Device Extension related variables
 uint32_t enabledDeviceExtensionCount = 0;
@@ -117,11 +106,6 @@ uint32_t enabledDeviceExtensionCount = 0;
 // VK_KHR_SWAPCHAIN_EXTENSION_NAME
 const char* enabledDeviceExtensionNames_Array[1];
 
-// Logical Device
-VkDevice vkDevice = VK_NULL_HANDLE;
-
-// Device Queue
-VkQueue vkQueue = VK_NULL_HANDLE;
 
 // Color format and color space
 VkFormat        vkFormat_Color = VK_FORMAT_UNDEFINED;
@@ -140,17 +124,9 @@ VkExtent2D     vkExtent2D_Swapchain;
 // Swapchain images and swapchain image views
 uint32_t     gSwapchainImageCount = UINT32_MAX;
 
-// Command pool
-VkCommandPool vkCommandPool = VK_NULL_HANDLE;
-
 // Command buffers
 VkCommandBuffer* vkCommandBuffer_Array = NULL;
 
-// RenderPass
-//VkRenderPass vkRenderPass = VK_NULL_HANDLE;
-
-// Framebuffers
-//VkFramebuffer* vkFramebuffer_Array = NULL;
 
 // Semaphores
 VkSemaphore vkSemaphore_Timeline = VK_NULL_HANDLE;
@@ -160,8 +136,6 @@ VkSemaphore* vkSemaphore_RenderComplete = VK_NULL_HANDLE;
 uint64_t gTimelineValue = 0;
 uint64_t gFrameTimelineValues[MAX_FRAMES] = {};
 
-// Fences
-//VkFence* vkFence_Array = VK_NULL_HANDLE;
 
 // Clear Color
 VkClearColorValue vkClearColorValue;
@@ -169,13 +143,6 @@ VkClearColorValue vkClearColorValue;
 // For Rendering
 BOOL     bInitialized = FALSE;
 uint32_t currentImageIndex = UINT32_MAX;
-
-//validation
-BOOL bValidation = TRUE;
-uint32_t enabledValidationLayerCount = 0;
-const char* enabledValidationLayerNames_array[1];//for VK_LAYER_KHRONOS_validation
-VkDebugReportCallbackEXT vkDebugReportCallbackEXT = VK_NULL_HANDLE;
-PFN_vkDestroyDebugReportCallbackEXT vkDestroyDebugReportCallbackEXT_fnptr = NULL;
 
 // Swapchain resources
 SwapChainResourceData gSwapChainResourceData;
@@ -327,7 +294,7 @@ int WINAPI WinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, _
     }
 
     // copy the local window handle into the global window handle
-    ghwnd = hwnd;
+    gWindow.hwnd = hwnd;
 
     // initialization
     vkResult = initialize();
@@ -380,7 +347,7 @@ int WINAPI WinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, _
                 DispatchMessage(&msg);
             }
         }
-        else if (gbActive)
+        else if (gWindow.active)
         {
             //delta time calculation
                     // get current time
@@ -437,14 +404,14 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM lParam)
     switch (iMsg)
     {
     case WM_CREATE:
-        memset(&wpPrev, 0, sizeof(WINDOWPLACEMENT));
-        wpPrev.length = sizeof(WINDOWPLACEMENT);
+        memset(&gWindow.previousPlacement, 0, sizeof(WINDOWPLACEMENT));
+        gWindow.previousPlacement.length = sizeof(WINDOWPLACEMENT);
         break;
     case WM_SETFOCUS:
-        gbActive = TRUE;
+		gWindow.active = true;
         break;
     case WM_KILLFOCUS:
-        gbActive = FALSE;
+        gWindow.active = false;
         break;
     case WM_ERASEBKGND:
         return(0);
@@ -452,7 +419,7 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM lParam)
     case WM_SIZE:
         if (wParam == SIZE_MINIMIZED)
         {
-            gbActive = FALSE;
+            gWindow.active = false;
             return(0);
         }
 
@@ -608,17 +575,17 @@ void ToggleFullscreen(void)
 
     // code
     // if window isn't in fullscreen mode
-    if (gbFullscreen == FALSE)
+    if (gWindow.fullscreen == false)
     {
-        dwStyle = GetWindowLong(ghwnd, GWL_STYLE);
-        if (dwStyle & WS_OVERLAPPEDWINDOW)
+        gWindow.windowStyle = GetWindowLong(gWindow.hwnd, GWL_STYLE);
+        if (gWindow.windowStyle & WS_OVERLAPPEDWINDOW)
         {
-            if (GetWindowPlacement(ghwnd, &wpPrev) &&
-                GetMonitorInfo(MonitorFromWindow(ghwnd, MONITORINFOF_PRIMARY), &monitorInfo))
+            if (GetWindowPlacement(gWindow.hwnd, &gWindow.previousPlacement) &&
+                GetMonitorInfo(MonitorFromWindow(gWindow.hwnd, MONITORINFOF_PRIMARY), &monitorInfo))
             {
-                SetWindowLong(ghwnd, GWL_STYLE, dwStyle & ~WS_OVERLAPPEDWINDOW);
+                SetWindowLong(gWindow.hwnd, GWL_STYLE, gWindow.windowStyle & ~WS_OVERLAPPEDWINDOW);
                 SetWindowPos(
-                    ghwnd,
+                    gWindow.hwnd,
                     HWND_TOP,
                     monitorInfo.rcMonitor.left,
                     monitorInfo.rcMonitor.top,
@@ -629,16 +596,16 @@ void ToggleFullscreen(void)
 
                 //ShowCursor(FALSE);
 
-                gbFullscreen = TRUE;
+                gWindow.fullscreen = true;
             }
         }
     }
     else // window is already in fullscreen mode
     {
-        SetWindowPlacement(ghwnd, &wpPrev);
-        SetWindowLong(ghwnd, GWL_STYLE, dwStyle | WS_OVERLAPPEDWINDOW);
+        SetWindowPlacement(gWindow.hwnd, &gWindow.previousPlacement);
+        SetWindowLong(gWindow.hwnd, GWL_STYLE, gWindow.windowStyle | WS_OVERLAPPEDWINDOW);
         SetWindowPos(
-            ghwnd,
+            gWindow.hwnd,
             HWND_TOP,
             0,
             0,
@@ -649,7 +616,7 @@ void ToggleFullscreen(void)
 
         //ShowCursor(TRUE);
 
-        gbFullscreen = FALSE;
+        gWindow.fullscreen = false;
     }
 }
 
@@ -1682,10 +1649,10 @@ static VkResult initialLayoutTransitions(void)
     VkCommandBufferAllocateInfo commandBufferAllocateInfo;
     memset(&commandBufferAllocateInfo, 0, sizeof(VkCommandBufferAllocateInfo));
     commandBufferAllocateInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
-    commandBufferAllocateInfo.commandPool = vkCommandPool; // Command pool for allocation
+    commandBufferAllocateInfo.commandPool = gVulkanContext.vkCommandPool; // Command pool for allocation
     commandBufferAllocateInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY; // Primary command buffer
     commandBufferAllocateInfo.commandBufferCount = 1; // Allocate one command buffer
-    vkResult = vkAllocateCommandBuffers(vkDevice, &commandBufferAllocateInfo, &commandBuffer);
+    vkResult = vkAllocateCommandBuffers(gVulkanContext.vkDevice, &commandBufferAllocateInfo, &commandBuffer);
     if (vkResult != VK_SUCCESS)
     {
         return vkResult;
@@ -1726,14 +1693,14 @@ static VkResult initialLayoutTransitions(void)
     submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
     submitInfo.commandBufferCount = 1;
     submitInfo.pCommandBuffers = &commandBuffer;
-    vkResult = vkQueueSubmit(vkQueue, 1, &submitInfo, VK_NULL_HANDLE);
+    vkResult = vkQueueSubmit(gVulkanContext.vkGraphicsQueue, 1, &submitInfo, VK_NULL_HANDLE);
     if (vkResult != VK_SUCCESS)
     {
         return vkResult;
     }
-    vkQueueWaitIdle(vkQueue);
+    vkQueueWaitIdle(gVulkanContext.vkGraphicsQueue);
     // Free the command buffer
-    vkFreeCommandBuffers(vkDevice, vkCommandPool, 1, &commandBuffer);
+    vkFreeCommandBuffers(gVulkanContext.vkDevice, gVulkanContext.vkCommandPool, 1, &commandBuffer);
 
     return vkResult;
 }
@@ -2231,7 +2198,7 @@ VkResult initialize(void)
     ImGui::StyleColorsDark();  // or Light, Classic, etc.
 
     //---------------------
-    ImGui_ImplWin32_Init(ghwnd);  // HWND from CreateWindow or similar
+    ImGui_ImplWin32_Init(gWindow.hwnd);  // HWND from CreateWindow or similar
     //---------------------
     VkDescriptorPoolSize pool_sizes[] =
     {
@@ -2254,14 +2221,14 @@ VkResult initialize(void)
     pool_info.poolSizeCount = (uint32_t)IM_ARRAYSIZE(pool_sizes);
     pool_info.pPoolSizes = pool_sizes;
 
-    vkCreateDescriptorPool(vkDevice, &pool_info, nullptr, &gImguiDescriptorPool);
+    vkCreateDescriptorPool(gVulkanContext.vkDevice, &pool_info, nullptr, &gImguiDescriptorPool);
     //--------------------
     ImGui_ImplVulkan_InitInfo init_info = {};
-    init_info.Instance = vkInstance;
-    init_info.PhysicalDevice = vkPhysicalDevice_Selected;
-    init_info.Device = vkDevice;
-    init_info.QueueFamily = graphicsQueueFamilyIndex_Selected;
-    init_info.Queue = vkQueue;
+    init_info.Instance = gVulkanContext.vkInstance;
+    init_info.PhysicalDevice = gVulkanContext.vkPhysicalDevice;
+    init_info.Device = gVulkanContext.vkDevice;
+    init_info.QueueFamily = gVulkanContext.vkGraphicsQueueFamilyIndex;
+    init_info.Queue = gVulkanContext.vkGraphicsQueue;
     init_info.PipelineCache = VK_NULL_HANDLE;
     init_info.DescriptorPool = gImguiDescriptorPool;
 	init_info.RenderPass = VK_NULL_HANDLE;
@@ -2391,7 +2358,7 @@ VkResult initialize(void)
 // Helper: find a memory type index with required properties
 uint32_t findMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties) {
     VkPhysicalDeviceMemoryProperties memProperties;
-    vkGetPhysicalDeviceMemoryProperties(vkPhysicalDevice_Selected, &memProperties);
+    vkGetPhysicalDeviceMemoryProperties(gVulkanContext.vkPhysicalDevice, &memProperties);
 
     for (uint32_t i = 0; i < memProperties.memoryTypeCount; i++) {
         if ((typeFilter & (1 << i)) &&
@@ -2443,8 +2410,8 @@ VkResult resize(int width, int height)
     winHeight = height;
 
     //--------------------------------------------------------------------------------------
-    if (vkDevice)
-        vkDeviceWaitIdle(vkDevice); // wait for the device to finish all operations before resizing
+    if (gVulkanContext.vkDevice)
+        vkDeviceWaitIdle(gVulkanContext.vkDevice); // wait for the device to finish all operations before resizing
 
     //destroy old swapchain
     if (vkSwapchainKHR == VK_NULL_HANDLE)
@@ -2458,7 +2425,7 @@ VkResult resize(int width, int height)
     //{
     //    for (uint32_t i = 0; i < gSwapchainImageCount; i++)
     //    {
-    //        vkDestroyFramebuffer(vkDevice, vkFramebuffer_Array[i], NULL);
+    //        vkDestroyFramebuffer(gVulkanContext.vkDevice, vkFramebuffer_Array[i], NULL);
     //        vkFramebuffer_Array[i] = VK_NULL_HANDLE;
 
     //        //fprintf(gpFILE, "resize() : vkDestroyFramebuffer() succeeded for iteration %d.\n", i);
@@ -2473,7 +2440,7 @@ VkResult resize(int width, int height)
     // vkCommandBuffer
     for (uint32_t i = 0; i < gSwapchainImageCount; i++)
     {
-        vkFreeCommandBuffers(vkDevice, vkCommandPool, 1, &vkCommandBuffer_Array[i]);
+        vkFreeCommandBuffers(gVulkanContext.vkDevice, gVulkanContext.vkCommandPool, 1, &vkCommandBuffer_Array[i]);
         // fprintf(gpFILE, "resize() : vkFreeCommandBuffers() succeeded for iteration %d.\n", i);
     }
     if (vkCommandBuffer_Array)
@@ -2503,7 +2470,7 @@ VkResult resize(int width, int height)
     // destroy swapchain
     if (vkSwapchainKHR)
     {
-        vkDestroySwapchainKHR(vkDevice, vkSwapchainKHR, NULL);
+        vkDestroySwapchainKHR(gVulkanContext.vkDevice, vkSwapchainKHR, NULL);
         vkSwapchainKHR = VK_NULL_HANDLE;
 
         //fprintf(gpFILE, "resize() : vkDestroySwapchainKHR() succeeded.\n");
@@ -2622,7 +2589,7 @@ VkResult display_(void)
 // use fence to allow host to wait for completion of execution of previous command buffer
 // -----------------------------------------------------------------------------------------------------------------------------------------
     vkResult = vkWaitForFences(
-        vkDevice,                          // [in] Vulkan logical device
+        gVulkanContext.vkDevice,                          // [in] Vulkan logical device
         1,                                 // [in] number of fences to wait for
         &vkFence_Array[curIndex], // [in] array of fences
         VK_TRUE,                           // [in] waitAll (type : VkBool32, description : wait for all fences in the array?)
@@ -2638,7 +2605,7 @@ VkResult display_(void)
     // -----------------------------------------------------------------------------------------------------------------------------------------
     // now ready the fences for execution of next command buffer
     // -----------------------------------------------------------------------------------------------------------------------------------------
-    vkResult = vkResetFences(vkDevice, 1, &vkFence_Array[curIndex]);
+    vkResult = vkResetFences(gVulkanContext.vkDevice, 1, &vkFence_Array[curIndex]);
 
     if (vkResult != VK_SUCCESS)
     {
@@ -2653,7 +2620,7 @@ VkResult display_(void)
     // acquire index of next swapchain image
     // -----------------------------------------------------------------------------------------------------------------------------------------
     vkResult = vkAcquireNextImageKHR(
-        vkDevice,               // [in] Vulkan logical device
+        gVulkanContext.vkDevice,               // [in] Vulkan logical device
         vkSwapchainKHR,         // [in] Vulkan Swapchain (from which swapchain to acquire the next image)
         UINT64_MAX,             // [in] timeout in nanoseconds (here we are waiting for swapchain to give us the image. Swapchain may not necessarily give the image when you ask for it, so how much to wait before trying again?)
         vkSemaphore_BackBuffer[0], // [in] Vulkan semaphore (here we are waiting for another queue to release the image held by another queue demanded by the swapchain)
@@ -2731,7 +2698,7 @@ VkResult display_(void)
         return(vkResult);
     }
 
-    vkDeviceWaitIdle(vkDevice);// or queue wait idle?
+    vkDeviceWaitIdle(gVulkanContext.vkDevice);// or queue wait idle?
 
     return(vkResult);
 }
@@ -2756,7 +2723,7 @@ VkResult display(void)
     uint32_t curIndex = currentFrame % MAX_FRAMES;
 
     // Wait for GPU to finish work on the previous frame
-    //vkResult = vkWaitForFences(vkDevice, 1, &vkFence_Array[curIndex], VK_TRUE, UINT64_MAX);
+    //vkResult = vkWaitForFences(gVulkanContext.vkDevice, 1, &vkFence_Array[curIndex], VK_TRUE, UINT64_MAX);
     //if (vkResult != VK_SUCCESS)
     //{
     //    fprintf(gpFILE, "display() : vkWaitForFences() failed (%d).\n", vkResult);
@@ -2775,13 +2742,13 @@ VkResult display(void)
         waitInfo.pSemaphores = &vkSemaphore_Timeline;
         waitInfo.pValues = &waitValue;
 
-        vkWaitSemaphores(vkDevice, &waitInfo, UINT64_MAX);
+        vkWaitSemaphores(gVulkanContext.vkDevice, &waitInfo, UINT64_MAX);
     }
 
 
     // Acquire next image from the swapchain
     vkResult = vkAcquireNextImageKHR(
-        vkDevice,
+        gVulkanContext.vkDevice,
         vkSwapchainKHR,
         UINT64_MAX,
         vkSemaphore_BackBuffer[curIndex],  // now using per-frame semaphore
@@ -2796,7 +2763,7 @@ VkResult display(void)
 
 
     //// Reset the fence for use in the current frame
-    //vkResult = vkResetFences(vkDevice, 1, &vkFence_Array[curIndex]);
+    //vkResult = vkResetFences(gVulkanContext.vkDevice, 1, &vkFence_Array[curIndex]);
     //if (vkResult != VK_SUCCESS)
     //{
     //    fprintf(gpFILE, "display() : vkResetFences() failed (%d).\n", vkResult);
@@ -2860,7 +2827,7 @@ VkResult display(void)
     submitInfo.pSignalSemaphores = signalSemaphores;
 
 
-	vkResult = vkQueueSubmit(vkQueue, 1, &submitInfo, VK_NULL_HANDLE);
+	vkResult = vkQueueSubmit(gVulkanContext.vkGraphicsQueue, 1, &submitInfo, VK_NULL_HANDLE);
     if (vkResult != VK_SUCCESS)
     {
         fprintf(gpFILE, "display() : vkQueueSubmit() failed (%d).\n", vkResult);
@@ -2878,7 +2845,7 @@ VkResult display(void)
     vkPresentInfoKHR.pSwapchains = &vkSwapchainKHR;
     vkPresentInfoKHR.pImageIndices = &currentImageIndex;
 
-    vkResult = vkQueuePresentKHR(vkQueue, &vkPresentInfoKHR);
+    vkResult = vkQueuePresentKHR(gVulkanContext.vkGraphicsQueue, &vkPresentInfoKHR);
     if (vkResult != VK_SUCCESS)
     {
         fprintf(gpFILE, "display() : vkQueuePresentKHR() failed (%d).\n", vkResult);
@@ -2913,7 +2880,7 @@ void update(void)
 
     if (FALSE == MyWin32::isGUI)
     {
-        camera.UpdateViewMatrix(ghwnd);
+        camera.UpdateViewMatrix(gWindow.hwnd);
     }
 
 }
@@ -2936,16 +2903,16 @@ void uninitialize(void)
 
     // code
     // if application is exitting in fullscreen
-    if (gbFullscreen == TRUE)
+    if (gWindow.fullscreen == true)
     {
         ToggleFullscreen();
-        gbFullscreen = FALSE;
+        gWindow.fullscreen = false;
     }
 
     // Before destroying the device (and any other vulkan related destruction), ensure that all operations on that device are finished. Till then, wait on that device.
-    if (vkDevice)
+    if (gVulkanContext.vkDevice)
     {
-        vkDeviceWaitIdle(vkDevice);
+        vkDeviceWaitIdle(gVulkanContext.vkDevice);
     }
 
 #ifdef IMGUI_ENABLE
@@ -2955,7 +2922,7 @@ void uninitialize(void)
         ImGui_ImplWin32_Shutdown();
         ImGui::DestroyContext();
 
-        vkDestroyDescriptorPool(vkDevice, gImguiDescriptorPool, nullptr);
+        vkDestroyDescriptorPool(gVulkanContext.vkDevice, gImguiDescriptorPool, nullptr);
         if (gpFILE)
             fprintf(gpFILE, "uninitialize() : ImGui uninitialization is done.\n");
     }
@@ -2982,14 +2949,14 @@ void uninitialize(void)
     {
         if (vkSemaphore_RenderComplete[i])
         {
-            vkDestroySemaphore(vkDevice, vkSemaphore_RenderComplete[i], NULL);
+            vkDestroySemaphore(gVulkanContext.vkDevice, vkSemaphore_RenderComplete[i], NULL);
             vkSemaphore_RenderComplete[i] = VK_NULL_HANDLE;
 
         }
 
         if (vkSemaphore_BackBuffer[i])
         {
-            vkDestroySemaphore(vkDevice, vkSemaphore_BackBuffer[i], NULL);
+            vkDestroySemaphore(gVulkanContext.vkDevice, vkSemaphore_BackBuffer[i], NULL);
             vkSemaphore_BackBuffer[i] = VK_NULL_HANDLE;
 
         }
@@ -3005,7 +2972,7 @@ void uninitialize(void)
 	//timeline semaphore
     if (vkSemaphore_Timeline)
     {
-        vkDestroySemaphore(vkDevice, vkSemaphore_Timeline, NULL);
+        vkDestroySemaphore(gVulkanContext.vkDevice, vkSemaphore_Timeline, NULL);
         vkSemaphore_Timeline = VK_NULL_HANDLE;
 	}
 
@@ -3016,7 +2983,7 @@ void uninitialize(void)
     //{
     //    for (uint32_t i = 0; i < gSwapchainImageCount; i++)
     //    {
-    //        vkDestroyFramebuffer(vkDevice, vkFramebuffer_Array[i], NULL);
+    //        vkDestroyFramebuffer(gVulkanContext.vkDevice, vkFramebuffer_Array[i], NULL);
     //        vkFramebuffer_Array[i] = VK_NULL_HANDLE;
 
     //    }
@@ -3037,7 +3004,7 @@ void uninitialize(void)
     //// renderpass
     //if (vkRenderPass)
     //{
-    //    vkDestroyRenderPass(vkDevice, vkRenderPass, NULL);
+    //    vkDestroyRenderPass(gVulkanContext.vkDevice, vkRenderPass, NULL);
     //    vkRenderPass = VK_NULL_HANDLE;
 
     //}
@@ -3045,7 +3012,7 @@ void uninitialize(void)
     //discriptor pool // no need to destroy discriptor set if we destroy discriptor pool
     if (vkDescriptorPool)
     {
-        vkDestroyDescriptorPool(vkDevice, vkDescriptorPool, NULL);
+        vkDestroyDescriptorPool(gVulkanContext.vkDevice, vkDescriptorPool, NULL);
         vkDescriptorPool = VK_NULL_HANDLE;
         vkDescriptorSets_frameData[0] = VK_NULL_HANDLE; // set to NULL to avoid dangling pointer
         vkDescriptorSets_frameData[1] = VK_NULL_HANDLE; // set to NULL to avoid dangling pointer
@@ -3102,17 +3069,17 @@ void uninitialize(void)
  //   for (uint32_t i = 0; i < MAX_FRAMES; i++)
  //   {
  //       // Unmap the uniformData memory
- //       vkUnmapMemory(vkDevice, uniformBufferData_camera[i].vkDeviceMemory);
+ //       vkUnmapMemory(gVulkanContext.vkDevice, uniformBufferData_camera[i].vkDeviceMemory);
 
  //       //uniformData
  //       if (uniformBufferData_camera[i].vkDeviceMemory)
  //       {
- //           vkFreeMemory(vkDevice, uniformBufferData_camera[i].vkDeviceMemory, NULL);
+ //           vkFreeMemory(gVulkanContext.vkDevice, uniformBufferData_camera[i].vkDeviceMemory, NULL);
  //           uniformBufferData_camera[i].vkDeviceMemory = VK_NULL_HANDLE;
  //       }
  //       if (uniformBufferData_camera[i].vkBuffer)
  //       {
- //           vkDestroyBuffer(vkDevice, uniformBufferData_camera[i].vkBuffer, NULL);
+ //           vkDestroyBuffer(gVulkanContext.vkDevice, uniformBufferData_camera[i].vkBuffer, NULL);
  //           uniformBufferData_camera[i].vkBuffer = VK_NULL_HANDLE;
  //       }
  //   }
@@ -3121,24 +3088,24 @@ void uninitialize(void)
     for (uint32_t i = 0; i < MAX_FRAMES; i++)
     {
         // Unmap the uniformData memory
-        vkUnmapMemory(vkDevice, uniformBufferData_frameData[i].vkDeviceMemory);
+        vkUnmapMemory(gVulkanContext.vkDevice, uniformBufferData_frameData[i].vkDeviceMemory);
 
         //uniformData
         if (uniformBufferData_frameData[i].vkDeviceMemory)
         {
-            vkFreeMemory(vkDevice, uniformBufferData_frameData[i].vkDeviceMemory, NULL);
+            vkFreeMemory(gVulkanContext.vkDevice, uniformBufferData_frameData[i].vkDeviceMemory, NULL);
             uniformBufferData_frameData[i].vkDeviceMemory = VK_NULL_HANDLE;
         }
         if (uniformBufferData_frameData[i].vkBuffer)
         {
-            vkDestroyBuffer(vkDevice, uniformBufferData_frameData[i].vkBuffer, NULL);
+            vkDestroyBuffer(gVulkanContext.vkDevice, uniformBufferData_frameData[i].vkBuffer, NULL);
             uniformBufferData_frameData[i].vkBuffer = VK_NULL_HANDLE;
         }
     }
 
     for (uint32_t i = 0; i < gSwapchainImageCount; i++)
     {
-        vkFreeCommandBuffers(vkDevice, vkCommandPool, 1, &vkCommandBuffer_Array[i]);
+        vkFreeCommandBuffers(gVulkanContext.vkDevice, gVulkanContext.vkCommandPool, 1, &vkCommandBuffer_Array[i]);
     }
 
     if (vkCommandBuffer_Array)
@@ -3148,10 +3115,10 @@ void uninitialize(void)
 
     }
 
-    if (vkCommandPool)
+    if (gVulkanContext.vkCommandPool)
     {
-        vkDestroyCommandPool(vkDevice, vkCommandPool, NULL);
-        vkCommandPool = VK_NULL_HANDLE;
+        vkDestroyCommandPool(gVulkanContext.vkDevice, gVulkanContext.vkCommandPool, NULL);
+        gVulkanContext.vkCommandPool = VK_NULL_HANDLE;
 
     }
 
@@ -3175,7 +3142,7 @@ void uninitialize(void)
     if (vkSwapchainKHR)
     {
         vkDestroySwapchainKHR(
-            vkDevice,       // [in] Vulkan device handle,
+            gVulkanContext.vkDevice,       // [in] Vulkan device handle,
             vkSwapchainKHR, // [in] Vulkan swapchain handle
             NULL            // [in, optional] custom memory allocator
         );
@@ -3190,14 +3157,14 @@ void uninitialize(void)
      */
 
      // Destroy Vulkan device
-    if (vkDevice)
+    if (gVulkanContext.vkDevice)
     {
         // finally, destroy it
         vkDestroyDevice(
-            vkDevice, // [in] Vulkan device handle
+            gVulkanContext.vkDevice, // [in] Vulkan device handle
             NULL      // [in, optional] pointer to a custom memory allocator
         );
-        vkDevice = VK_NULL_HANDLE;
+        gVulkanContext.vkDevice = VK_NULL_HANDLE;
     }
 
     /*
@@ -3205,43 +3172,41 @@ void uninitialize(void)
      */
 
      // Destroy the VkSurfaceKHR object
-    if (vkSurfaceKHR)
+    if (gWindow.vkSurfaceKHR)
     {
         vkDestroySurfaceKHR(
-            vkInstance,   // [in] Vulkan instance handle
-            vkSurfaceKHR, // [in] Vulkan presentation surface handle
+            gVulkanContext.vkInstance,   // [in] Vulkan instance handle
+            gWindow.vkSurfaceKHR, // [in] Vulkan presentation surface handle
             NULL          // [in, optional] pointer to a custom memory allocator (NULL means use a default memory allocator)
         );
 
-        vkSurfaceKHR = VK_NULL_HANDLE;
-
+        gWindow.vkSurfaceKHR = VK_NULL_HANDLE;
     }
 
     //validation
-    if (vkDebugReportCallbackEXT && vkDestroyDebugReportCallbackEXT_fnptr)
+    if (gVulkanContext.vkDebugReportCallbackEXT && gVulkanContext.vkDestroyDebugReportCallbackEXT_fnptr)
     {
-        vkDestroyDebugReportCallbackEXT_fnptr(vkInstance, vkDebugReportCallbackEXT, NULL);
-        vkDebugReportCallbackEXT = VK_NULL_HANDLE;
-        vkDestroyDebugReportCallbackEXT_fnptr = NULL;
+        gVulkanContext.vkDestroyDebugReportCallbackEXT_fnptr(gVulkanContext.vkInstance, gVulkanContext.vkDebugReportCallbackEXT, NULL);
+        gVulkanContext.vkDebugReportCallbackEXT = VK_NULL_HANDLE;
+        gVulkanContext.vkDestroyDebugReportCallbackEXT_fnptr = NULL;
     }
 
     // Destroy the VkInstance
-    if (vkInstance)
+    if (gVulkanContext.vkInstance)
     {
         vkDestroyInstance(
-            vkInstance, // [in] Vulkan instance handle
+            gVulkanContext.vkInstance, // [in] Vulkan instance handle
             NULL        // [in, optional] pointer to a custom memory allocator (NULL means use a default memory allocator)
         );
 
-        vkInstance = VK_NULL_HANDLE;
-
+        gVulkanContext.vkInstance = VK_NULL_HANDLE;
     }
 
     // Destroy window
-    if (ghwnd)
+    if (gWindow.hwnd)
     {
-        DestroyWindow(ghwnd);
-        ghwnd = NULL;
+        DestroyWindow(gWindow.hwnd);
+        gWindow.hwnd = NULL;
     }
 
     if (gpFILE)
@@ -3293,7 +3258,7 @@ VkResult loadTextureData(ImageData* imageData, const char* filename, VkFormat fo
     bufferCreateInfo.size = imageSize; // Size of the buffer in bytes
     bufferCreateInfo.usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT; // Buffer will be used for transfer operations
     bufferCreateInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE; // No sharing between queues
-    vkResult = vkCreateBuffer(vkDevice, &bufferCreateInfo, NULL, &vkBuffer_stagingBuffer);
+    vkResult = vkCreateBuffer(gVulkanContext.vkDevice, &bufferCreateInfo, NULL, &vkBuffer_stagingBuffer);
     if (vkResult != VK_SUCCESS)
     {
         fprintf(gpFILE, "loadTextureData() : vkCreateBuffer() failed (%d).\n", vkResult);
@@ -3304,7 +3269,7 @@ VkResult loadTextureData(ImageData* imageData, const char* filename, VkFormat fo
 
     // Allocate memory for the buffer
     VkMemoryRequirements memoryRequirements;
-    vkGetBufferMemoryRequirements(vkDevice, vkBuffer_stagingBuffer, &memoryRequirements);
+    vkGetBufferMemoryRequirements(gVulkanContext.vkDevice, vkBuffer_stagingBuffer, &memoryRequirements);
     VkMemoryAllocateInfo memoryAllocateInfo;
     memset(&memoryAllocateInfo, 0, sizeof(VkMemoryAllocateInfo));
     memoryAllocateInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
@@ -3316,43 +3281,43 @@ VkResult loadTextureData(ImageData* imageData, const char* filename, VkFormat fo
     if (memoryAllocateInfo.memoryTypeIndex == UINT32_MAX)
     {
         fprintf(gpFILE, "loadTextureData() : findMemoryType() failed.\n");
-        vkDestroyBuffer(vkDevice, vkBuffer_stagingBuffer, NULL); // Clean up the buffer
+        vkDestroyBuffer(gVulkanContext.vkDevice, vkBuffer_stagingBuffer, NULL); // Clean up the buffer
         stbi_image_free(data); // Free the pixel data before returning
         return VK_ERROR_MEMORY_MAP_FAILED;
     }
-    vkResult = vkAllocateMemory(vkDevice, &memoryAllocateInfo, NULL, &vkDeviceMemory_stagingBuffer);
+    vkResult = vkAllocateMemory(gVulkanContext.vkDevice, &memoryAllocateInfo, NULL, &vkDeviceMemory_stagingBuffer);
     if (vkResult != VK_SUCCESS)
     {
         fprintf(gpFILE, "loadTextureData() : vkAllocateMemory() failed (%d).\n", vkResult);
-        vkDestroyBuffer(vkDevice, vkBuffer_stagingBuffer, NULL); // Clean up the buffer
+        vkDestroyBuffer(gVulkanContext.vkDevice, vkBuffer_stagingBuffer, NULL); // Clean up the buffer
         stbi_image_free(data); // Free the pixel data before returning
         return vkResult;
     }
     // Bind the buffer memory
-    vkResult = vkBindBufferMemory(vkDevice, vkBuffer_stagingBuffer, vkDeviceMemory_stagingBuffer, 0);
+    vkResult = vkBindBufferMemory(gVulkanContext.vkDevice, vkBuffer_stagingBuffer, vkDeviceMemory_stagingBuffer, 0);
     if (vkResult != VK_SUCCESS)
     {
         fprintf(gpFILE, "loadTextureData() : vkBindBufferMemory() failed (%d).\n", vkResult);
-        vkFreeMemory(vkDevice, vkDeviceMemory_stagingBuffer, NULL); // Clean up the memory
-        vkDestroyBuffer(vkDevice, vkBuffer_stagingBuffer, NULL); // Clean up the buffer
+        vkFreeMemory(gVulkanContext.vkDevice, vkDeviceMemory_stagingBuffer, NULL); // Clean up the memory
+        vkDestroyBuffer(gVulkanContext.vkDevice, vkBuffer_stagingBuffer, NULL); // Clean up the buffer
         stbi_image_free(data); // Free the pixel data before returning
         return vkResult;
     }
     // Map the buffer memory and copy the pixel data
     void* mappedMemory;
-    vkResult = vkMapMemory(vkDevice, vkDeviceMemory_stagingBuffer, 0, imageSize, 0, &mappedMemory);
+    vkResult = vkMapMemory(gVulkanContext.vkDevice, vkDeviceMemory_stagingBuffer, 0, imageSize, 0, &mappedMemory);
     if (vkResult != VK_SUCCESS)
     {
         fprintf(gpFILE, "loadTextureData() : vkMapMemory() failed (%d).\n", vkResult);
-        vkFreeMemory(vkDevice, vkDeviceMemory_stagingBuffer, NULL); // Clean up the memory
-        vkDestroyBuffer(vkDevice, vkBuffer_stagingBuffer, NULL); // Clean up the buffer
+        vkFreeMemory(gVulkanContext.vkDevice, vkDeviceMemory_stagingBuffer, NULL); // Clean up the memory
+        vkDestroyBuffer(gVulkanContext.vkDevice, vkBuffer_stagingBuffer, NULL); // Clean up the buffer
         stbi_image_free(data); // Free the pixel data before returning
         return vkResult;
     }
     // Copy the pixel data to the mapped memory
     memcpy(mappedMemory, data, imageSize);
     // Unmap the memory after copying
-    vkUnmapMemory(vkDevice, vkDeviceMemory_stagingBuffer);
+    vkUnmapMemory(gVulkanContext.vkDevice, vkDeviceMemory_stagingBuffer);
 
 
 
@@ -3381,19 +3346,19 @@ VkResult loadTextureData(ImageData* imageData, const char* filename, VkFormat fo
     imageCreateInfo.tiling = VK_IMAGE_TILING_OPTIMAL; // Optimal tiling for performance
     imageCreateInfo.usage = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT; // Transfer destination and sampled usage
     imageCreateInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE; // No sharing between queues
-    vkResult = vkCreateImage(vkDevice, &imageCreateInfo, NULL, &imageData->vkImage);
+    vkResult = vkCreateImage(gVulkanContext.vkDevice, &imageCreateInfo, NULL, &imageData->vkImage);
     if (vkResult != VK_SUCCESS)
     {
         fprintf(gpFILE, "loadTextureData() : vkCreateImage() failed (%d).\n", vkResult);
-        vkUnmapMemory(vkDevice, vkDeviceMemory_stagingBuffer); // Unmap the memory
-        vkFreeMemory(vkDevice, vkDeviceMemory_stagingBuffer, NULL); // Clean up the memory
-        vkDestroyBuffer(vkDevice, vkBuffer_stagingBuffer, NULL); // Clean up the buffer
+        vkUnmapMemory(gVulkanContext.vkDevice, vkDeviceMemory_stagingBuffer); // Unmap the memory
+        vkFreeMemory(gVulkanContext.vkDevice, vkDeviceMemory_stagingBuffer, NULL); // Clean up the memory
+        vkDestroyBuffer(gVulkanContext.vkDevice, vkBuffer_stagingBuffer, NULL); // Clean up the buffer
         stbi_image_free(data); // Free the pixel data before returning
         return vkResult;
     }
     // Allocate memory for the image
     VkMemoryRequirements imageMemoryRequirements;
-    vkGetImageMemoryRequirements(vkDevice, imageData->vkImage, &imageMemoryRequirements);
+    vkGetImageMemoryRequirements(gVulkanContext.vkDevice, imageData->vkImage, &imageMemoryRequirements);
     VkMemoryAllocateInfo imageMemoryAllocateInfo;
     memset(&imageMemoryAllocateInfo, 0, sizeof(VkMemoryAllocateInfo));
     imageMemoryAllocateInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
@@ -3405,35 +3370,35 @@ VkResult loadTextureData(ImageData* imageData, const char* filename, VkFormat fo
     if (imageMemoryAllocateInfo.memoryTypeIndex == UINT32_MAX)
     {
         fprintf(gpFILE, "loadTextureData() : findMemoryType() failed.\n");
-        vkDestroyImage(vkDevice, imageData->vkImage, NULL); // Clean up the image
-        vkUnmapMemory(vkDevice, vkDeviceMemory_stagingBuffer); // Unmap the memory
-        vkFreeMemory(vkDevice, vkDeviceMemory_stagingBuffer, NULL); // Clean up the memory
-        vkDestroyBuffer(vkDevice, vkBuffer_stagingBuffer, NULL); // Clean up the buffer
+        vkDestroyImage(gVulkanContext.vkDevice, imageData->vkImage, NULL); // Clean up the image
+        vkUnmapMemory(gVulkanContext.vkDevice, vkDeviceMemory_stagingBuffer); // Unmap the memory
+        vkFreeMemory(gVulkanContext.vkDevice, vkDeviceMemory_stagingBuffer, NULL); // Clean up the memory
+        vkDestroyBuffer(gVulkanContext.vkDevice, vkBuffer_stagingBuffer, NULL); // Clean up the buffer
         stbi_image_free(data); // Free the pixel data before returning
         return VK_ERROR_MEMORY_MAP_FAILED;
     }
 
-    vkResult = vkAllocateMemory(vkDevice, &imageMemoryAllocateInfo, NULL, &imageData->vkDeviceMemory);
+    vkResult = vkAllocateMemory(gVulkanContext.vkDevice, &imageMemoryAllocateInfo, NULL, &imageData->vkDeviceMemory);
     if (vkResult != VK_SUCCESS)
     {
         fprintf(gpFILE, "loadTextureData() : vkAllocateMemory() failed (%d).\n", vkResult);
-        vkDestroyImage(vkDevice, imageData->vkImage, NULL); // Clean up the image
-        vkUnmapMemory(vkDevice, vkDeviceMemory_stagingBuffer); // Unmap the memory
-        vkFreeMemory(vkDevice, vkDeviceMemory_stagingBuffer, NULL); // Clean up the memory
-        vkDestroyBuffer(vkDevice, vkBuffer_stagingBuffer, NULL); // Clean up the buffer
+        vkDestroyImage(gVulkanContext.vkDevice, imageData->vkImage, NULL); // Clean up the image
+        vkUnmapMemory(gVulkanContext.vkDevice, vkDeviceMemory_stagingBuffer); // Unmap the memory
+        vkFreeMemory(gVulkanContext.vkDevice, vkDeviceMemory_stagingBuffer, NULL); // Clean up the memory
+        vkDestroyBuffer(gVulkanContext.vkDevice, vkBuffer_stagingBuffer, NULL); // Clean up the buffer
         stbi_image_free(data); // Free the pixel data before returning
         return vkResult;
     }
     // Bind the image memory
-    vkResult = vkBindImageMemory(vkDevice, imageData->vkImage, imageData->vkDeviceMemory, 0);
+    vkResult = vkBindImageMemory(gVulkanContext.vkDevice, imageData->vkImage, imageData->vkDeviceMemory, 0);
     if (vkResult != VK_SUCCESS)
     {
         fprintf(gpFILE, "loadTextureData() : vkBindImageMemory() failed (%d).\n", vkResult);
-        vkDestroyImage(vkDevice, imageData->vkImage, NULL); // Clean up the image
-        vkUnmapMemory(vkDevice, vkDeviceMemory_stagingBuffer); // Unmap the memory
-        vkFreeMemory(vkDevice, vkDeviceMemory_stagingBuffer, NULL); // Clean up the memory
-        vkFreeMemory(vkDevice, imageData->vkDeviceMemory, NULL); // Clean up the image memory
-        vkDestroyBuffer(vkDevice, vkBuffer_stagingBuffer, NULL); // Clean up the buffer
+        vkDestroyImage(gVulkanContext.vkDevice, imageData->vkImage, NULL); // Clean up the image
+        vkUnmapMemory(gVulkanContext.vkDevice, vkDeviceMemory_stagingBuffer); // Unmap the memory
+        vkFreeMemory(gVulkanContext.vkDevice, vkDeviceMemory_stagingBuffer, NULL); // Clean up the memory
+        vkFreeMemory(gVulkanContext.vkDevice, imageData->vkDeviceMemory, NULL); // Clean up the image memory
+        vkDestroyBuffer(gVulkanContext.vkDevice, vkBuffer_stagingBuffer, NULL); // Clean up the buffer
         stbi_image_free(data); // Free the pixel data before returning
         return vkResult;
     }
@@ -3444,18 +3409,18 @@ VkResult loadTextureData(ImageData* imageData, const char* filename, VkFormat fo
     VkCommandBufferAllocateInfo commandBufferAllocateInfo;
     memset(&commandBufferAllocateInfo, 0, sizeof(VkCommandBufferAllocateInfo));
     commandBufferAllocateInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
-    commandBufferAllocateInfo.commandPool = vkCommandPool; // Command pool for allocation
+    commandBufferAllocateInfo.commandPool = gVulkanContext.vkCommandPool; // Command pool for allocation
     commandBufferAllocateInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY; // Primary command buffer
     commandBufferAllocateInfo.commandBufferCount = 1; // Allocate one command buffer
-    vkResult = vkAllocateCommandBuffers(vkDevice, &commandBufferAllocateInfo, &commandBuffer);
+    vkResult = vkAllocateCommandBuffers(gVulkanContext.vkDevice, &commandBufferAllocateInfo, &commandBuffer);
     if (vkResult != VK_SUCCESS)
     {
         fprintf(gpFILE, "loadTextureData() : vkAllocateCommandBuffers() failed (%d).\n", vkResult);
-        vkDestroyImage(vkDevice, imageData->vkImage, NULL); // Clean up the image
-        vkUnmapMemory(vkDevice, vkDeviceMemory_stagingBuffer); // Unmap the memory
-        vkFreeMemory(vkDevice, vkDeviceMemory_stagingBuffer, NULL); // Clean up the memory
-        vkFreeMemory(vkDevice, imageData->vkDeviceMemory, NULL); // Clean up the image memory
-        vkDestroyBuffer(vkDevice, vkBuffer_stagingBuffer, NULL); // Clean up the buffer
+        vkDestroyImage(gVulkanContext.vkDevice, imageData->vkImage, NULL); // Clean up the image
+        vkUnmapMemory(gVulkanContext.vkDevice, vkDeviceMemory_stagingBuffer); // Unmap the memory
+        vkFreeMemory(gVulkanContext.vkDevice, vkDeviceMemory_stagingBuffer, NULL); // Clean up the memory
+        vkFreeMemory(gVulkanContext.vkDevice, imageData->vkDeviceMemory, NULL); // Clean up the image memory
+        vkDestroyBuffer(gVulkanContext.vkDevice, vkBuffer_stagingBuffer, NULL); // Clean up the buffer
         stbi_image_free(data); // Free the pixel data before returning
         return vkResult;
     }
@@ -3468,11 +3433,11 @@ VkResult loadTextureData(ImageData* imageData, const char* filename, VkFormat fo
     if (vkResult != VK_SUCCESS)
     {
         fprintf(gpFILE, "loadTextureData() : vkBeginCommandBuffer() failed (%d).\n", vkResult);
-        vkDestroyImage(vkDevice, imageData->vkImage, NULL); // Clean up the image
-        vkUnmapMemory(vkDevice, vkDeviceMemory_stagingBuffer); // Unmap the memory
-        vkFreeMemory(vkDevice, vkDeviceMemory_stagingBuffer, NULL); // Clean up the memory
-        vkFreeMemory(vkDevice, imageData->vkDeviceMemory, NULL); // Clean up the image memory
-        vkDestroyBuffer(vkDevice, vkBuffer_stagingBuffer, NULL); // Clean up the buffer
+        vkDestroyImage(gVulkanContext.vkDevice, imageData->vkImage, NULL); // Clean up the image
+        vkUnmapMemory(gVulkanContext.vkDevice, vkDeviceMemory_stagingBuffer); // Unmap the memory
+        vkFreeMemory(gVulkanContext.vkDevice, vkDeviceMemory_stagingBuffer, NULL); // Clean up the memory
+        vkFreeMemory(gVulkanContext.vkDevice, imageData->vkDeviceMemory, NULL); // Clean up the image memory
+        vkDestroyBuffer(gVulkanContext.vkDevice, vkBuffer_stagingBuffer, NULL); // Clean up the buffer
         stbi_image_free(data); // Free the pixel data before returning
         return vkResult;
     }
@@ -3542,11 +3507,11 @@ VkResult loadTextureData(ImageData* imageData, const char* filename, VkFormat fo
     if (vkResult != VK_SUCCESS)
     {
         fprintf(gpFILE, "loadTextureData() : vkEndCommandBuffer() failed (%d).\n", vkResult);
-        vkDestroyImage(vkDevice, imageData->vkImage, NULL); // Clean up the image
-        vkUnmapMemory(vkDevice, vkDeviceMemory_stagingBuffer); // Unmap the memory
-        vkFreeMemory(vkDevice, vkDeviceMemory_stagingBuffer, NULL); // Clean up the memory
-        vkFreeMemory(vkDevice, imageData->vkDeviceMemory, NULL); // Clean up the image memory
-        vkDestroyBuffer(vkDevice, vkBuffer_stagingBuffer, NULL); // Clean up the buffer
+        vkDestroyImage(gVulkanContext.vkDevice, imageData->vkImage, NULL); // Clean up the image
+        vkUnmapMemory(gVulkanContext.vkDevice, vkDeviceMemory_stagingBuffer); // Unmap the memory
+        vkFreeMemory(gVulkanContext.vkDevice, vkDeviceMemory_stagingBuffer, NULL); // Clean up the memory
+        vkFreeMemory(gVulkanContext.vkDevice, imageData->vkDeviceMemory, NULL); // Clean up the image memory
+        vkDestroyBuffer(gVulkanContext.vkDevice, vkBuffer_stagingBuffer, NULL); // Clean up the buffer
         stbi_image_free(data); // Free the pixel data before returning
         return vkResult;
     }
@@ -3556,34 +3521,34 @@ VkResult loadTextureData(ImageData* imageData, const char* filename, VkFormat fo
     submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
     submitInfo.commandBufferCount = 1; // One command buffer to submit
     submitInfo.pCommandBuffers = &commandBuffer; // Pointer to the command buffer
-    vkResult = vkQueueSubmit(vkQueue, 1, &submitInfo, VK_NULL_HANDLE);
+    vkResult = vkQueueSubmit(gVulkanContext.vkGraphicsQueue, 1, &submitInfo, VK_NULL_HANDLE);
     if (vkResult != VK_SUCCESS)
     {
         fprintf(gpFILE, "loadTextureData() : vkQueueSubmit() failed (%d).\n", vkResult);
-        vkDestroyImage(vkDevice, imageData->vkImage, NULL); // Clean up the image
-        vkUnmapMemory(vkDevice, vkDeviceMemory_stagingBuffer); // Unmap the memory
-        vkFreeMemory(vkDevice, vkDeviceMemory_stagingBuffer, NULL); // Clean up the memory
-        vkFreeMemory(vkDevice, imageData->vkDeviceMemory, NULL); // Clean up the image memory
-        vkDestroyBuffer(vkDevice, vkBuffer_stagingBuffer, NULL); // Clean up the buffer
+        vkDestroyImage(gVulkanContext.vkDevice, imageData->vkImage, NULL); // Clean up the image
+        vkUnmapMemory(gVulkanContext.vkDevice, vkDeviceMemory_stagingBuffer); // Unmap the memory
+        vkFreeMemory(gVulkanContext.vkDevice, vkDeviceMemory_stagingBuffer, NULL); // Clean up the memory
+        vkFreeMemory(gVulkanContext.vkDevice, imageData->vkDeviceMemory, NULL); // Clean up the image memory
+        vkDestroyBuffer(gVulkanContext.vkDevice, vkBuffer_stagingBuffer, NULL); // Clean up the buffer
         stbi_image_free(data); // Free the pixel data before returning
         return vkResult;
     }
     // Wait for the queue to finish processing
-    vkResult = vkQueueWaitIdle(vkQueue);
+    vkResult = vkQueueWaitIdle(gVulkanContext.vkGraphicsQueue);
     if (vkResult != VK_SUCCESS)
     {
         fprintf(gpFILE, "loadTextureData() : vkQueueWaitIdle() failed (%d).\n", vkResult);
-        vkDestroyImage(vkDevice, imageData->vkImage, NULL); // Clean up the image
-        vkUnmapMemory(vkDevice, vkDeviceMemory_stagingBuffer); // Unmap the memory
-        vkFreeMemory(vkDevice, vkDeviceMemory_stagingBuffer, NULL); // Clean up the memory
-        vkFreeMemory(vkDevice, imageData->vkDeviceMemory, NULL); // Clean up the image memory
-        vkDestroyBuffer(vkDevice, vkBuffer_stagingBuffer, NULL); // Clean up the buffer
+        vkDestroyImage(gVulkanContext.vkDevice, imageData->vkImage, NULL); // Clean up the image
+        vkUnmapMemory(gVulkanContext.vkDevice, vkDeviceMemory_stagingBuffer); // Unmap the memory
+        vkFreeMemory(gVulkanContext.vkDevice, vkDeviceMemory_stagingBuffer, NULL); // Clean up the memory
+        vkFreeMemory(gVulkanContext.vkDevice, imageData->vkDeviceMemory, NULL); // Clean up the image memory
+        vkDestroyBuffer(gVulkanContext.vkDevice, vkBuffer_stagingBuffer, NULL); // Clean up the buffer
         stbi_image_free(data); // Free the pixel data before returning
         return vkResult;
     }
     // Clean up the staging buffer and memory
-    vkDestroyBuffer(vkDevice, vkBuffer_stagingBuffer, NULL); // Clean up the staging buffer
-    vkFreeMemory(vkDevice, vkDeviceMemory_stagingBuffer, NULL); // Clean up the staging buffer memory
+    vkDestroyBuffer(gVulkanContext.vkDevice, vkBuffer_stagingBuffer, NULL); // Clean up the staging buffer
+    vkFreeMemory(gVulkanContext.vkDevice, vkDeviceMemory_stagingBuffer, NULL); // Clean up the staging buffer memory
     // At this point, the texture image is ready to be used in rendering
     // 5) Create an image view for the texture image
     VkImageViewCreateInfo imageViewCreateInfo;
@@ -3597,15 +3562,15 @@ VkResult loadTextureData(ImageData* imageData, const char* filename, VkFormat fo
     imageViewCreateInfo.subresourceRange.levelCount = 1; // One mip level
     imageViewCreateInfo.subresourceRange.baseArrayLayer = 0; // Base array layer
     imageViewCreateInfo.subresourceRange.layerCount = 1; // One layer
-    vkResult = vkCreateImageView(vkDevice, &imageViewCreateInfo, NULL, &imageData->vkImageView);
+    vkResult = vkCreateImageView(gVulkanContext.vkDevice, &imageViewCreateInfo, NULL, &imageData->vkImageView);
     if (vkResult != VK_SUCCESS)
     {
         fprintf(gpFILE, "loadTextureData() : vkCreateImageView() failed (%d).\n", vkResult);
-        vkDestroyImage(vkDevice, imageData->vkImage, NULL); // Clean up the image
-        vkUnmapMemory(vkDevice, vkDeviceMemory_stagingBuffer); // Unmap the memory
-        vkFreeMemory(vkDevice, vkDeviceMemory_stagingBuffer, NULL); // Clean up the memory
-        vkFreeMemory(vkDevice, imageData->vkDeviceMemory, NULL); // Clean up the image memory
-        vkDestroyBuffer(vkDevice, vkBuffer_stagingBuffer, NULL); // Clean up the buffer
+        vkDestroyImage(gVulkanContext.vkDevice, imageData->vkImage, NULL); // Clean up the image
+        vkUnmapMemory(gVulkanContext.vkDevice, vkDeviceMemory_stagingBuffer); // Unmap the memory
+        vkFreeMemory(gVulkanContext.vkDevice, vkDeviceMemory_stagingBuffer, NULL); // Clean up the memory
+        vkFreeMemory(gVulkanContext.vkDevice, imageData->vkDeviceMemory, NULL); // Clean up the image memory
+        vkDestroyBuffer(gVulkanContext.vkDevice, vkBuffer_stagingBuffer, NULL); // Clean up the buffer
         stbi_image_free(data); // Free the pixel data before returning
         return vkResult;
     }
@@ -3742,7 +3707,7 @@ VkResult loadTextureData_dds_c_bc7(ImageData* imageData, const char* filename, V
     bufInfo.usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
     bufInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
 
-    VkResult vkRes = vkCreateBuffer(vkDevice, &bufInfo, nullptr, &stagingBuffer);
+    VkResult vkRes = vkCreateBuffer(gVulkanContext.vkDevice, &bufInfo, nullptr, &stagingBuffer);
     if (vkRes != VK_SUCCESS) {
         fprintf(gpFILE, "loadTextureData_dds_c_bc7(): vkCreateBuffer failed (%d)\n", vkRes);
         free(subs);
@@ -3750,7 +3715,7 @@ VkResult loadTextureData_dds_c_bc7(ImageData* imageData, const char* filename, V
     }
 
     VkMemoryRequirements memReq = {};
-    vkGetBufferMemoryRequirements(vkDevice, stagingBuffer, &memReq);
+    vkGetBufferMemoryRequirements(gVulkanContext.vkDevice, stagingBuffer, &memReq);
 
     VkMemoryAllocateInfo allocInfo = {};
     allocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
@@ -3759,35 +3724,35 @@ VkResult loadTextureData_dds_c_bc7(ImageData* imageData, const char* filename, V
         VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
     if (allocInfo.memoryTypeIndex == UINT32_MAX) {
         fprintf(gpFILE, "loadTextureData_dds_c_bc7(): findMemoryType failed for staging\n");
-        vkDestroyBuffer(vkDevice, stagingBuffer, nullptr);
+        vkDestroyBuffer(gVulkanContext.vkDevice, stagingBuffer, nullptr);
         free(subs);
         return VK_ERROR_MEMORY_MAP_FAILED;
     }
 
-    vkRes = vkAllocateMemory(vkDevice, &allocInfo, nullptr, &stagingMemory);
+    vkRes = vkAllocateMemory(gVulkanContext.vkDevice, &allocInfo, nullptr, &stagingMemory);
     if (vkRes != VK_SUCCESS) {
         fprintf(gpFILE, "loadTextureData_dds_c_bc7(): vkAllocateMemory failed (%d)\n", vkRes);
-        vkDestroyBuffer(vkDevice, stagingBuffer, nullptr);
+        vkDestroyBuffer(gVulkanContext.vkDevice, stagingBuffer, nullptr);
         free(subs);
         return vkRes;
     }
 
-    vkRes = vkBindBufferMemory(vkDevice, stagingBuffer, stagingMemory, 0);
+    vkRes = vkBindBufferMemory(gVulkanContext.vkDevice, stagingBuffer, stagingMemory, 0);
     if (vkRes != VK_SUCCESS) {
         fprintf(gpFILE, "loadTextureData_dds_c_bc7(): vkBindBufferMemory failed (%d)\n", vkRes);
-        vkFreeMemory(vkDevice, stagingMemory, nullptr);
-        vkDestroyBuffer(vkDevice, stagingBuffer, nullptr);
+        vkFreeMemory(gVulkanContext.vkDevice, stagingMemory, nullptr);
+        vkDestroyBuffer(gVulkanContext.vkDevice, stagingBuffer, nullptr);
         free(subs);
         return vkRes;
     }
 
     // Map and copy BC7 subresources into staging (use bc7_subresource_size)
     void* mapped = NULL;
-    vkRes = vkMapMemory(vkDevice, stagingMemory, 0, totalSize, 0, &mapped);
+    vkRes = vkMapMemory(gVulkanContext.vkDevice, stagingMemory, 0, totalSize, 0, &mapped);
     if (vkRes != VK_SUCCESS) {
         fprintf(gpFILE, "loadTextureData_dds_c_bc7(): vkMapMemory failed (%d)\n", vkRes);
-        vkFreeMemory(vkDevice, stagingMemory, nullptr);
-        vkDestroyBuffer(vkDevice, stagingBuffer, nullptr);
+        vkFreeMemory(gVulkanContext.vkDevice, stagingMemory, nullptr);
+        vkDestroyBuffer(gVulkanContext.vkDevice, stagingBuffer, nullptr);
         free(subs);
         return vkRes;
     }
@@ -3804,9 +3769,9 @@ VkResult loadTextureData_dds_c_bc7(ImageData* imageData, const char* filename, V
 
             if (!img->m_mem) {
                 fprintf(gpFILE, "loadTextureData_dds_c_bc7(): null m_mem for layer=%u mip=%u\n", layer, mip);
-                vkUnmapMemory(vkDevice, stagingMemory);
-                vkFreeMemory(vkDevice, stagingMemory, nullptr);
-                vkDestroyBuffer(vkDevice, stagingBuffer, nullptr);
+                vkUnmapMemory(gVulkanContext.vkDevice, stagingMemory);
+                vkFreeMemory(gVulkanContext.vkDevice, stagingMemory, nullptr);
+                vkDestroyBuffer(gVulkanContext.vkDevice, stagingBuffer, nullptr);
                 free(subs);
                 return VK_ERROR_INITIALIZATION_FAILED;
             }
@@ -3824,7 +3789,7 @@ VkResult loadTextureData_dds_c_bc7(ImageData* imageData, const char* filename, V
         }
     }
 
-    vkUnmapMemory(vkDevice, stagingMemory);
+    vkUnmapMemory(gVulkanContext.vkDevice, stagingMemory);
 
     // Create VkImage with the DDS mipCount / arrayCount
     VkImageCreateInfo imageInfo = {};
@@ -3844,17 +3809,17 @@ VkResult loadTextureData_dds_c_bc7(ImageData* imageData, const char* filename, V
     imageInfo.flags = (arrayCount == 6) ? VK_IMAGE_CREATE_CUBE_COMPATIBLE_BIT : 0;
 
     VkImage image = VK_NULL_HANDLE;
-    vkRes = vkCreateImage(vkDevice, &imageInfo, nullptr, &image);
+    vkRes = vkCreateImage(gVulkanContext.vkDevice, &imageInfo, nullptr, &image);
     if (vkRes != VK_SUCCESS) {
         fprintf(gpFILE, "loadTextureData_dds_c_bc7(): vkCreateImage failed (%d)\n", vkRes);
-        vkFreeMemory(vkDevice, stagingMemory, nullptr);
-        vkDestroyBuffer(vkDevice, stagingBuffer, nullptr);
+        vkFreeMemory(gVulkanContext.vkDevice, stagingMemory, nullptr);
+        vkDestroyBuffer(gVulkanContext.vkDevice, stagingBuffer, nullptr);
         free(subs);
         return vkRes;
     }
 
     VkMemoryRequirements imageMemReq = {};
-    vkGetImageMemoryRequirements(vkDevice, image, &imageMemReq);
+    vkGetImageMemoryRequirements(gVulkanContext.vkDevice, image, &imageMemReq);
 
     VkMemoryAllocateInfo imageAlloc = {};
     imageAlloc.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
@@ -3862,31 +3827,31 @@ VkResult loadTextureData_dds_c_bc7(ImageData* imageData, const char* filename, V
     imageAlloc.memoryTypeIndex = findMemoryType(imageMemReq.memoryTypeBits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
     if (imageAlloc.memoryTypeIndex == UINT32_MAX) {
         fprintf(gpFILE, "loadTextureData_dds_c_bc7(): findMemoryType failed for image\n");
-        vkDestroyImage(vkDevice, image, nullptr);
-        vkFreeMemory(vkDevice, stagingMemory, nullptr);
-        vkDestroyBuffer(vkDevice, stagingBuffer, nullptr);
+        vkDestroyImage(gVulkanContext.vkDevice, image, nullptr);
+        vkFreeMemory(gVulkanContext.vkDevice, stagingMemory, nullptr);
+        vkDestroyBuffer(gVulkanContext.vkDevice, stagingBuffer, nullptr);
         free(subs);
         return VK_ERROR_MEMORY_MAP_FAILED;
     }
 
     VkDeviceMemory imageMemory = VK_NULL_HANDLE;
-    vkRes = vkAllocateMemory(vkDevice, &imageAlloc, nullptr, &imageMemory);
+    vkRes = vkAllocateMemory(gVulkanContext.vkDevice, &imageAlloc, nullptr, &imageMemory);
     if (vkRes != VK_SUCCESS) {
         fprintf(gpFILE, "loadTextureData_dds_c_bc7(): vkAllocateMemory(image) failed (%d)\n", vkRes);
-        vkDestroyImage(vkDevice, image, nullptr);
-        vkFreeMemory(vkDevice, stagingMemory, nullptr);
-        vkDestroyBuffer(vkDevice, stagingBuffer, nullptr);
+        vkDestroyImage(gVulkanContext.vkDevice, image, nullptr);
+        vkFreeMemory(gVulkanContext.vkDevice, stagingMemory, nullptr);
+        vkDestroyBuffer(gVulkanContext.vkDevice, stagingBuffer, nullptr);
         free(subs);
         return vkRes;
     }
 
-    vkRes = vkBindImageMemory(vkDevice, image, imageMemory, 0);
+    vkRes = vkBindImageMemory(gVulkanContext.vkDevice, image, imageMemory, 0);
     if (vkRes != VK_SUCCESS) {
         fprintf(gpFILE, "loadTextureData_dds_c_bc7(): vkBindImageMemory failed (%d)\n", vkRes);
-        vkFreeMemory(vkDevice, imageMemory, nullptr);
-        vkDestroyImage(vkDevice, image, nullptr);
-        vkFreeMemory(vkDevice, stagingMemory, nullptr);
-        vkDestroyBuffer(vkDevice, stagingBuffer, nullptr);
+        vkFreeMemory(gVulkanContext.vkDevice, imageMemory, nullptr);
+        vkDestroyImage(gVulkanContext.vkDevice, image, nullptr);
+        vkFreeMemory(gVulkanContext.vkDevice, stagingMemory, nullptr);
+        vkDestroyBuffer(gVulkanContext.vkDevice, stagingBuffer, nullptr);
         free(subs);
         return vkRes;
     }
@@ -3894,18 +3859,18 @@ VkResult loadTextureData_dds_c_bc7(ImageData* imageData, const char* filename, V
     // Command buffer: transition, copy, transition
     VkCommandBufferAllocateInfo cmdAlloc = {};
     cmdAlloc.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
-    cmdAlloc.commandPool = vkCommandPool;
+    cmdAlloc.commandPool = gVulkanContext.vkCommandPool;
     cmdAlloc.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
     cmdAlloc.commandBufferCount = 1;
 
     VkCommandBuffer cmd = VK_NULL_HANDLE;
-    vkRes = vkAllocateCommandBuffers(vkDevice, &cmdAlloc, &cmd);
+    vkRes = vkAllocateCommandBuffers(gVulkanContext.vkDevice, &cmdAlloc, &cmd);
     if (vkRes != VK_SUCCESS) {
         fprintf(gpFILE, "loadTextureData_dds_c_bc7(): vkAllocateCommandBuffers failed (%d)\n", vkRes);
-        vkFreeMemory(vkDevice, imageMemory, nullptr);
-        vkDestroyImage(vkDevice, image, nullptr);
-        vkFreeMemory(vkDevice, stagingMemory, nullptr);
-        vkDestroyBuffer(vkDevice, stagingBuffer, nullptr);
+        vkFreeMemory(gVulkanContext.vkDevice, imageMemory, nullptr);
+        vkDestroyImage(gVulkanContext.vkDevice, image, nullptr);
+        vkFreeMemory(gVulkanContext.vkDevice, stagingMemory, nullptr);
+        vkDestroyBuffer(gVulkanContext.vkDevice, stagingBuffer, nullptr);
         free(subs);
         return vkRes;
     }
@@ -3916,11 +3881,11 @@ VkResult loadTextureData_dds_c_bc7(ImageData* imageData, const char* filename, V
     vkRes = vkBeginCommandBuffer(cmd, &beginInfo);
     if (vkRes != VK_SUCCESS) {
         fprintf(gpFILE, "loadTextureData_dds_c_bc7(): vkBeginCommandBuffer failed (%d)\n", vkRes);
-        vkFreeCommandBuffers(vkDevice, vkCommandPool, 1, &cmd);
-        vkFreeMemory(vkDevice, imageMemory, nullptr);
-        vkDestroyImage(vkDevice, image, nullptr);
-        vkFreeMemory(vkDevice, stagingMemory, nullptr);
-        vkDestroyBuffer(vkDevice, stagingBuffer, nullptr);
+        vkFreeCommandBuffers(gVulkanContext.vkDevice, gVulkanContext.vkCommandPool, 1, &cmd);
+        vkFreeMemory(gVulkanContext.vkDevice, imageMemory, nullptr);
+        vkDestroyImage(gVulkanContext.vkDevice, image, nullptr);
+        vkFreeMemory(gVulkanContext.vkDevice, stagingMemory, nullptr);
+        vkDestroyBuffer(gVulkanContext.vkDevice, stagingBuffer, nullptr);
         free(subs);
         return vkRes;
     }
@@ -3948,11 +3913,11 @@ VkResult loadTextureData_dds_c_bc7(ImageData* imageData, const char* filename, V
     VkBufferImageCopy* copies = (VkBufferImageCopy*)malloc(sizeof(VkBufferImageCopy) * subCount);
     if (!copies) {
         fprintf(gpFILE, "loadTextureData_dds_c_bc7(): malloc copies failed\n");
-        vkFreeCommandBuffers(vkDevice, vkCommandPool, 1, &cmd);
-        vkFreeMemory(vkDevice, imageMemory, nullptr);
-        vkDestroyImage(vkDevice, image, nullptr);
-        vkFreeMemory(vkDevice, stagingMemory, nullptr);
-        vkDestroyBuffer(vkDevice, stagingBuffer, nullptr);
+        vkFreeCommandBuffers(gVulkanContext.vkDevice, gVulkanContext.vkCommandPool, 1, &cmd);
+        vkFreeMemory(gVulkanContext.vkDevice, imageMemory, nullptr);
+        vkDestroyImage(gVulkanContext.vkDevice, image, nullptr);
+        vkFreeMemory(gVulkanContext.vkDevice, stagingMemory, nullptr);
+        vkDestroyBuffer(gVulkanContext.vkDevice, stagingBuffer, nullptr);
         free(subs);
         return VK_ERROR_OUT_OF_HOST_MEMORY;
     }
@@ -3999,11 +3964,11 @@ VkResult loadTextureData_dds_c_bc7(ImageData* imageData, const char* filename, V
         fprintf(gpFILE, "loadTextureData_dds_c_bc7(): vkEndCommandBuffer failed (%d)\n", vkRes);
         free(copies);
         free(subs);
-        vkFreeCommandBuffers(vkDevice, vkCommandPool, 1, &cmd);
-        vkFreeMemory(vkDevice, imageMemory, nullptr);
-        vkDestroyImage(vkDevice, image, nullptr);
-        vkFreeMemory(vkDevice, stagingMemory, nullptr);
-        vkDestroyBuffer(vkDevice, stagingBuffer, nullptr);
+        vkFreeCommandBuffers(gVulkanContext.vkDevice, gVulkanContext.vkCommandPool, 1, &cmd);
+        vkFreeMemory(gVulkanContext.vkDevice, imageMemory, nullptr);
+        vkDestroyImage(gVulkanContext.vkDevice, image, nullptr);
+        vkFreeMemory(gVulkanContext.vkDevice, stagingMemory, nullptr);
+        vkDestroyBuffer(gVulkanContext.vkDevice, stagingBuffer, nullptr);
         return vkRes;
     }
 
@@ -4012,34 +3977,34 @@ VkResult loadTextureData_dds_c_bc7(ImageData* imageData, const char* filename, V
     submit.commandBufferCount = 1;
     submit.pCommandBuffers = &cmd;
 
-    vkRes = vkQueueSubmit(vkQueue, 1, &submit, VK_NULL_HANDLE);
+    vkRes = vkQueueSubmit(gVulkanContext.vkGraphicsQueue, 1, &submit, VK_NULL_HANDLE);
     if (vkRes != VK_SUCCESS) {
         fprintf(gpFILE, "loadTextureData_dds_c_bc7(): vkQueueSubmit failed (%d)\n", vkRes);
         free(copies);
         free(subs);
-        vkFreeCommandBuffers(vkDevice, vkCommandPool, 1, &cmd);
-        vkFreeMemory(vkDevice, imageMemory, nullptr);
-        vkDestroyImage(vkDevice, image, nullptr);
-        vkFreeMemory(vkDevice, stagingMemory, nullptr);
-        vkDestroyBuffer(vkDevice, stagingBuffer, nullptr);
+        vkFreeCommandBuffers(gVulkanContext.vkDevice, gVulkanContext.vkCommandPool, 1, &cmd);
+        vkFreeMemory(gVulkanContext.vkDevice, imageMemory, nullptr);
+        vkDestroyImage(gVulkanContext.vkDevice, image, nullptr);
+        vkFreeMemory(gVulkanContext.vkDevice, stagingMemory, nullptr);
+        vkDestroyBuffer(gVulkanContext.vkDevice, stagingBuffer, nullptr);
         return vkRes;
     }
 
-    vkRes = vkQueueWaitIdle(vkQueue);
+    vkRes = vkQueueWaitIdle(gVulkanContext.vkGraphicsQueue);
     if (vkRes != VK_SUCCESS) {
         fprintf(gpFILE, "loadTextureData_dds_c_bc7(): vkQueueWaitIdle failed (%d)\n", vkRes);
         free(copies);
         free(subs);
-        vkFreeCommandBuffers(vkDevice, vkCommandPool, 1, &cmd);
-        vkFreeMemory(vkDevice, imageMemory, nullptr);
-        vkDestroyImage(vkDevice, image, nullptr);
-        vkFreeMemory(vkDevice, stagingMemory, nullptr);
-        vkDestroyBuffer(vkDevice, stagingBuffer, nullptr);
+        vkFreeCommandBuffers(gVulkanContext.vkDevice, gVulkanContext.vkCommandPool, 1, &cmd);
+        vkFreeMemory(gVulkanContext.vkDevice, imageMemory, nullptr);
+        vkDestroyImage(gVulkanContext.vkDevice, image, nullptr);
+        vkFreeMemory(gVulkanContext.vkDevice, stagingMemory, nullptr);
+        vkDestroyBuffer(gVulkanContext.vkDevice, stagingBuffer, nullptr);
         return vkRes;
     }
 
     // free command buffer
-    vkFreeCommandBuffers(vkDevice, vkCommandPool, 1, &cmd);
+    vkFreeCommandBuffers(gVulkanContext.vkDevice, gVulkanContext.vkCommandPool, 1, &cmd);
 
     // Create image view
     VkImageViewCreateInfo viewInfo = {};
@@ -4056,21 +4021,21 @@ VkResult loadTextureData_dds_c_bc7(ImageData* imageData, const char* filename, V
     viewInfo.subresourceRange.layerCount = arrayCount;
 
     VkImageView imageView = VK_NULL_HANDLE;
-    vkRes = vkCreateImageView(vkDevice, &viewInfo, nullptr, &imageView);
+    vkRes = vkCreateImageView(gVulkanContext.vkDevice, &viewInfo, nullptr, &imageView);
     if (vkRes != VK_SUCCESS) {
         fprintf(gpFILE, "loadTextureData_dds_c_bc7(): vkCreateImageView failed (%d)\n", vkRes);
         free(copies);
         free(subs);
-        vkFreeMemory(vkDevice, imageMemory, nullptr);
-        vkDestroyImage(vkDevice, image, nullptr);
-        vkFreeMemory(vkDevice, stagingMemory, nullptr);
-        vkDestroyBuffer(vkDevice, stagingBuffer, nullptr);
+        vkFreeMemory(gVulkanContext.vkDevice, imageMemory, nullptr);
+        vkDestroyImage(gVulkanContext.vkDevice, image, nullptr);
+        vkFreeMemory(gVulkanContext.vkDevice, stagingMemory, nullptr);
+        vkDestroyBuffer(gVulkanContext.vkDevice, stagingBuffer, nullptr);
         return vkRes;
     }
 
     // cleanup staging
-    vkDestroyBuffer(vkDevice, stagingBuffer, nullptr);
-    vkFreeMemory(vkDevice, stagingMemory, nullptr);
+    vkDestroyBuffer(gVulkanContext.vkDevice, stagingBuffer, nullptr);
+    vkFreeMemory(gVulkanContext.vkDevice, stagingMemory, nullptr);
 
     // fill output
     imageData->vkImage = image;
@@ -4095,18 +4060,18 @@ void destroyTextureData(ImageData* imageData)
 {
     if (imageData->vkImageView)
     {
-        vkDestroyImageView(vkDevice, imageData->vkImageView, NULL);
+        vkDestroyImageView(gVulkanContext.vkDevice, imageData->vkImageView, NULL);
         imageData->vkImageView = VK_NULL_HANDLE;
     }
     if (imageData->vkDeviceMemory)
     {
-        vkFreeMemory(vkDevice, imageData->vkDeviceMemory, NULL);
+        vkFreeMemory(gVulkanContext.vkDevice, imageData->vkDeviceMemory, NULL);
         imageData->vkDeviceMemory = VK_NULL_HANDLE;
     }
 
     if (imageData->vkImage)
     {
-        vkDestroyImage(vkDevice, imageData->vkImage, NULL);
+        vkDestroyImage(gVulkanContext.vkDevice, imageData->vkImage, NULL);
         imageData->vkImage = VK_NULL_HANDLE;
     }
 }
@@ -4133,7 +4098,7 @@ VkResult createVulkanInstance(void)
     }
 
     //fill  validation layer
-    if (TRUE == bValidation)
+    if (TRUE == gVulkanContext.vkValidationEnabled)
     {
 
         vkResult = fillValidaionLayerNames();
@@ -4170,10 +4135,10 @@ VkResult createVulkanInstance(void)
     vkInstanceCreateInfo.enabledExtensionCount = enabledInstanceExtensionCount;          // number of enabled Vulkan instance extensions
     vkInstanceCreateInfo.ppEnabledExtensionNames = enabledInstanceExtensionNames_Array;    // array of enabled Vulkan instance extension names
 
-    if (TRUE == bValidation)
+    if (TRUE == gVulkanContext.vkValidationEnabled)
     {
-        vkInstanceCreateInfo.enabledLayerCount = enabledValidationLayerCount;
-        vkInstanceCreateInfo.ppEnabledLayerNames = enabledValidationLayerNames_array;
+        vkInstanceCreateInfo.enabledLayerCount = gVulkanContext.enabledValidationLayerCount;
+        vkInstanceCreateInfo.ppEnabledLayerNames = gVulkanContext.enabledValidationLayerNames_array;
     }
     else
     {
@@ -4190,7 +4155,7 @@ VkResult createVulkanInstance(void)
     vkResult = vkCreateInstance(
         &vkInstanceCreateInfo, // [in] pointer to a VkInstanceCreateInfo structure
         NULL,                  // [in, optional] pointer to a custom memory allocator (NULL means use a default memory allocator)
-        &vkInstance            // [out] pointer to a VkInstance handle  
+        &gVulkanContext.vkInstance            // [out] pointer to a VkInstance handle  
     );
 
     if (vkResult == VK_ERROR_INCOMPATIBLE_DRIVER)
@@ -4220,7 +4185,7 @@ VkResult createVulkanInstance(void)
      // code in uninitialize()
 
         //do for validation callbacks
-    if (TRUE == bValidation)
+    if (TRUE == gVulkanContext.vkValidationEnabled)
     {
         vkResult = createValidationCallbackFunction();
     }
@@ -4292,7 +4257,7 @@ VkResult fillValidaionLayerNames(void)
         if (strcmp(validationLayerNames_array[i], "VK_LAYER_KHRONOS_validation") == 0)
         {
             validationLayerFound = VK_TRUE;
-            enabledValidationLayerNames_array[enabledValidationLayerCount++] = "VK_LAYER_KHRONOS_validation";
+            gVulkanContext.enabledValidationLayerNames_array[gVulkanContext.enabledValidationLayerCount++] = "VK_LAYER_KHRONOS_validation";
         }
     }
 
@@ -4315,9 +4280,9 @@ VkResult fillValidaionLayerNames(void)
         fprintf(gpFILE, "fillValidaionLayerNames() : VK_LAYER_KHRONOS_validation found.\n");
     }
 
-    for (uint32_t i = 0; i < enabledValidationLayerCount; i++)
+    for (uint32_t i = 0; i < gVulkanContext.enabledValidationLayerCount; i++)
     {
-        fprintf(gpFILE, "fillValidaionLayerNames() : Enabled Vulkan instance extension name = %s\n", enabledValidationLayerNames_array[i]);
+        fprintf(gpFILE, "fillValidaionLayerNames() : Enabled Vulkan instance extension name = %s\n", gVulkanContext.enabledValidationLayerNames_array[i]);
     }
 
     fprintf(gpFILE, LINE_END);
@@ -4334,7 +4299,7 @@ VkResult createValidationCallbackFunction(void)
 
     PFN_vkCreateDebugReportCallbackEXT vkCreateDebugReportCallbackEXT_fnptr = NULL;
 
-    vkCreateDebugReportCallbackEXT_fnptr = (PFN_vkCreateDebugReportCallbackEXT)vkGetInstanceProcAddr(vkInstance, "vkCreateDebugReportCallbackEXT");
+    vkCreateDebugReportCallbackEXT_fnptr = (PFN_vkCreateDebugReportCallbackEXT)vkGetInstanceProcAddr(gVulkanContext.vkInstance, "vkCreateDebugReportCallbackEXT");
 
     if (vkCreateDebugReportCallbackEXT_fnptr == NULL)
     {
@@ -4346,9 +4311,9 @@ VkResult createValidationCallbackFunction(void)
     //vkDebugReportCallbackEXT 
     //vkDestroyDebugReportCallbackEXT_fnptr ;
 
-    vkDestroyDebugReportCallbackEXT_fnptr = (PFN_vkDestroyDebugReportCallbackEXT)vkGetInstanceProcAddr(vkInstance, "vkDestroyDebugReportCallbackEXT");
+    gVulkanContext.vkDestroyDebugReportCallbackEXT_fnptr = (PFN_vkDestroyDebugReportCallbackEXT)vkGetInstanceProcAddr(gVulkanContext.vkInstance, "vkDestroyDebugReportCallbackEXT");
 
-    if (vkDestroyDebugReportCallbackEXT_fnptr == NULL)
+    if (gVulkanContext.vkDestroyDebugReportCallbackEXT_fnptr == NULL)
     {
         vkResult = VK_ERROR_INITIALIZATION_FAILED;
         fprintf(gpFILE, "createValidationCallbackFunction() : vkGetInstanceProcAddr failed to get vkDestroyDebugReportCallbackEXT_fnptr .\n");
@@ -4365,7 +4330,7 @@ VkResult createValidationCallbackFunction(void)
     vkDebugReportCallbackCreateInfoEXT.pfnCallback = debugReportCallback;
     vkDebugReportCallbackCreateInfoEXT.pUserData = NULL;
 
-    vkResult = vkCreateDebugReportCallbackEXT_fnptr(vkInstance, &vkDebugReportCallbackCreateInfoEXT, NULL, &vkDebugReportCallbackEXT);
+    vkResult = vkCreateDebugReportCallbackEXT_fnptr(gVulkanContext.vkInstance, &vkDebugReportCallbackCreateInfoEXT, NULL, &gVulkanContext.vkDebugReportCallbackEXT);
 
     if (vkResult != VK_SUCCESS)
     {
@@ -4484,7 +4449,7 @@ VkResult fillInstanceExtensionNames(void)
         if (strcmp(instanceExtensionNames_Array[i], VK_EXT_DEBUG_REPORT_EXTENSION_NAME) == 0)
         {
             debugReportExtensionFound = VK_TRUE;
-            if (TRUE == bValidation)
+            if (TRUE == gVulkanContext.vkValidationEnabled)
                 enabledInstanceExtensionNames_Array[enabledInstanceExtensionCount++] = VK_EXT_DEBUG_REPORT_EXTENSION_NAME;
             else
             {
@@ -4536,7 +4501,7 @@ VkResult fillInstanceExtensionNames(void)
 
     if (debugReportExtensionFound == VK_FALSE)
     {
-        if (TRUE == bValidation)
+        if (TRUE == gVulkanContext.vkValidationEnabled)
         {
             vkResult = VK_ERROR_INITIALIZATION_FAILED; // return hard-coded failure
             fprintf(gpFILE, "fillInstanceExtensionNames() : Validation is on but VK_EXT_DEBUG_REPORT_EXTENSION_NAME not found.\n");
@@ -4550,7 +4515,7 @@ VkResult fillInstanceExtensionNames(void)
     }
     else
     {
-        if (TRUE == bValidation)
+        if (TRUE == gVulkanContext.vkValidationEnabled)
         {
             fprintf(gpFILE, "fillInstanceExtensionNames() : Validation is on & VK_EXT_DEBUG_REPORT_EXTENSION_NAME found.\n");
         }
@@ -4592,17 +4557,17 @@ VkResult getSupportedSurface(void)
     vkWin32SurfaceCreateInfoKHR.sType = VK_STRUCTURE_TYPE_WIN32_SURFACE_CREATE_INFO_KHR;
     vkWin32SurfaceCreateInfoKHR.pNext = NULL;
     vkWin32SurfaceCreateInfoKHR.flags = 0;
-    vkWin32SurfaceCreateInfoKHR.hinstance = (HINSTANCE)GetWindowLongPtr(ghwnd, GWLP_HINSTANCE); // this member can also be initialized by using "(HINSTANCE)GetModuleHandle(NULL);"
-    vkWin32SurfaceCreateInfoKHR.hwnd = ghwnd;
+    vkWin32SurfaceCreateInfoKHR.hinstance = (HINSTANCE)GetWindowLongPtr(gWindow.hwnd, GWLP_HINSTANCE); // this member can also be initialized by using "(HINSTANCE)GetModuleHandle(NULL);"
+    vkWin32SurfaceCreateInfoKHR.hwnd = gWindow.hwnd;
 
     /*
      * sub-step 3 : Now call vkCreateWin32SurfaceKHR() to create the presentation surface object.
      */
     vkResult = vkCreateWin32SurfaceKHR(
-        vkInstance,                   // [in] Vulkan instance object (until you get device, Vulkan instance will be used)
+        gVulkanContext.vkInstance,                   // [in] Vulkan instance object (until you get device, Vulkan instance will be used)
         &vkWin32SurfaceCreateInfoKHR, // [in] Surface create info's address
         NULL,                         // [in] memory allocator
-        &vkSurfaceKHR                 // [out] pointer to a VkSurfaceKHR object
+        &gWindow.vkSurfaceKHR                 // [out] pointer to a VkSurfaceKHR object
     );
 
     if (vkResult != VK_SUCCESS)
@@ -4624,7 +4589,7 @@ VkResult getPhysicalDevice(void)
      * sub-step 2 : Call vkEnumeratePhysicalDevices() to get physical device count.
      */
     vkResult = vkEnumeratePhysicalDevices(
-        vkInstance,           // [in] Vulkan instance handle
+        gVulkanContext.vkInstance,           // [in] Vulkan instance handle
         &physicalDeviceCount, // [out] count of available physical devices
         NULL                  // [out, optional] VkPhysicalDevice array  
     );
@@ -4645,12 +4610,12 @@ VkResult getPhysicalDevice(void)
     /*
      * sub-step 3 : Allocate VkPhysicalDevice array according to above count.
      */
-    vkPhysicalDevice_Array = (VkPhysicalDevice*)malloc(sizeof(VkPhysicalDevice) * physicalDeviceCount);
+    gVulkanContext.vkPhysicalDevice_Array = (VkPhysicalDevice*)malloc(sizeof(VkPhysicalDevice) * physicalDeviceCount);
 
     /*
      * sub-step 4 : Call vkEnumeratePhysicalDevices() again to fill the above array.
      */
-    vkResult = vkEnumeratePhysicalDevices(vkInstance, &physicalDeviceCount, vkPhysicalDevice_Array);
+    vkResult = vkEnumeratePhysicalDevices(gVulkanContext.vkInstance, &physicalDeviceCount, gVulkanContext.vkPhysicalDevice_Array);
 
     if (vkResult != VK_SUCCESS)
     {
@@ -4675,7 +4640,7 @@ VkResult getPhysicalDevice(void)
          *                    initialize the above queue count variable.
          */
         vkGetPhysicalDeviceQueueFamilyProperties(
-            vkPhysicalDevice_Array[i], // [in] Vulkan physical device
+            gVulkanContext.vkPhysicalDevice_Array[i], // [in] Vulkan physical device
             &queueCount,               // [out] Queue family count
             NULL                       // [out, optional] VkQueueFamilyProperties array 
         );
@@ -4689,7 +4654,7 @@ VkResult getPhysicalDevice(void)
         /*
          * sub-sub-step (4) : Call vkGetPhysicalDeviceQueueFamilyProperties() again to fill the above array.
          */
-        vkGetPhysicalDeviceQueueFamilyProperties(vkPhysicalDevice_Array[i], &queueCount, vkQueueFamilyProperties_Array);
+        vkGetPhysicalDeviceQueueFamilyProperties(gVulkanContext.vkPhysicalDevice_Array[i], &queueCount, vkQueueFamilyProperties_Array);
 
         /*
          * sub-sub-step (5) : Declare a VkBool32 type array and allocate it using the same above queue count.
@@ -4704,9 +4669,9 @@ VkResult getPhysicalDevice(void)
         for (uint32_t j = 0; j < queueCount; j++)
         {
             vkGetPhysicalDeviceSurfaceSupportKHR(
-                vkPhysicalDevice_Array[i],        // [in] Vulkan physical device
+                gVulkanContext.vkPhysicalDevice_Array[i],        // [in] Vulkan physical device
                 j,                                // [in] Queue family index
-                vkSurfaceKHR,                     // [in] VkSurfaceKHR object
+                gWindow.vkSurfaceKHR,                     // [in] VkSurfaceKHR object
                 &isQueueSurfaceSupported_Array[j] // [out] is the queue family supported by the surface?
             );
         }
@@ -4724,8 +4689,8 @@ VkResult getPhysicalDevice(void)
             {
                 if (isQueueSurfaceSupported_Array[j] == VK_TRUE)
                 {
-                    vkPhysicalDevice_Selected = vkPhysicalDevice_Array[i];
-                    graphicsQueueFamilyIndex_Selected = j;
+                    gVulkanContext.vkPhysicalDevice = gVulkanContext.vkPhysicalDevice_Array[i];
+                    gVulkanContext.vkGraphicsQueueFamilyIndex = j;
                     bFound = VK_TRUE;
 
                     break;
@@ -4769,10 +4734,10 @@ VkResult getPhysicalDevice(void)
     }
     else
     {
-        if (vkPhysicalDevice_Array)
+        if (gVulkanContext.vkPhysicalDevice_Array)
         {
-            free(vkPhysicalDevice_Array);
-            vkPhysicalDevice_Array = NULL;
+            free(gVulkanContext.vkPhysicalDevice_Array);
+            gVulkanContext.vkPhysicalDevice_Array = NULL;
 
         }
 
@@ -4785,14 +4750,14 @@ VkResult getPhysicalDevice(void)
     /*
      * sub-step 7 : memset() the global physical device memory property structure
      */
-    memset((void*)&vkPhysicalDeviceMemoryProperties, 0, sizeof(VkPhysicalDeviceMemoryProperties));
+    memset((void*)&gVulkanContext.vkPhysicalDeviceMemoryProperties, 0, sizeof(VkPhysicalDeviceMemoryProperties));
 
     /*
      * sub-step 8 : Initialize above structure by using vkGetPhysicalDeviceMemoryProperties().
      */
     vkGetPhysicalDeviceMemoryProperties(
-        vkPhysicalDevice_Selected,        // [in] Vulkan physical device
-        &vkPhysicalDeviceMemoryProperties // [out] address to a structure of VkPhysicalDeviceMemoryProperties 
+        gVulkanContext.vkPhysicalDevice,        // [in] Vulkan physical device
+        &gVulkanContext.vkPhysicalDeviceMemoryProperties // [out] address to a structure of VkPhysicalDeviceMemoryProperties 
     );
 
     /*
@@ -4803,7 +4768,7 @@ VkResult getPhysicalDevice(void)
     memset((void*)&vkPhysicalDeviceFeatures, 0, sizeof(VkPhysicalDeviceFeatures));
 
     vkGetPhysicalDeviceFeatures(
-        vkPhysicalDevice_Selected, // [in] Vulkan physical device
+        gVulkanContext.vkPhysicalDevice, // [in] Vulkan physical device
         &vkPhysicalDeviceFeatures  // [out] address to a structure of VkPhysicalDeviceFeatures
     );
 
@@ -4859,7 +4824,7 @@ VkResult printVkInfo(void)
          * step (b) : Initialize this struct variable by calling vkGetPhysicalDeviceProperties() Vulkan API
          */
         vkGetPhysicalDeviceProperties(
-            vkPhysicalDevice_Array[i],  // [in] VkPhysicalDevice
+            gVulkanContext.vkPhysicalDevice_Array[i],  // [in] VkPhysicalDevice
             &vkPhysicalDeviceProperties // [out] VkPhysicalDeviceProperties
         );
 
@@ -4926,10 +4891,10 @@ VkResult printVkInfo(void)
     /*
      *  Free physical device array here, which we removed from the if(bFound == VK_TRUE) block of getPhysicalDevice().
      */
-    if (vkPhysicalDevice_Array)
+    if (gVulkanContext.vkPhysicalDevice_Array)
     {
-        free(vkPhysicalDevice_Array);
-        vkPhysicalDevice_Array = NULL;
+        free(gVulkanContext.vkPhysicalDevice_Array);
+        gVulkanContext.vkPhysicalDevice_Array = NULL;
 
     }
 
@@ -4949,7 +4914,7 @@ VkResult fillDeviceExtensionNames(void)
     uint32_t deviceExtensionCount = 0;
 
     vkResult = vkEnumerateDeviceExtensionProperties(
-        vkPhysicalDevice_Selected, // [in] VkPhysicalDevice 
+        gVulkanContext.vkPhysicalDevice, // [in] VkPhysicalDevice 
         NULL,                      // [in, optional] layer name to retrieve extensions from (NULL means you want all extensions)
         &deviceExtensionCount,     // [out] count of supported extensions
         NULL                       // [out, optional] array of VkExtensionProperties to retrieve extension properties
@@ -4969,7 +4934,7 @@ VkResult fillDeviceExtensionNames(void)
 
 
     vkResult = vkEnumerateDeviceExtensionProperties(
-        vkPhysicalDevice_Selected,
+        gVulkanContext.vkPhysicalDevice,
         NULL,
         &deviceExtensionCount,
         vkExtensionProperties_Array
@@ -5106,7 +5071,7 @@ VkResult createVulkanDevice(void)
     vkDeviceQueueCreateInfo.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
     vkDeviceQueueCreateInfo.pNext = NULL;
     vkDeviceQueueCreateInfo.flags = 0;
-    vkDeviceQueueCreateInfo.queueFamilyIndex = graphicsQueueFamilyIndex_Selected;
+    vkDeviceQueueCreateInfo.queueFamilyIndex = gVulkanContext.vkGraphicsQueueFamilyIndex;
     vkDeviceQueueCreateInfo.queueCount = 1;
     vkDeviceQueueCreateInfo.pQueuePriorities = queuePriorities; // default queue priority
 
@@ -5176,10 +5141,10 @@ VkResult createVulkanDevice(void)
      *              create the Vulkan device and do error-checking.
      */
     vkResult = vkCreateDevice(
-        vkPhysicalDevice_Selected, // [in] Vulkan physical device handle
+        gVulkanContext.vkPhysicalDevice, // [in] Vulkan physical device handle
         &vkDeviceCreateInfo,       // [in] VkDeviceCreateInfo*
         NULL,                      // [in, optional] pointer to a custom memory allocator
-        &vkDevice                  // [out] VkDevice*
+        &gVulkanContext.vkDevice                  // [out] VkDevice*
     );
 
     if (vkResult != VK_SUCCESS)
@@ -5199,13 +5164,13 @@ void getDeviceQueue(void)
      *              selected family index, 0th queue in that selected queue family.
      */
     vkGetDeviceQueue(
-        vkDevice,                          // [in] vulkan logical device handle 
-        graphicsQueueFamilyIndex_Selected, // [in] selected queue family index
+        gVulkanContext.vkDevice,                          // [in] vulkan logical device handle 
+        gVulkanContext.vkGraphicsQueueFamilyIndex, // [in] selected queue family index
         0,                                 // [in] queue family index
-        &vkQueue                           // [out] VkQueue* 
+        &gVulkanContext.vkGraphicsQueue                           // [out] VkQueue* 
     );
 
-    if (vkQueue == VK_NULL_HANDLE)
+    if (gVulkanContext.vkGraphicsQueue == VK_NULL_HANDLE)
     {
         fprintf(gpFILE, "getDeviceQueue() : vkGetDeviceQueue() returned NULL for VkQueue.\n");
         return;
@@ -5225,8 +5190,8 @@ VkResult getPhysicalDeviceSurfaceFormatAndColorSpace(void)
     uint32_t formatCount = 0;
 
     vkResult = vkGetPhysicalDeviceSurfaceFormatsKHR(
-        vkPhysicalDevice_Selected, // [in] handle to vulkan physical device
-        vkSurfaceKHR,              // [in] which surface?
+        gVulkanContext.vkPhysicalDevice, // [in] handle to vulkan physical device
+        gWindow.vkSurfaceKHR,              // [in] which surface?
         &formatCount,              // [out, optional] count of surface formats
         NULL                       // [in] array of surface formats
     );
@@ -5253,8 +5218,8 @@ VkResult getPhysicalDeviceSurfaceFormatAndColorSpace(void)
      *  Call the same above function again, but now to fill the above declared array.
      */
     vkResult = vkGetPhysicalDeviceSurfaceFormatsKHR(
-        vkPhysicalDevice_Selected,
-        vkSurfaceKHR,
+        gVulkanContext.vkPhysicalDevice,
+        gWindow.vkSurfaceKHR,
         &formatCount,
         vkSurfaceFormatKHR_Array
     );
@@ -5311,8 +5276,8 @@ VkResult getPhysicalDevicePresentMode(void)
     uint32_t presentModeCount = 0;
 
     vkResult = vkGetPhysicalDeviceSurfacePresentModesKHR(
-        vkPhysicalDevice_Selected, // [in] vulkan physical device handle
-        vkSurfaceKHR,              // [in] vulkan surface
+        gVulkanContext.vkPhysicalDevice, // [in] vulkan physical device handle
+        gWindow.vkSurfaceKHR,              // [in] vulkan surface
         &presentModeCount,         // [out, optional] count of present modes
         NULL                       // [out, optional] present modes array 
     );
@@ -5338,8 +5303,8 @@ VkResult getPhysicalDevicePresentMode(void)
      *  Call the above function again to fill the above array.
      */
     vkResult = vkGetPhysicalDeviceSurfacePresentModesKHR(
-        vkPhysicalDevice_Selected,
-        vkSurfaceKHR,
+        gVulkanContext.vkPhysicalDevice,
+        gWindow.vkSurfaceKHR,
         &presentModeCount,
         vkPresentModeKHR_Array
     );
@@ -5396,7 +5361,7 @@ VkResult createGlobalTextureDescriptorArray(void)
     poolInfo.pPoolSizes = &poolSize;
 
 
-    vkResult = vkCreateDescriptorPool(vkDevice, &poolInfo, nullptr, &global_textureArray_vkDescriptorPool);
+    vkResult = vkCreateDescriptorPool(gVulkanContext.vkDevice, &poolInfo, nullptr, &global_textureArray_vkDescriptorPool);
     if(vkResult != VK_SUCCESS)
     {
         fprintf(gpFILE, "createTextureIndexing() : vkCreateDescriptorPool() failed (%d).\n", vkResult);
@@ -5419,7 +5384,7 @@ VkResult createGlobalTextureDescriptorArray(void)
     allocInfo.pSetLayouts = &gpDescriptorSetLayouts->vkDescriptorSetLayout_GlobalTextureArray;
 
 
-    vkResult = vkAllocateDescriptorSets(vkDevice, &allocInfo, &global_textureArray_vkDescriptorSet);
+    vkResult = vkAllocateDescriptorSets(gVulkanContext.vkDevice, &allocInfo, &global_textureArray_vkDescriptorSet);
     if (vkResult != VK_SUCCESS)
     {
         fprintf(gpFILE, "createTextureIndexing() : vkAllocateDescriptorSets() failed (%d).\n", vkResult);
@@ -5445,7 +5410,7 @@ VkResult createGlobalTextureDescriptorArray(void)
     write.descriptorCount = static_cast<uint32_t>(infos.size());
     write.pImageInfo = infos.data();
 
-	vkUpdateDescriptorSets(vkDevice, 1, &write, 0, nullptr);
+	vkUpdateDescriptorSets(gVulkanContext.vkDevice, 1, &write, 0, nullptr);
 
 
 	return vkResult;
@@ -5455,7 +5420,7 @@ VkResult destroyGlobalTextureDescriptorArray(void)
 {
     if (global_textureArray_vkDescriptorPool)
     {
-        vkDestroyDescriptorPool(vkDevice, global_textureArray_vkDescriptorPool, nullptr);
+        vkDestroyDescriptorPool(gVulkanContext.vkDevice, global_textureArray_vkDescriptorPool, nullptr);
         global_textureArray_vkDescriptorPool = VK_NULL_HANDLE;
     }
 
@@ -5486,7 +5451,7 @@ VkResult createSamplers(void)
     samplerCreateInfo.mipLodBias = 0.0f; // Mipmap level of detail bias
     samplerCreateInfo.minLod = 0.0f; // Minimum LOD
     samplerCreateInfo.maxLod = 14.0f; // Maximum LOD (0 means no mipmaps)
-    vkResult = vkCreateSampler(vkDevice, &samplerCreateInfo, NULL, &vkSampler_LinearClampAniso);
+    vkResult = vkCreateSampler(gVulkanContext.vkDevice, &samplerCreateInfo, NULL, &vkSampler_LinearClampAniso);
     if (vkResult != VK_SUCCESS)
     {
         fprintf(gpFILE, "createSamplers() : vkCreateSampler() for vkSampler_LinearClampAniso failed (%d).\n", vkResult);
@@ -5511,7 +5476,7 @@ VkResult createSamplers(void)
     samplerCreateInfo.mipLodBias = 0.0f; // Mipmap level of detail bias
     samplerCreateInfo.minLod = 0.0f; // Minimum LOD
     samplerCreateInfo.maxLod = 0.0f; // Maximum LOD (0 means no mipmaps)
-    vkResult = vkCreateSampler(vkDevice, &samplerCreateInfo, NULL, &vkSampler_LinearClamp);
+    vkResult = vkCreateSampler(gVulkanContext.vkDevice, &samplerCreateInfo, NULL, &vkSampler_LinearClamp);
     if (vkResult != VK_SUCCESS)
     {
         fprintf(gpFILE, "createSamplers() : vkCreateSampler() for vkSampler_LinearClamp failed (%d).\n", vkResult);
@@ -5536,7 +5501,7 @@ VkResult createSamplers(void)
     samplerCreateInfo.mipLodBias = 0.0f; // Mipmap level of detail bias
     samplerCreateInfo.minLod = 0.0f; // Minimum LOD
     samplerCreateInfo.maxLod = 14.0f; // Maximum LOD (0 means no mipmaps)
-    vkResult = vkCreateSampler(vkDevice, &samplerCreateInfo, NULL, &vkSampler_LinearMipmapClamp);
+    vkResult = vkCreateSampler(gVulkanContext.vkDevice, &samplerCreateInfo, NULL, &vkSampler_LinearMipmapClamp);
     if (vkResult != VK_SUCCESS)
     {
         fprintf(gpFILE, "createSamplers() : vkCreateSampler() for vkSampler_LinearMipmapClamp failed (%d).\n", vkResult);
@@ -5554,17 +5519,17 @@ void destroySamplers(void)
     // code
     if (vkSampler_LinearClampAniso)
     {
-        vkDestroySampler(vkDevice, vkSampler_LinearClampAniso, NULL);
+        vkDestroySampler(gVulkanContext.vkDevice, vkSampler_LinearClampAniso, NULL);
         vkSampler_LinearClampAniso = VK_NULL_HANDLE;
     }
     if (vkSampler_LinearClamp)
     {
-        vkDestroySampler(vkDevice, vkSampler_LinearClamp, NULL);
+        vkDestroySampler(gVulkanContext.vkDevice, vkSampler_LinearClamp, NULL);
         vkSampler_LinearClamp = VK_NULL_HANDLE;
     }
     if (vkSampler_LinearMipmapClamp)
     {
-        vkDestroySampler(vkDevice, vkSampler_LinearMipmapClamp, NULL);
+        vkDestroySampler(gVulkanContext.vkDevice, vkSampler_LinearMipmapClamp, NULL);
         vkSampler_LinearMipmapClamp = VK_NULL_HANDLE;
     }
 
@@ -5598,8 +5563,8 @@ VkResult createSwapchain(VkBool32 vsync) // vsync == vertical synchronisation
     memset((void*)&vkSurfaceCapabilitiesKHR, 0, sizeof(VkSurfaceCapabilitiesKHR));
 
     vkResult = vkGetPhysicalDeviceSurfaceCapabilitiesKHR(
-        vkPhysicalDevice_Selected, // [in] vulkan physical device
-        vkSurfaceKHR,              // [in] vulkan surface
+        gVulkanContext.vkPhysicalDevice, // [in] vulkan physical device
+        gWindow.vkSurfaceKHR,              // [in] vulkan surface
         &vkSurfaceCapabilitiesKHR  // [out] pointer to a VkSurfaceCapabilitiesKHR structure 
     );
     if (vkResult != VK_SUCCESS)
@@ -5711,7 +5676,7 @@ VkResult createSwapchain(VkBool32 vsync) // vsync == vertical synchronisation
     vkSwapchainCreateInfoKHR.sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR;
     vkSwapchainCreateInfoKHR.pNext = NULL;
     vkSwapchainCreateInfoKHR.flags = 0;
-    vkSwapchainCreateInfoKHR.surface = vkSurfaceKHR;
+    vkSwapchainCreateInfoKHR.surface = gWindow.vkSurfaceKHR;
     vkSwapchainCreateInfoKHR.minImageCount = desiredNumberOfSwapchainImages;
     vkSwapchainCreateInfoKHR.imageFormat = vkFormat_Color;
     vkSwapchainCreateInfoKHR.imageColorSpace = vkColorSpaceKHR;
@@ -5731,7 +5696,7 @@ VkResult createSwapchain(VkBool32 vsync) // vsync == vertical synchronisation
     // At the end, call vkCreateSwapchainKHR() Vulkan API to create the swapchain.
 
     vkResult = vkCreateSwapchainKHR(
-        vkDevice,                  // [in] vulkan device handle
+        gVulkanContext.vkDevice,                  // [in] vulkan device handle
         &vkSwapchainCreateInfoKHR, // [in] pointer to a VkSwapchainCreateInfoKHR structure
         NULL,                      // [in, optional] custom memory allocator
         &vkSwapchainKHR            // [out] pointer to VkSwapchainKHR 
@@ -5759,7 +5724,7 @@ VkResult createImagesAndImageViews(void)
     // code
     // Get swapchain image count in a global variable using vkGetSwapchainImagesKHR().
     vkResult = vkGetSwapchainImagesKHR(
-        vkDevice,             // [in] VkDevice (logical device)
+        gVulkanContext.vkDevice,             // [in] VkDevice (logical device)
         vkSwapchainKHR,       // [in] VkSwapchainKHR
         &gSwapchainImageCount, // [out] Swapchain Image Count
         NULL                  // [out, optional] Swapchain Image array
@@ -5786,7 +5751,7 @@ VkResult createImagesAndImageViews(void)
 
     // Now call the same function again, which we called in step 1 and fill this array.
     vkResult = vkGetSwapchainImagesKHR(
-        vkDevice,
+        gVulkanContext.vkDevice,
         vkSwapchainKHR,
         &gSwapchainImageCount,
         gSwapChainResourceData.swapchainImage_Array
@@ -5829,7 +5794,7 @@ VkResult createImagesAndImageViews(void)
         vkImageViewCreateInfo.image = gSwapChainResourceData.swapchainImage_Array[i];
 
         vkResult = vkCreateImageView(
-            vkDevice,                    // [in] VkDevice
+            gVulkanContext.vkDevice,                    // [in] VkDevice
             &vkImageViewCreateInfo,      // [in] VkImageViewCreateInfo *
             NULL,                        // [in] custom memory allocator
             &gSwapChainResourceData.swapchainImageView_Array[i] // [out] VkImageView * 
@@ -5858,14 +5823,14 @@ VkResult createCommandPool(void)
     vkCommandPoolCreateInfo.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
     vkCommandPoolCreateInfo.pNext = NULL;
     vkCommandPoolCreateInfo.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
-    vkCommandPoolCreateInfo.queueFamilyIndex = graphicsQueueFamilyIndex_Selected;
+    vkCommandPoolCreateInfo.queueFamilyIndex = gVulkanContext.vkGraphicsQueueFamilyIndex;
 
     // Call vkCreateCommandPool() to create the command pool
     vkResult = vkCreateCommandPool(
-        vkDevice,                 // [in] VkDevice
+        gVulkanContext.vkDevice,                 // [in] VkDevice
         &vkCommandPoolCreateInfo, // [in] VkCommandPoolCreateInfo *
         NULL,                     // [in] custom memory allocator
-        &vkCommandPool            // [out] VkCommandPool *
+        &gVulkanContext.vkCommandPool            // [out] VkCommandPool *
     );
 
     if (vkResult != VK_SUCCESS)
@@ -5889,7 +5854,7 @@ VkResult createCommandBuffers(void)
 
     vkCommandBufferAllocateInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
     vkCommandBufferAllocateInfo.pNext = NULL;
-    vkCommandBufferAllocateInfo.commandPool = vkCommandPool;
+	vkCommandBufferAllocateInfo.commandPool = gVulkanContext.vkCommandPool;
     vkCommandBufferAllocateInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
     vkCommandBufferAllocateInfo.commandBufferCount = 1;
 
@@ -5902,7 +5867,7 @@ VkResult createCommandBuffers(void)
     //              Later we will record graphics / compute commands into them.
     for (uint32_t i = 0; i < gSwapchainImageCount; i++)
     {
-        vkResult = vkAllocateCommandBuffers(vkDevice, &vkCommandBufferAllocateInfo, &vkCommandBuffer_Array[i]);
+        vkResult = vkAllocateCommandBuffers(gVulkanContext.vkDevice, &vkCommandBufferAllocateInfo, &vkCommandBuffer_Array[i]);
         if (vkResult != VK_SUCCESS)
         {
             fprintf(gpFILE, "createCommandBuffers() : vkAllocateCommandBuffers failed for iteration %d.\n", i);
@@ -6041,7 +6006,7 @@ VkResult ZzCreateVertexBuffer(const float* vertices, VkDeviceSize vertexBufferSi
     vkBufferCreateInfo_stagingBuffer.sharingMode = VK_SHARING_MODE_EXCLUSIVE; // not sharing with other queues
 
     // Call vkCreateBuffer() to create the staging buffer
-    vkResult = vkCreateBuffer(vkDevice, &vkBufferCreateInfo_stagingBuffer, NULL, &vertexData_stagingBffer_position.vkBuffer);
+    vkResult = vkCreateBuffer(gVulkanContext.vkDevice, &vkBufferCreateInfo_stagingBuffer, NULL, &vertexData_stagingBffer_position.vkBuffer);
     if (vkResult != VK_SUCCESS)
     {
         fprintf(gpFILE, "createVertexBuffer() -> vkCreateBuffer():  failed.\n");
@@ -6053,7 +6018,7 @@ VkResult ZzCreateVertexBuffer(const float* vertices, VkDeviceSize vertexBufferSi
     VkMemoryRequirements vkMemoryRequirements_stagingBuffer;
     memset((void*)&vkMemoryRequirements_stagingBuffer, 0, sizeof(vkMemoryRequirements_stagingBuffer));
 
-    vkGetBufferMemoryRequirements(vkDevice, vertexData_stagingBffer_position.vkBuffer, &vkMemoryRequirements_stagingBuffer);
+    vkGetBufferMemoryRequirements(gVulkanContext.vkDevice, vertexData_stagingBffer_position.vkBuffer, &vkMemoryRequirements_stagingBuffer);
     //------------
     // Allocate memory for the staging buffer
     VkMemoryAllocateInfo vkMemoryAllocateInfo_stagingBuffer;
@@ -6064,11 +6029,11 @@ VkResult ZzCreateVertexBuffer(const float* vertices, VkDeviceSize vertexBufferSi
     vkMemoryAllocateInfo_stagingBuffer.memoryTypeIndex = 0;
     //-------------
     // Find a suitable memory type for the staging buffer
-    for (uint32_t i = 0; i < vkPhysicalDeviceMemoryProperties.memoryTypeCount; i++)
+    for (uint32_t i = 0; i < gVulkanContext.vkPhysicalDeviceMemoryProperties.memoryTypeCount; i++)
     {
         if ((vkMemoryRequirements_stagingBuffer.memoryTypeBits & 1) == 1)
         {
-            if (vkPhysicalDeviceMemoryProperties.memoryTypes[i].propertyFlags & (VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT)) // host visible and coherent memory(no need to manage vulkan cache  for flushing or mapping)
+            if (gVulkanContext.vkPhysicalDeviceMemoryProperties.memoryTypes[i].propertyFlags & (VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT)) // host visible and coherent memory(no need to manage vulkan cache  for flushing or mapping)
             {
                 vkMemoryAllocateInfo_stagingBuffer.memoryTypeIndex = i;
                 break;
@@ -6080,7 +6045,7 @@ VkResult ZzCreateVertexBuffer(const float* vertices, VkDeviceSize vertexBufferSi
 
     //--------------  
     // Allocate memory for the staging buffer
-    vkResult = vkAllocateMemory(vkDevice, &vkMemoryAllocateInfo_stagingBuffer, NULL, &vertexData_stagingBffer_position.vkDeviceMemory);
+    vkResult = vkAllocateMemory(gVulkanContext.vkDevice, &vkMemoryAllocateInfo_stagingBuffer, NULL, &vertexData_stagingBffer_position.vkDeviceMemory);
     if (vkResult != VK_SUCCESS)
     {
         fprintf(gpFILE, "createVertexBuffer() -> vkAllocateMemory() :  failed.\n");
@@ -6089,7 +6054,7 @@ VkResult ZzCreateVertexBuffer(const float* vertices, VkDeviceSize vertexBufferSi
 
     //---------------
     // Bind the staging buffer memory to the staging buffer
-    vkResult = vkBindBufferMemory(vkDevice, vertexData_stagingBffer_position.vkBuffer, vertexData_stagingBffer_position.vkDeviceMemory, 0);
+    vkResult = vkBindBufferMemory(gVulkanContext.vkDevice, vertexData_stagingBffer_position.vkBuffer, vertexData_stagingBffer_position.vkDeviceMemory, 0);
     if (vkResult != VK_SUCCESS)
     {
         fprintf(gpFILE, "createVertexBuffer() -> vkBindBufferMemory() :  failed.\n");
@@ -6098,7 +6063,7 @@ VkResult ZzCreateVertexBuffer(const float* vertices, VkDeviceSize vertexBufferSi
 
     //----------------
     void* data = NULL;
-    vkResult = vkMapMemory(vkDevice, vertexData_stagingBffer_position.vkDeviceMemory, 0, vkMemoryAllocateInfo_stagingBuffer.allocationSize, 0, &data);
+    vkResult = vkMapMemory(gVulkanContext.vkDevice, vertexData_stagingBffer_position.vkDeviceMemory, 0, vkMemoryAllocateInfo_stagingBuffer.allocationSize, 0, &data);
     if (vkResult != VK_SUCCESS)
     {
         fprintf(gpFILE, "createVertexBuffer() -> vkMapMemory() :  failed.\n");
@@ -6109,7 +6074,7 @@ VkResult ZzCreateVertexBuffer(const float* vertices, VkDeviceSize vertexBufferSi
     //-------actual memory mapped io
     memcpy(data, vertices, vertexBufferSize);
     //-------unmap memory
-    vkUnmapMemory(vkDevice, vertexData_stagingBffer_position.vkDeviceMemory);
+    vkUnmapMemory(gVulkanContext.vkDevice, vertexData_stagingBffer_position.vkDeviceMemory);
 
     //-----------------------------------------------------------------------------------
 
@@ -6124,7 +6089,7 @@ VkResult ZzCreateVertexBuffer(const float* vertices, VkDeviceSize vertexBufferSi
     vkBufferCreateInfo_deviceBuffer.usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT; // device buffer is used for vertex buffer and transfer destination
     vkBufferCreateInfo_deviceBuffer.sharingMode = VK_SHARING_MODE_EXCLUSIVE; // not sharing with other queues
 
-    vkResult = vkCreateBuffer(vkDevice, &vkBufferCreateInfo_deviceBuffer, NULL, &vulkanData->vkBuffer);
+    vkResult = vkCreateBuffer(gVulkanContext.vkDevice, &vkBufferCreateInfo_deviceBuffer, NULL, &vulkanData->vkBuffer);
     if (vkResult != VK_SUCCESS)
     {
         fprintf(gpFILE, "createVertexBuffer() -> vkCreateBuffer():  failed.\n");
@@ -6136,7 +6101,7 @@ VkResult ZzCreateVertexBuffer(const float* vertices, VkDeviceSize vertexBufferSi
     // Get memory requirements for the device local buffer
     VkMemoryRequirements vkMemoryRequirements_deviceBuffer;
     memset((void*)&vkMemoryRequirements_deviceBuffer, 0, sizeof(vkMemoryRequirements_deviceBuffer));
-    vkGetBufferMemoryRequirements(vkDevice, vulkanData->vkBuffer, &vkMemoryRequirements_deviceBuffer);
+    vkGetBufferMemoryRequirements(gVulkanContext.vkDevice, vulkanData->vkBuffer, &vkMemoryRequirements_deviceBuffer);
     //------------
     // Allocate memory for the device local buffer
     VkMemoryAllocateInfo vkMemoryAllocateInfo_deviceBuffer;
@@ -6148,11 +6113,11 @@ VkResult ZzCreateVertexBuffer(const float* vertices, VkDeviceSize vertexBufferSi
     //-------------
     // Find a suitable memory type for the device local buffer
 
-    for (uint32_t i = 0; i < vkPhysicalDeviceMemoryProperties.memoryTypeCount; i++)
+    for (uint32_t i = 0; i < gVulkanContext.vkPhysicalDeviceMemoryProperties.memoryTypeCount; i++)
     {
         if ((vkMemoryRequirements_deviceBuffer.memoryTypeBits & 1) == 1)
         {
-            if (vkPhysicalDeviceMemoryProperties.memoryTypes[i].propertyFlags & VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT) // device local memory
+            if (gVulkanContext.vkPhysicalDeviceMemoryProperties.memoryTypes[i].propertyFlags & VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT) // device local memory
             {
                 vkMemoryAllocateInfo_deviceBuffer.memoryTypeIndex = i;
                 break;
@@ -6164,7 +6129,7 @@ VkResult ZzCreateVertexBuffer(const float* vertices, VkDeviceSize vertexBufferSi
 
     //--------------
     // Allocate memory for the device local buffer
-    vkResult = vkAllocateMemory(vkDevice, &vkMemoryAllocateInfo_deviceBuffer, NULL, &vulkanData->vkDeviceMemory);
+    vkResult = vkAllocateMemory(gVulkanContext.vkDevice, &vkMemoryAllocateInfo_deviceBuffer, NULL, &vulkanData->vkDeviceMemory);
 
     if (vkResult != VK_SUCCESS)
     {
@@ -6174,7 +6139,7 @@ VkResult ZzCreateVertexBuffer(const float* vertices, VkDeviceSize vertexBufferSi
 
     //---------------
     // Bind the device local buffer memory to the device local buffer
-    vkResult = vkBindBufferMemory(vkDevice, vulkanData->vkBuffer, vulkanData->vkDeviceMemory, 0);
+    vkResult = vkBindBufferMemory(gVulkanContext.vkDevice, vulkanData->vkBuffer, vulkanData->vkDeviceMemory, 0);
     if (vkResult != VK_SUCCESS)
     {
         fprintf(gpFILE, "createVertexBuffer() -> vkBindBufferMemory() :  failed.\n");
@@ -6188,12 +6153,12 @@ VkResult ZzCreateVertexBuffer(const float* vertices, VkDeviceSize vertexBufferSi
     memset((void*)&vkCommandBufferAllocateInfo, 0, sizeof(VkCommandBufferAllocateInfo));
     vkCommandBufferAllocateInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
     vkCommandBufferAllocateInfo.pNext = NULL;
-    vkCommandBufferAllocateInfo.commandPool = vkCommandPool;
+    vkCommandBufferAllocateInfo.commandPool = gVulkanContext.vkCommandPool;
     vkCommandBufferAllocateInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
     vkCommandBufferAllocateInfo.commandBufferCount = 1;
 
     VkCommandBuffer vkCommandBuffer_Copy = VK_NULL_HANDLE;
-    vkResult = vkAllocateCommandBuffers(vkDevice, &vkCommandBufferAllocateInfo, &vkCommandBuffer_Copy);
+    vkResult = vkAllocateCommandBuffers(gVulkanContext.vkDevice, &vkCommandBufferAllocateInfo, &vkCommandBuffer_Copy);
     if (vkResult != VK_SUCCESS)
     {
         fprintf(gpFILE, "createVertexBuffer() -> vkAllocateCommandBuffers() :  failed.\n");
@@ -6251,7 +6216,7 @@ VkResult ZzCreateVertexBuffer(const float* vertices, VkDeviceSize vertexBufferSi
     vkSubmitInfo.pSignalSemaphores = NULL; // no signal semaphores
 
 
-    vkResult = vkQueueSubmit(vkQueue, 1, &vkSubmitInfo, VK_NULL_HANDLE);
+    vkResult = vkQueueSubmit(gVulkanContext.vkGraphicsQueue, 1, &vkSubmitInfo, VK_NULL_HANDLE);
     if (vkResult != VK_SUCCESS)
     {
         fprintf(gpFILE, "createVertexBuffer() -> vkQueueSubmit() :  failed.\n");
@@ -6259,7 +6224,7 @@ VkResult ZzCreateVertexBuffer(const float* vertices, VkDeviceSize vertexBufferSi
     }
 
     // Wait for the queue to finish processing
-    vkResult = vkQueueWaitIdle(vkQueue);
+    vkResult = vkQueueWaitIdle(gVulkanContext.vkGraphicsQueue);
     if (vkResult != VK_SUCCESS)
     {
         fprintf(gpFILE, "createVertexBuffer() -> vkQueueWaitIdle() :  failed.\n");
@@ -6271,7 +6236,7 @@ VkResult ZzCreateVertexBuffer(const float* vertices, VkDeviceSize vertexBufferSi
     // Free the staging buffer
     if (vertexData_stagingBffer_position.vkBuffer)
     {
-        vkDestroyBuffer(vkDevice, vertexData_stagingBffer_position.vkBuffer, NULL);
+        vkDestroyBuffer(gVulkanContext.vkDevice, vertexData_stagingBffer_position.vkBuffer, NULL);
         vertexData_stagingBffer_position.vkBuffer = VK_NULL_HANDLE;
     }
 
@@ -6279,7 +6244,7 @@ VkResult ZzCreateVertexBuffer(const float* vertices, VkDeviceSize vertexBufferSi
     // Free the staging buffer memory
     if (vertexData_stagingBffer_position.vkDeviceMemory)
     {
-        vkFreeMemory(vkDevice, vertexData_stagingBffer_position.vkDeviceMemory, NULL);
+        vkFreeMemory(gVulkanContext.vkDevice, vertexData_stagingBffer_position.vkDeviceMemory, NULL);
         vertexData_stagingBffer_position.vkDeviceMemory = VK_NULL_HANDLE;
     }
 
@@ -6289,7 +6254,7 @@ VkResult ZzCreateVertexBuffer(const float* vertices, VkDeviceSize vertexBufferSi
 
     if (vkCommandBuffer_Copy)
     {
-        vkFreeCommandBuffers(vkDevice, vkCommandPool, 1, &vkCommandBuffer_Copy);
+        vkFreeCommandBuffers(gVulkanContext.vkDevice, gVulkanContext.vkCommandPool, 1, &vkCommandBuffer_Copy);
         vkCommandBuffer_Copy = VK_NULL_HANDLE;
     }
 
@@ -6314,7 +6279,7 @@ VkResult ZzCreateIndex16Buffer(const uint16_t* indices, VkDeviceSize indexBuffer
     vkBufferCreateInfo.size = indexBufferSize;
     vkBufferCreateInfo.usage = VK_BUFFER_USAGE_INDEX_BUFFER_BIT;
 
-    vkResult = vkCreateBuffer(vkDevice, &vkBufferCreateInfo, NULL, &vulkanData->vkBuffer);
+    vkResult = vkCreateBuffer(gVulkanContext.vkDevice, &vkBufferCreateInfo, NULL, &vulkanData->vkBuffer);
 
     if (vkResult != VK_SUCCESS)
     {
@@ -6326,7 +6291,7 @@ VkResult ZzCreateIndex16Buffer(const uint16_t* indices, VkDeviceSize indexBuffer
     VkMemoryRequirements vkMemoryRequirements;
     memset((void*)&vkMemoryRequirements, 0, sizeof(vkMemoryRequirements));
 
-    vkGetBufferMemoryRequirements(vkDevice, vulkanData->vkBuffer, &vkMemoryRequirements);
+    vkGetBufferMemoryRequirements(gVulkanContext.vkDevice, vulkanData->vkBuffer, &vkMemoryRequirements);
 
     //------------
     VkMemoryAllocateInfo vkMemoryAllocateInfo;
@@ -6338,11 +6303,11 @@ VkResult ZzCreateIndex16Buffer(const uint16_t* indices, VkDeviceSize indexBuffer
     vkMemoryAllocateInfo.memoryTypeIndex = 0;
 
     //-------------
-    for (uint32_t i = 0; i < vkPhysicalDeviceMemoryProperties.memoryTypeCount; i++)
+    for (uint32_t i = 0; i < gVulkanContext.vkPhysicalDeviceMemoryProperties.memoryTypeCount; i++)
     {
         if ((vkMemoryRequirements.memoryTypeBits & 1) == 1)
         {
-            if (vkPhysicalDeviceMemoryProperties.memoryTypes[i].propertyFlags & VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT)
+            if (gVulkanContext.vkPhysicalDeviceMemoryProperties.memoryTypes[i].propertyFlags & VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT)
             {
                 vkMemoryAllocateInfo.memoryTypeIndex = i;
                 break;
@@ -6353,7 +6318,7 @@ VkResult ZzCreateIndex16Buffer(const uint16_t* indices, VkDeviceSize indexBuffer
     }
 
     //--------------
-    vkResult = vkAllocateMemory(vkDevice, &vkMemoryAllocateInfo, NULL, &vulkanData->vkDeviceMemory);
+    vkResult = vkAllocateMemory(gVulkanContext.vkDevice, &vkMemoryAllocateInfo, NULL, &vulkanData->vkDeviceMemory);
     if (vkResult != VK_SUCCESS)
     {
         fprintf(gpFILE, "createVertexBuffer() -> vkAllocateMemory() :  failed.\n");
@@ -6362,7 +6327,7 @@ VkResult ZzCreateIndex16Buffer(const uint16_t* indices, VkDeviceSize indexBuffer
 
 
     //---------------
-    vkResult = vkBindBufferMemory(vkDevice, vulkanData->vkBuffer, vulkanData->vkDeviceMemory, 0);
+    vkResult = vkBindBufferMemory(gVulkanContext.vkDevice, vulkanData->vkBuffer, vulkanData->vkDeviceMemory, 0);
     if (vkResult != VK_SUCCESS)
     {
         fprintf(gpFILE, "createVertexBuffer() -> vkBindBufferMemory() :  failed.\n");
@@ -6372,7 +6337,7 @@ VkResult ZzCreateIndex16Buffer(const uint16_t* indices, VkDeviceSize indexBuffer
 
     //----------------
     void* dataIndex = NULL;
-    vkResult = vkMapMemory(vkDevice, vulkanData->vkDeviceMemory, 0, vkMemoryAllocateInfo.allocationSize, 0, &dataIndex);
+    vkResult = vkMapMemory(gVulkanContext.vkDevice, vulkanData->vkDeviceMemory, 0, vkMemoryAllocateInfo.allocationSize, 0, &dataIndex);
     if (vkResult != VK_SUCCESS)
     {
         fprintf(gpFILE, "createVertexBuffer() -> vkMapMemory() :  failed.\n");
@@ -6384,7 +6349,7 @@ VkResult ZzCreateIndex16Buffer(const uint16_t* indices, VkDeviceSize indexBuffer
     memcpy(dataIndex, indices, indexBufferSize);
 
     //-------unmap memory
-    vkUnmapMemory(vkDevice, vulkanData->vkDeviceMemory);
+    vkUnmapMemory(gVulkanContext.vkDevice, vulkanData->vkDeviceMemory);
 
     return vkResult;
 }
@@ -6407,7 +6372,7 @@ VkResult ZzCreateIndex32Buffer(const uint32_t* indices, VkDeviceSize indexBuffer
     vkBufferCreateInfo.size = indexBufferSize;
     vkBufferCreateInfo.usage = VK_BUFFER_USAGE_INDEX_BUFFER_BIT;
 
-    vkResult = vkCreateBuffer(vkDevice, &vkBufferCreateInfo, NULL, &vulkanData->vkBuffer);
+    vkResult = vkCreateBuffer(gVulkanContext.vkDevice, &vkBufferCreateInfo, NULL, &vulkanData->vkBuffer);
 
     if (vkResult != VK_SUCCESS)
     {
@@ -6419,7 +6384,7 @@ VkResult ZzCreateIndex32Buffer(const uint32_t* indices, VkDeviceSize indexBuffer
     VkMemoryRequirements vkMemoryRequirements;
     memset((void*)&vkMemoryRequirements, 0, sizeof(vkMemoryRequirements));
 
-    vkGetBufferMemoryRequirements(vkDevice, vulkanData->vkBuffer, &vkMemoryRequirements);
+    vkGetBufferMemoryRequirements(gVulkanContext.vkDevice, vulkanData->vkBuffer, &vkMemoryRequirements);
 
     //------------
     VkMemoryAllocateInfo vkMemoryAllocateInfo;
@@ -6431,11 +6396,11 @@ VkResult ZzCreateIndex32Buffer(const uint32_t* indices, VkDeviceSize indexBuffer
     vkMemoryAllocateInfo.memoryTypeIndex = 0;
 
     //-------------
-    for (uint32_t i = 0; i < vkPhysicalDeviceMemoryProperties.memoryTypeCount; i++)
+    for (uint32_t i = 0; i < gVulkanContext.vkPhysicalDeviceMemoryProperties.memoryTypeCount; i++)
     {
         if ((vkMemoryRequirements.memoryTypeBits & 1) == 1)
         {
-            if (vkPhysicalDeviceMemoryProperties.memoryTypes[i].propertyFlags & VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT)
+            if (gVulkanContext.vkPhysicalDeviceMemoryProperties.memoryTypes[i].propertyFlags & VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT)
             {
                 vkMemoryAllocateInfo.memoryTypeIndex = i;
                 break;
@@ -6446,7 +6411,7 @@ VkResult ZzCreateIndex32Buffer(const uint32_t* indices, VkDeviceSize indexBuffer
     }
 
     //--------------
-    vkResult = vkAllocateMemory(vkDevice, &vkMemoryAllocateInfo, NULL, &vulkanData->vkDeviceMemory);
+    vkResult = vkAllocateMemory(gVulkanContext.vkDevice, &vkMemoryAllocateInfo, NULL, &vulkanData->vkDeviceMemory);
     if (vkResult != VK_SUCCESS)
     {
         fprintf(gpFILE, "createVertexBuffer() -> vkAllocateMemory() :  failed.\n");
@@ -6455,7 +6420,7 @@ VkResult ZzCreateIndex32Buffer(const uint32_t* indices, VkDeviceSize indexBuffer
 
 
     //---------------
-    vkResult = vkBindBufferMemory(vkDevice, vulkanData->vkBuffer, vulkanData->vkDeviceMemory, 0);
+    vkResult = vkBindBufferMemory(gVulkanContext.vkDevice, vulkanData->vkBuffer, vulkanData->vkDeviceMemory, 0);
     if (vkResult != VK_SUCCESS)
     {
         fprintf(gpFILE, "createVertexBuffer() -> vkBindBufferMemory() :  failed.\n");
@@ -6465,7 +6430,7 @@ VkResult ZzCreateIndex32Buffer(const uint32_t* indices, VkDeviceSize indexBuffer
 
     //----------------
     void* dataIndex = NULL;
-    vkResult = vkMapMemory(vkDevice, vulkanData->vkDeviceMemory, 0, vkMemoryAllocateInfo.allocationSize, 0, &dataIndex);
+    vkResult = vkMapMemory(gVulkanContext.vkDevice, vulkanData->vkDeviceMemory, 0, vkMemoryAllocateInfo.allocationSize, 0, &dataIndex);
     if (vkResult != VK_SUCCESS)
     {
         fprintf(gpFILE, "createVertexBuffer() -> vkMapMemory() :  failed.\n");
@@ -6477,7 +6442,7 @@ VkResult ZzCreateIndex32Buffer(const uint32_t* indices, VkDeviceSize indexBuffer
     memcpy(dataIndex, indices, indexBufferSize);
 
     //-------unmap memory
-    vkUnmapMemory(vkDevice, vulkanData->vkDeviceMemory);
+    vkUnmapMemory(gVulkanContext.vkDevice, vulkanData->vkDeviceMemory);
 
     return vkResult;
 }
@@ -6536,13 +6501,13 @@ void ZzDestroyVertexBuffer(VulkanData* vulkanData)
     // Destroy the vertex buffer
     if (vulkanData->vkBuffer)
     {
-        vkDestroyBuffer(vkDevice, vulkanData->vkBuffer, NULL);
+        vkDestroyBuffer(gVulkanContext.vkDevice, vulkanData->vkBuffer, NULL);
         vulkanData->vkBuffer = VK_NULL_HANDLE;
     }
     // Free the vertex buffer memory
     if (vulkanData->vkDeviceMemory)
     {
-        vkFreeMemory(vkDevice, vulkanData->vkDeviceMemory, NULL);
+        vkFreeMemory(gVulkanContext.vkDevice, vulkanData->vkDeviceMemory, NULL);
         vulkanData->vkDeviceMemory = VK_NULL_HANDLE;
     }
 }
@@ -6552,13 +6517,13 @@ void ZzDestroyIndexBuffer(VulkanData* vulkanData)
     // Destroy the index buffer
     if (vulkanData->vkBuffer)
     {
-        vkDestroyBuffer(vkDevice, vulkanData->vkBuffer, NULL);
+        vkDestroyBuffer(gVulkanContext.vkDevice, vulkanData->vkBuffer, NULL);
         vulkanData->vkBuffer = VK_NULL_HANDLE;
     }
     // Free the index buffer memory
     if (vulkanData->vkDeviceMemory)
     {
-        vkFreeMemory(vkDevice, vulkanData->vkDeviceMemory, NULL);
+        vkFreeMemory(gVulkanContext.vkDevice, vulkanData->vkDeviceMemory, NULL);
         vulkanData->vkDeviceMemory = VK_NULL_HANDLE;
     }
 }
@@ -6613,7 +6578,7 @@ VkResult createVertexBuffer_coloredTriangle(void)
     vkBufferCreateInfo_stagingBuffer.sharingMode = VK_SHARING_MODE_EXCLUSIVE; // not sharing with other queues
 
     // Call vkCreateBuffer() to create the staging buffer
-    vkResult = vkCreateBuffer(vkDevice, &vkBufferCreateInfo_stagingBuffer, NULL, &vertexData_stagingBffer_position.vkBuffer);
+    vkResult = vkCreateBuffer(gVulkanContext.vkDevice, &vkBufferCreateInfo_stagingBuffer, NULL, &vertexData_stagingBffer_position.vkBuffer);
     if (vkResult != VK_SUCCESS)
     {
         fprintf(gpFILE, "createVertexBuffer() -> vkCreateBuffer():  failed.\n");
@@ -6625,7 +6590,7 @@ VkResult createVertexBuffer_coloredTriangle(void)
     VkMemoryRequirements vkMemoryRequirements_stagingBuffer;
     memset((void*)&vkMemoryRequirements_stagingBuffer, 0, sizeof(vkMemoryRequirements_stagingBuffer));
 
-    vkGetBufferMemoryRequirements(vkDevice, vertexData_stagingBffer_position.vkBuffer, &vkMemoryRequirements_stagingBuffer);
+    vkGetBufferMemoryRequirements(gVulkanContext.vkDevice, vertexData_stagingBffer_position.vkBuffer, &vkMemoryRequirements_stagingBuffer);
     //------------
     // Allocate memory for the staging buffer
     VkMemoryAllocateInfo vkMemoryAllocateInfo_stagingBuffer;
@@ -6636,11 +6601,11 @@ VkResult createVertexBuffer_coloredTriangle(void)
     vkMemoryAllocateInfo_stagingBuffer.memoryTypeIndex = 0;
     //-------------
     // Find a suitable memory type for the staging buffer
-    for (uint32_t i = 0; i < vkPhysicalDeviceMemoryProperties.memoryTypeCount; i++)
+    for (uint32_t i = 0; i < gVulkanContext.vkPhysicalDeviceMemoryProperties.memoryTypeCount; i++)
     {
         if ((vkMemoryRequirements_stagingBuffer.memoryTypeBits & 1) == 1)
         {
-            if (vkPhysicalDeviceMemoryProperties.memoryTypes[i].propertyFlags & (VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT)) // host visible and coherent memory(no need to manage vulkan cache  for flushing or mapping)
+            if (gVulkanContext.vkPhysicalDeviceMemoryProperties.memoryTypes[i].propertyFlags & (VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT)) // host visible and coherent memory(no need to manage vulkan cache  for flushing or mapping)
             {
                 vkMemoryAllocateInfo_stagingBuffer.memoryTypeIndex = i;
                 break;
@@ -6652,7 +6617,7 @@ VkResult createVertexBuffer_coloredTriangle(void)
 
     //--------------  
     // Allocate memory for the staging buffer
-    vkResult = vkAllocateMemory(vkDevice, &vkMemoryAllocateInfo_stagingBuffer, NULL, &vertexData_stagingBffer_position.vkDeviceMemory);
+    vkResult = vkAllocateMemory(gVulkanContext.vkDevice, &vkMemoryAllocateInfo_stagingBuffer, NULL, &vertexData_stagingBffer_position.vkDeviceMemory);
     if (vkResult != VK_SUCCESS)
     {
         fprintf(gpFILE, "createVertexBuffer() -> vkAllocateMemory() :  failed.\n");
@@ -6661,7 +6626,7 @@ VkResult createVertexBuffer_coloredTriangle(void)
 
     //---------------
     // Bind the staging buffer memory to the staging buffer
-    vkResult = vkBindBufferMemory(vkDevice, vertexData_stagingBffer_position.vkBuffer, vertexData_stagingBffer_position.vkDeviceMemory, 0);
+    vkResult = vkBindBufferMemory(gVulkanContext.vkDevice, vertexData_stagingBffer_position.vkBuffer, vertexData_stagingBffer_position.vkDeviceMemory, 0);
     if (vkResult != VK_SUCCESS)
     {
         fprintf(gpFILE, "createVertexBuffer() -> vkBindBufferMemory() :  failed.\n");
@@ -6670,7 +6635,7 @@ VkResult createVertexBuffer_coloredTriangle(void)
 
     //----------------
     void* data = NULL;
-    vkResult = vkMapMemory(vkDevice, vertexData_stagingBffer_position.vkDeviceMemory, 0, vkMemoryAllocateInfo_stagingBuffer.allocationSize, 0, &data);
+    vkResult = vkMapMemory(gVulkanContext.vkDevice, vertexData_stagingBffer_position.vkDeviceMemory, 0, vkMemoryAllocateInfo_stagingBuffer.allocationSize, 0, &data);
     if (vkResult != VK_SUCCESS)
     {
         fprintf(gpFILE, "createVertexBuffer() -> vkMapMemory() :  failed.\n");
@@ -6681,7 +6646,7 @@ VkResult createVertexBuffer_coloredTriangle(void)
     //-------actual memory mapped io
     memcpy(data, vertices, sizeof(vertices));
     //-------unmap memory
-    vkUnmapMemory(vkDevice, vertexData_stagingBffer_position.vkDeviceMemory);
+    vkUnmapMemory(gVulkanContext.vkDevice, vertexData_stagingBffer_position.vkDeviceMemory);
 
     //-----------------------------------------------------------------------------------
 
@@ -6696,7 +6661,7 @@ VkResult createVertexBuffer_coloredTriangle(void)
     vkBufferCreateInfo_deviceBuffer.usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT; // device buffer is used for vertex buffer and transfer destination
     vkBufferCreateInfo_deviceBuffer.sharingMode = VK_SHARING_MODE_EXCLUSIVE; // not sharing with other queues
 
-    vkResult = vkCreateBuffer(vkDevice, &vkBufferCreateInfo_deviceBuffer, NULL, &vertexData_coloredTriangle.vkBuffer);
+    vkResult = vkCreateBuffer(gVulkanContext.vkDevice, &vkBufferCreateInfo_deviceBuffer, NULL, &vertexData_coloredTriangle.vkBuffer);
     if (vkResult != VK_SUCCESS)
     {
         fprintf(gpFILE, "createVertexBuffer() -> vkCreateBuffer():  failed.\n");
@@ -6708,7 +6673,7 @@ VkResult createVertexBuffer_coloredTriangle(void)
     // Get memory requirements for the device local buffer
     VkMemoryRequirements vkMemoryRequirements_deviceBuffer;
     memset((void*)&vkMemoryRequirements_deviceBuffer, 0, sizeof(vkMemoryRequirements_deviceBuffer));
-    vkGetBufferMemoryRequirements(vkDevice, vertexData_coloredTriangle.vkBuffer, &vkMemoryRequirements_deviceBuffer);
+    vkGetBufferMemoryRequirements(gVulkanContext.vkDevice, vertexData_coloredTriangle.vkBuffer, &vkMemoryRequirements_deviceBuffer);
     //------------
     // Allocate memory for the device local buffer
     VkMemoryAllocateInfo vkMemoryAllocateInfo_deviceBuffer;
@@ -6720,11 +6685,11 @@ VkResult createVertexBuffer_coloredTriangle(void)
     //-------------
     // Find a suitable memory type for the device local buffer
 
-    for (uint32_t i = 0; i < vkPhysicalDeviceMemoryProperties.memoryTypeCount; i++)
+    for (uint32_t i = 0; i < gVulkanContext.vkPhysicalDeviceMemoryProperties.memoryTypeCount; i++)
     {
         if ((vkMemoryRequirements_deviceBuffer.memoryTypeBits & 1) == 1)
         {
-            if (vkPhysicalDeviceMemoryProperties.memoryTypes[i].propertyFlags & VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT) // device local memory
+            if (gVulkanContext.vkPhysicalDeviceMemoryProperties.memoryTypes[i].propertyFlags & VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT) // device local memory
             {
                 vkMemoryAllocateInfo_deviceBuffer.memoryTypeIndex = i;
                 break;
@@ -6736,7 +6701,7 @@ VkResult createVertexBuffer_coloredTriangle(void)
 
     //--------------
     // Allocate memory for the device local buffer
-    vkResult = vkAllocateMemory(vkDevice, &vkMemoryAllocateInfo_deviceBuffer, NULL, &vertexData_coloredTriangle.vkDeviceMemory);
+    vkResult = vkAllocateMemory(gVulkanContext.vkDevice, &vkMemoryAllocateInfo_deviceBuffer, NULL, &vertexData_coloredTriangle.vkDeviceMemory);
 
     if (vkResult != VK_SUCCESS)
     {
@@ -6746,7 +6711,7 @@ VkResult createVertexBuffer_coloredTriangle(void)
 
     //---------------
     // Bind the device local buffer memory to the device local buffer
-    vkResult = vkBindBufferMemory(vkDevice, vertexData_coloredTriangle.vkBuffer, vertexData_coloredTriangle.vkDeviceMemory, 0);
+    vkResult = vkBindBufferMemory(gVulkanContext.vkDevice, vertexData_coloredTriangle.vkBuffer, vertexData_coloredTriangle.vkDeviceMemory, 0);
     if (vkResult != VK_SUCCESS)
     {
         fprintf(gpFILE, "createVertexBuffer() -> vkBindBufferMemory() :  failed.\n");
@@ -6760,12 +6725,12 @@ VkResult createVertexBuffer_coloredTriangle(void)
     memset((void*)&vkCommandBufferAllocateInfo, 0, sizeof(VkCommandBufferAllocateInfo));
     vkCommandBufferAllocateInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
     vkCommandBufferAllocateInfo.pNext = NULL;
-    vkCommandBufferAllocateInfo.commandPool = vkCommandPool;
+	vkCommandBufferAllocateInfo.commandPool = gVulkanContext.vkCommandPool;
     vkCommandBufferAllocateInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
     vkCommandBufferAllocateInfo.commandBufferCount = 1;
 
     VkCommandBuffer vkCommandBuffer_Copy = VK_NULL_HANDLE;
-    vkResult = vkAllocateCommandBuffers(vkDevice, &vkCommandBufferAllocateInfo, &vkCommandBuffer_Copy);
+    vkResult = vkAllocateCommandBuffers(gVulkanContext.vkDevice, &vkCommandBufferAllocateInfo, &vkCommandBuffer_Copy);
     if (vkResult != VK_SUCCESS)
     {
         fprintf(gpFILE, "createVertexBuffer() -> vkAllocateCommandBuffers() :  failed.\n");
@@ -6823,7 +6788,7 @@ VkResult createVertexBuffer_coloredTriangle(void)
     vkSubmitInfo.pSignalSemaphores = NULL; // no signal semaphores
 
 
-    vkResult = vkQueueSubmit(vkQueue, 1, &vkSubmitInfo, VK_NULL_HANDLE);
+    vkResult = vkQueueSubmit(gVulkanContext.vkGraphicsQueue, 1, &vkSubmitInfo, VK_NULL_HANDLE);
     if (vkResult != VK_SUCCESS)
     {
         fprintf(gpFILE, "createVertexBuffer() -> vkQueueSubmit() :  failed.\n");
@@ -6831,7 +6796,7 @@ VkResult createVertexBuffer_coloredTriangle(void)
     }
 
     // Wait for the queue to finish processing
-    vkResult = vkQueueWaitIdle(vkQueue);
+    vkResult = vkQueueWaitIdle(gVulkanContext.vkGraphicsQueue);
     if (vkResult != VK_SUCCESS)
     {
         fprintf(gpFILE, "createVertexBuffer() -> vkQueueWaitIdle() :  failed.\n");
@@ -6843,7 +6808,7 @@ VkResult createVertexBuffer_coloredTriangle(void)
     // Free the staging buffer
     if (vertexData_stagingBffer_position.vkBuffer)
     {
-        vkDestroyBuffer(vkDevice, vertexData_stagingBffer_position.vkBuffer, NULL);
+        vkDestroyBuffer(gVulkanContext.vkDevice, vertexData_stagingBffer_position.vkBuffer, NULL);
         vertexData_stagingBffer_position.vkBuffer = VK_NULL_HANDLE;
     }
 
@@ -6851,7 +6816,7 @@ VkResult createVertexBuffer_coloredTriangle(void)
     // Free the staging buffer memory
     if (vertexData_stagingBffer_position.vkDeviceMemory)
     {
-        vkFreeMemory(vkDevice, vertexData_stagingBffer_position.vkDeviceMemory, NULL);
+        vkFreeMemory(gVulkanContext.vkDevice, vertexData_stagingBffer_position.vkDeviceMemory, NULL);
         vertexData_stagingBffer_position.vkDeviceMemory = VK_NULL_HANDLE;
     }
 
@@ -6861,7 +6826,7 @@ VkResult createVertexBuffer_coloredTriangle(void)
 
     if (vkCommandBuffer_Copy)
     {
-        vkFreeCommandBuffers(vkDevice, vkCommandPool, 1, &vkCommandBuffer_Copy);
+        vkFreeCommandBuffers(gVulkanContext.vkDevice, gVulkanContext.vkCommandPool, 1, &vkCommandBuffer_Copy);
         vkCommandBuffer_Copy = VK_NULL_HANDLE;
     }
 
@@ -7407,7 +7372,7 @@ VkResult createUniformBuffer(void)
 
         memset((void*)&uniformBufferData_frameData[k], 0, sizeof(UniformData));
 
-        vkResult = vkCreateBuffer(vkDevice, &vkBufferCreateInfo, NULL, &uniformBufferData_frameData[k].vkBuffer);
+        vkResult = vkCreateBuffer(gVulkanContext.vkDevice, &vkBufferCreateInfo, NULL, &uniformBufferData_frameData[k].vkBuffer);
 
         if (vkResult != VK_SUCCESS)
         {
@@ -7419,7 +7384,7 @@ VkResult createUniformBuffer(void)
         VkMemoryRequirements vkMemoryRequirements;
         memset((void*)&vkMemoryRequirements, 0, sizeof(vkMemoryRequirements));
 
-        vkGetBufferMemoryRequirements(vkDevice, uniformBufferData_frameData[k].vkBuffer, &vkMemoryRequirements);
+        vkGetBufferMemoryRequirements(gVulkanContext.vkDevice, uniformBufferData_frameData[k].vkBuffer, &vkMemoryRequirements);
 
         //------------
         VkMemoryAllocateInfo vkMemoryAllocateInfo;
@@ -7431,11 +7396,11 @@ VkResult createUniformBuffer(void)
         vkMemoryAllocateInfo.memoryTypeIndex = 0;
 
         //-------------
-        for (uint32_t i = 0; i < vkPhysicalDeviceMemoryProperties.memoryTypeCount; i++)
+        for (uint32_t i = 0; i < gVulkanContext.vkPhysicalDeviceMemoryProperties.memoryTypeCount; i++)
         {
             if ((vkMemoryRequirements.memoryTypeBits & 1) == 1)
             {
-                if (vkPhysicalDeviceMemoryProperties.memoryTypes[i].propertyFlags & (VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT | VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT)) // host visible and coherent memory (no need to manage vulkan cache for flushing or mapping)
+                if (gVulkanContext.vkPhysicalDeviceMemoryProperties.memoryTypes[i].propertyFlags & (VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT | VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT)) // host visible and coherent memory (no need to manage vulkan cache for flushing or mapping)
                 {
                     // If the memory type is suitable, set the memoryTypeIndex and break the loop
                     vkMemoryAllocateInfo.memoryTypeIndex = i;
@@ -7447,7 +7412,7 @@ VkResult createUniformBuffer(void)
         }
 
         //--------------
-        vkResult = vkAllocateMemory(vkDevice, &vkMemoryAllocateInfo, NULL, &uniformBufferData_frameData[k].vkDeviceMemory);
+        vkResult = vkAllocateMemory(gVulkanContext.vkDevice, &vkMemoryAllocateInfo, NULL, &uniformBufferData_frameData[k].vkDeviceMemory);
         if (vkResult != VK_SUCCESS)
         {
             fprintf(gpFILE, "createUniformBuffer() -> vkAllocateMemory() :  failed.\n");
@@ -7456,7 +7421,7 @@ VkResult createUniformBuffer(void)
 
 
         //---------------
-        vkResult = vkBindBufferMemory(vkDevice, uniformBufferData_frameData[k].vkBuffer, uniformBufferData_frameData[k].vkDeviceMemory, 0);
+        vkResult = vkBindBufferMemory(gVulkanContext.vkDevice, uniformBufferData_frameData[k].vkBuffer, uniformBufferData_frameData[k].vkDeviceMemory, 0);
         if (vkResult != VK_SUCCESS)
         {
             fprintf(gpFILE, "createUniformBuffer() -> vkBindBufferMemory() :  failed.\n");
@@ -7465,7 +7430,7 @@ VkResult createUniformBuffer(void)
 
         // Map the uniform buffer memory
 
-        vkResult = vkMapMemory(vkDevice, uniformBufferData_frameData[k].vkDeviceMemory, 0, sizeof(UniformBufferObject_FrameData), 0, &uniformBufferData_frameData[k].pData);
+        vkResult = vkMapMemory(gVulkanContext.vkDevice, uniformBufferData_frameData[k].vkDeviceMemory, 0, sizeof(UniformBufferObject_FrameData), 0, &uniformBufferData_frameData[k].pData);
         if (vkResult != VK_SUCCESS)
         {
             fprintf(gpFILE, "createUniformBuffer() -> vkMapMemory() :  failed.\n");
@@ -7596,7 +7561,7 @@ VkResult createShaderModule(VkShaderModule* shaderModule, const char* fileName)
     vkShaderModuleCreateInfo.codeSize = size;
     vkShaderModuleCreateInfo.pCode = (uint32_t*)shaderData;
 
-    vkResult = vkCreateShaderModule(vkDevice, &vkShaderModuleCreateInfo, NULL, shaderModule);
+    vkResult = vkCreateShaderModule(gVulkanContext.vkDevice, &vkShaderModuleCreateInfo, NULL, shaderModule);
 
     if (vkResult != VK_SUCCESS)
     {
@@ -7993,7 +7958,7 @@ VkResult createDescriptorPool(void)
     vkDescriptorPoolCreateInfo.pPoolSizes = vkDescriptorPoolSizes;
 
     // Call vkCreateDescriptorPool() to create the actual descriptor pool.
-    vkResult = vkCreateDescriptorPool(vkDevice, &vkDescriptorPoolCreateInfo, NULL, &vkDescriptorPool);
+    vkResult = vkCreateDescriptorPool(gVulkanContext.vkDevice, &vkDescriptorPoolCreateInfo, NULL, &vkDescriptorPool);
 
     if (vkResult != VK_SUCCESS)
     {
@@ -8028,7 +7993,7 @@ VkResult createDescriptorSet_FrameData(void)
 
 
     // Call vkAllocateDescriptorSets() to allocate the descriptor set
-    vkResult = vkAllocateDescriptorSets(vkDevice, &vkDescriptorSetAllocateInfo, vkDescriptorSets_frameData);
+    vkResult = vkAllocateDescriptorSets(gVulkanContext.vkDevice, &vkDescriptorSetAllocateInfo, vkDescriptorSets_frameData);
 
     if (vkResult != VK_SUCCESS)
     {
@@ -8081,7 +8046,7 @@ VkResult createDescriptorSet_FrameData(void)
 
 
         // Call vkUpdateDescriptorSets() to update the descriptor set with the uniform buffer information.
-        vkUpdateDescriptorSets(vkDevice, _ARRAYSIZE(vkWriteDescriptorSet_array), vkWriteDescriptorSet_array, 0, NULL);
+        vkUpdateDescriptorSets(gVulkanContext.vkDevice, _ARRAYSIZE(vkWriteDescriptorSet_array), vkWriteDescriptorSet_array, 0, NULL);
 
     }
 
@@ -8112,7 +8077,7 @@ VkResult createDescriptorSet_FrameDataBoneData(void)
 
 
     // Call vkAllocateDescriptorSets() to allocate the descriptor set
-    vkResult = vkAllocateDescriptorSets(vkDevice, &vkDescriptorSetAllocateInfo, vkDescriptorSets_frameDataBoneData);
+    vkResult = vkAllocateDescriptorSets(gVulkanContext.vkDevice, &vkDescriptorSetAllocateInfo, vkDescriptorSets_frameDataBoneData);
 
     if (vkResult != VK_SUCCESS)
     {
@@ -8171,7 +8136,7 @@ VkResult createDescriptorSet_FrameDataBoneData(void)
 
 
         // Call vkUpdateDescriptorSets() to update the descriptor set with the uniform buffer information.
-        vkUpdateDescriptorSets(vkDevice, _ARRAYSIZE(vkWriteDescriptorSet_array), vkWriteDescriptorSet_array, 0, NULL);
+        vkUpdateDescriptorSets(gVulkanContext.vkDevice, _ARRAYSIZE(vkWriteDescriptorSet_array), vkWriteDescriptorSet_array, 0, NULL);
 
     }
 
@@ -8202,7 +8167,7 @@ VkResult createDescriptorSet_SingleImage(void)
 
 
     // Call vkAllocateDescriptorSets() to allocate the descriptor set
-    vkResult = vkAllocateDescriptorSets(vkDevice, &vkDescriptorSetAllocateInfo, &vkDescriptorSet_SingleImage);
+    vkResult = vkAllocateDescriptorSets(gVulkanContext.vkDevice, &vkDescriptorSetAllocateInfo, &vkDescriptorSet_SingleImage);
 
     if (vkResult != VK_SUCCESS)
     {
@@ -8256,7 +8221,7 @@ VkResult createDescriptorSet_SingleImage(void)
 
 
         // Call vkUpdateDescriptorSets() to update the descriptor set with the uniform buffer information.
-        vkUpdateDescriptorSets(vkDevice, _ARRAYSIZE(vkWriteDescriptorSet_array), vkWriteDescriptorSet_array, 0, NULL);
+        vkUpdateDescriptorSets(gVulkanContext.vkDevice, _ARRAYSIZE(vkWriteDescriptorSet_array), vkWriteDescriptorSet_array, 0, NULL);
 
     }
 
@@ -8281,7 +8246,7 @@ VkResult createDescriptorSet_AlbedoNormal(void)
     vkDescriptorSetAllocateInfo.pSetLayouts = &gpDescriptorSetLayouts->vkDescriptorSetLayout_AlbedoNormal; // pointer to the descriptor set layout
 
     // Call vkAllocateDescriptorSets() to allocate the descriptor set
-    vkResult = vkAllocateDescriptorSets(vkDevice, &vkDescriptorSetAllocateInfo, &vkDescriptorSet_AlbedoNormal);
+    vkResult = vkAllocateDescriptorSets(gVulkanContext.vkDevice, &vkDescriptorSetAllocateInfo, &vkDescriptorSet_AlbedoNormal);
     if (vkResult != VK_SUCCESS)
     {
         fprintf(gpFILE, "createDiscriptorSet() : vkAllocateDescriptorSets() failed.\n");
@@ -8328,7 +8293,7 @@ VkResult createDescriptorSet_AlbedoNormal(void)
 
 
     // Call vkUpdateDescriptorSets() to update the descriptor set with the albedo and normal image information.
-    vkUpdateDescriptorSets(vkDevice, _ARRAYSIZE(vkWriteDescriptorSet_array), vkWriteDescriptorSet_array, 0, NULL);
+    vkUpdateDescriptorSets(gVulkanContext.vkDevice, _ARRAYSIZE(vkWriteDescriptorSet_array), vkWriteDescriptorSet_array, 0, NULL);
 
     return vkResult;
 }
@@ -8348,7 +8313,7 @@ VkResult getSupportedDepthFormat(VkFormat* pVkFormat)
     for (uint32_t i = 0; i < sizeof(formats) / sizeof(formats[0]); i++)
     {
         VkFormatProperties formatProperties;
-        vkGetPhysicalDeviceFormatProperties(vkPhysicalDevice_Selected, formats[i], &formatProperties);
+        vkGetPhysicalDeviceFormatProperties(gVulkanContext.vkPhysicalDevice, formats[i], &formatProperties);
         if (formatProperties.optimalTilingFeatures & VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT)
         {
             *pVkFormat = formats[i];
@@ -8396,7 +8361,7 @@ VkResult createDepthResources(void)
 
     for (uint32_t i = 0; i < MAX_FRAMES; i++)
     {
-        vkResult = vkCreateImage(vkDevice, &imageInfo, NULL, &gSwapChainResourceData.imageData_depthBuffer[i].vkImage);
+        vkResult = vkCreateImage(gVulkanContext.vkDevice, &imageInfo, NULL, &gSwapChainResourceData.imageData_depthBuffer[i].vkImage);
         if (vkResult != VK_SUCCESS)
         {
             fprintf(gpFILE, "Failed to create depth image.\n");
@@ -8404,7 +8369,7 @@ VkResult createDepthResources(void)
         }
 
         VkMemoryRequirements memRequirements;
-        vkGetImageMemoryRequirements(vkDevice, gSwapChainResourceData.imageData_depthBuffer[i].vkImage, &memRequirements);
+        vkGetImageMemoryRequirements(gVulkanContext.vkDevice, gSwapChainResourceData.imageData_depthBuffer[i].vkImage, &memRequirements);
 
         VkMemoryAllocateInfo allocInfo;
         memset(&allocInfo, 0, sizeof(VkMemoryAllocateInfo));
@@ -8416,7 +8381,7 @@ VkResult createDepthResources(void)
             VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT
         );
 
-        vkResult = vkAllocateMemory(vkDevice, &allocInfo, NULL, &gSwapChainResourceData.imageData_depthBuffer[i].vkDeviceMemory);
+        vkResult = vkAllocateMemory(gVulkanContext.vkDevice, &allocInfo, NULL, &gSwapChainResourceData.imageData_depthBuffer[i].vkDeviceMemory);
         if (vkResult != VK_SUCCESS)
         {
             fprintf(gpFILE, "Failed to allocate depth image memory.\n");
@@ -8424,7 +8389,7 @@ VkResult createDepthResources(void)
         }
 
 
-        vkBindImageMemory(vkDevice, gSwapChainResourceData.imageData_depthBuffer[i].vkImage, gSwapChainResourceData.imageData_depthBuffer[i].vkDeviceMemory, 0);
+        vkBindImageMemory(gVulkanContext.vkDevice, gSwapChainResourceData.imageData_depthBuffer[i].vkImage, gSwapChainResourceData.imageData_depthBuffer[i].vkDeviceMemory, 0);
 
 
         //Image View 
@@ -8439,7 +8404,7 @@ VkResult createDepthResources(void)
         viewInfo.subresourceRange.baseArrayLayer = 0;
         viewInfo.subresourceRange.layerCount = 1;
 
-        vkResult = vkCreateImageView(vkDevice, &viewInfo, nullptr, &gSwapChainResourceData.imageData_depthBuffer[i].vkImageView);
+        vkResult = vkCreateImageView(gVulkanContext.vkDevice, &viewInfo, nullptr, &gSwapChainResourceData.imageData_depthBuffer[i].vkImageView);
         if (vkResult != VK_SUCCESS) {
             fprintf(gpFILE, "Failed to create depth image view.\n");
             return vkResult;
@@ -8482,10 +8447,10 @@ void destroySwapchainResources(void)
         // destroy swapchain images and image views
     for (uint32_t i = 0; i < gSwapchainImageCount; i++)
     {
-        vkDestroyImageView(vkDevice, gSwapChainResourceData.swapchainImageView_Array[i], NULL);
+        vkDestroyImageView(gVulkanContext.vkDevice, gSwapChainResourceData.swapchainImageView_Array[i], NULL);
         gSwapChainResourceData.swapchainImageView_Array[i] = VK_NULL_HANDLE;
 
-        //vkDestroyImage(vkDevice, swapchainImage_Array[i], NULL);// Not needed, as images are managed by the swapchain  
+        //vkDestroyImage(gVulkanContext.vkDevice, swapchainImage_Array[i], NULL);// Not needed, as images are managed by the swapchain  
         gSwapChainResourceData.swapchainImage_Array[i] = VK_NULL_HANDLE;
 
     }
@@ -8507,19 +8472,19 @@ void destroySwapchainResources(void)
         //image view
         if (gSwapChainResourceData.imageData_depthBuffer[i].vkImageView)
         {
-            vkDestroyImageView(vkDevice, gSwapChainResourceData.imageData_depthBuffer[i].vkImageView, NULL);
+            vkDestroyImageView(gVulkanContext.vkDevice, gSwapChainResourceData.imageData_depthBuffer[i].vkImageView, NULL);
             gSwapChainResourceData.imageData_depthBuffer[i].vkImageView = VK_NULL_HANDLE;
         }
         //image
         if (gSwapChainResourceData.imageData_depthBuffer[i].vkImage)
         {
-            vkDestroyImage(vkDevice, gSwapChainResourceData.imageData_depthBuffer[i].vkImage, NULL);
+            vkDestroyImage(gVulkanContext.vkDevice, gSwapChainResourceData.imageData_depthBuffer[i].vkImage, NULL);
             gSwapChainResourceData.imageData_depthBuffer[i].vkImage = VK_NULL_HANDLE;
         }
         // free depth buffer memory
         if (gSwapChainResourceData.imageData_depthBuffer[i].vkDeviceMemory)
         {
-            vkFreeMemory(vkDevice, gSwapChainResourceData.imageData_depthBuffer[i].vkDeviceMemory, NULL);
+            vkFreeMemory(gVulkanContext.vkDevice, gSwapChainResourceData.imageData_depthBuffer[i].vkDeviceMemory, NULL);
             gSwapChainResourceData.imageData_depthBuffer[i].vkDeviceMemory = VK_NULL_HANDLE;
         }
     }
@@ -8620,7 +8585,7 @@ void destroySwapchainResources(void)
 //    //vkRenderPassCreateInfo.pDependencies = &dependency;
 //
 //    // sub-step (5) : Now call vkCreateRenderPass() API to create the actual RenderPass.
-//    vkResult = vkCreateRenderPass(vkDevice, &vkRenderPassCreateInfo, NULL, &vkRenderPass);
+//    vkResult = vkCreateRenderPass(gVulkanContext.vkDevice, &vkRenderPassCreateInfo, NULL, &vkRenderPass);
 //
 //    if (vkResult != VK_SUCCESS)
 //    {
@@ -8665,7 +8630,7 @@ void destroySwapchainResources(void)
 //        vkFramebufferCreateInfo.height = vkExtent2D_Swapchain.height;
 //        vkFramebufferCreateInfo.layers = 1;
 //
-//        vkResult = vkCreateFramebuffer(vkDevice, &vkFramebufferCreateInfo, NULL, &vkFramebuffer_Array[i]);
+//        vkResult = vkCreateFramebuffer(gVulkanContext.vkDevice, &vkFramebufferCreateInfo, NULL, &vkFramebuffer_Array[i]);
 //        if (vkResult != VK_SUCCESS)
 //        {
 //            fprintf(gpFILE, "createFramebuffers() : vkCreateFramebuffer() failed for iteration %d.\n", i);
@@ -8699,7 +8664,7 @@ VkResult createSemaphores(void)
     {
         //Now call vkCreateSemaphore() API 2 times to create our 2 semaphore objects. Remember, both will use the same create info structure.
         vkResult = vkCreateSemaphore(
-            vkDevice,               // [in] vulkan logical device
+            gVulkanContext.vkDevice,               // [in] vulkan logical device
             &vkSemaphoreCreateInfo, // [in] pointer to a semaphore create info structure
             NULL,                   // [in, optional] pointer to a custom memory allocator
             &vkSemaphore_BackBuffer[i] // [out] VkSemaphore object
@@ -8712,7 +8677,7 @@ VkResult createSemaphores(void)
         }
 
         vkResult = vkCreateSemaphore(
-            vkDevice,
+            gVulkanContext.vkDevice,
             &vkSemaphoreCreateInfo,
             NULL,
             &vkSemaphore_RenderComplete[i]
@@ -8744,7 +8709,7 @@ VkResult createSemaphores(void)
 	vkSemaphoreCreateInfo_Timeline.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
 	vkSemaphoreCreateInfo_Timeline.pNext = &timelineSemaphoreCreateInfo;
 	vkSemaphoreCreateInfo_Timeline.flags = 0;
-	vkResult = vkCreateSemaphore(vkDevice, &vkSemaphoreCreateInfo_Timeline, NULL, &vkSemaphore_Timeline);
+	vkResult = vkCreateSemaphore(gVulkanContext.vkDevice, &vkSemaphoreCreateInfo_Timeline, NULL, &vkSemaphore_Timeline);
 	if (vkResult != VK_SUCCESS)
 	{
 		fprintf(gpFILE, "createSemaphores() : vkCreateSemaphore() failed for timeline semaphore.\n");
@@ -8775,7 +8740,7 @@ VkResult createSemaphores(void)
 //    //  Now in a loop, call vkCreateFence() to initialize our global fences array.
 //    for (uint32_t i = 0; i < gSwapchainImageCount; i++)
 //    {
-//        vkResult = vkCreateFence(vkDevice, &vkFenceCreateInfo, NULL, &vkFence_Array[i]);
+//        vkResult = vkCreateFence(gVulkanContext.vkDevice, &vkFenceCreateInfo, NULL, &vkFence_Array[i]);
 //        if (vkResult != VK_SUCCESS)
 //        {
 //            fprintf(gpFILE, "createFences() : vkCreateFence() failed for iteration %d.\n", i);

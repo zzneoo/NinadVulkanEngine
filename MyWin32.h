@@ -34,7 +34,6 @@ public:
 
 	static unsigned int iFrameID;
 
-
 	//Made static for Vulkan surface creation
 	static HWND hwnd;
 

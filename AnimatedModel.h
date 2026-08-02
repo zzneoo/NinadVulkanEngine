@@ -11,14 +11,15 @@
 //filesystem
 #include <filesystem>
 #include "Material_BasicPBR.h"
+#include "VulkanContext.h"
 
 extern FILE* gpFILE;
-extern VkDevice vkDevice;
+//extern VkDevice vkDevice;
 //extern VkPhysicalDevice vkPhysicalDevice;
-extern VkCommandPool vkCommandPool;
-extern VkPhysicalDeviceMemoryProperties vkPhysicalDeviceMemoryProperties;
-extern VkQueue vkQueue;
-extern VkPhysicalDevice vkPhysicalDevice_Selected;
+//extern VkCommandPool vkCommandPool;
+//extern VkPhysicalDeviceMemoryProperties vkPhysicalDeviceMemoryProperties;
+//extern VkQueue vkQueue;
+//extern VkPhysicalDevice vkPhysicalDevice_Selected;
 
 struct MaterialInfo {
     std::string materialName;

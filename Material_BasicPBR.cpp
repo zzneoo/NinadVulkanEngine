@@ -52,51 +52,51 @@ Material_BasicPBR::~Material_BasicPBR()
     //Albedo
     if (Albedo.vkImageView != VK_NULL_HANDLE)
     {
-        vkDestroyImageView(vkDevice, Albedo.vkImageView, nullptr);
+        vkDestroyImageView(gVulkanContext.vkDevice, Albedo.vkImageView, nullptr);
         Albedo.vkImageView = VK_NULL_HANDLE;
     }
     if (Albedo.vkImage != VK_NULL_HANDLE)
     {
-		vkDestroyImage(vkDevice, Albedo.vkImage, nullptr);
+		vkDestroyImage(gVulkanContext.vkDevice, Albedo.vkImage, nullptr);
         Albedo.vkImage = VK_NULL_HANDLE;
     }
     if (Albedo.vkDeviceMemory != VK_NULL_HANDLE)
 	{
-        vkFreeMemory(vkDevice, Albedo.vkDeviceMemory, nullptr);
+        vkFreeMemory(gVulkanContext.vkDevice, Albedo.vkDeviceMemory, nullptr);
         Albedo.vkDeviceMemory = VK_NULL_HANDLE;
     }
 
     //Normal
     if (Normal.vkImageView != VK_NULL_HANDLE)
     {
-        vkDestroyImageView(vkDevice, Normal.vkImageView, nullptr);
+        vkDestroyImageView(gVulkanContext.vkDevice, Normal.vkImageView, nullptr);
         Normal.vkImageView = VK_NULL_HANDLE;
     }
     if (Normal.vkImage != VK_NULL_HANDLE)
     {
-        vkDestroyImage(vkDevice, Normal.vkImage, nullptr);
+        vkDestroyImage(gVulkanContext.vkDevice, Normal.vkImage, nullptr);
         Normal.vkImage = VK_NULL_HANDLE;
     }
     if (Normal.vkDeviceMemory != VK_NULL_HANDLE)
     {
-        vkFreeMemory(vkDevice, Normal.vkDeviceMemory, nullptr);
+        vkFreeMemory(gVulkanContext.vkDevice, Normal.vkDeviceMemory, nullptr);
         Normal.vkDeviceMemory = VK_NULL_HANDLE;
     }
 
 	//ORX
     if (ORX.vkImageView != VK_NULL_HANDLE)
     {
-        vkDestroyImageView(vkDevice, ORX.vkImageView, nullptr);
+        vkDestroyImageView(gVulkanContext.vkDevice, ORX.vkImageView, nullptr);
         ORX.vkImageView = VK_NULL_HANDLE;
     }
     if (ORX.vkImage != VK_NULL_HANDLE)
     {
-        vkDestroyImage(vkDevice, ORX.vkImage, nullptr);
+        vkDestroyImage(gVulkanContext.vkDevice, ORX.vkImage, nullptr);
         ORX.vkImage = VK_NULL_HANDLE;
     }
     if (ORX.vkDeviceMemory != VK_NULL_HANDLE)
     {
-        vkFreeMemory(vkDevice, ORX.vkDeviceMemory, nullptr);
+        vkFreeMemory(gVulkanContext.vkDevice, ORX.vkDeviceMemory, nullptr);
         ORX.vkDeviceMemory = VK_NULL_HANDLE;
     }
 
@@ -127,7 +127,7 @@ VkResult Material_BasicPBR::createDescriptorSet(void)
     vkDescriptorSetAllocateInfo.pSetLayouts = &vkDescriptorSetLayout; // pointer to the descriptor set layout
 
     // Call vkAllocateDescriptorSets() to allocate the descriptor set
-    vkResult = vkAllocateDescriptorSets(vkDevice, &vkDescriptorSetAllocateInfo, &vkDescriptorSet);
+    vkResult = vkAllocateDescriptorSets(gVulkanContext.vkDevice, &vkDescriptorSetAllocateInfo, &vkDescriptorSet);
     if (vkResult != VK_SUCCESS)
     {
         fprintf(gpFILE, "createDiscriptorSet() : vkAllocateDescriptorSets() failed.\n");
@@ -191,14 +191,14 @@ VkResult Material_BasicPBR::createDescriptorSet(void)
 
 
     // Call vkUpdateDescriptorSets() to update the descriptor set with the albedo and normal image information.
-    vkUpdateDescriptorSets(vkDevice, _ARRAYSIZE(vkWriteDescriptorSet_array), vkWriteDescriptorSet_array, 0, NULL);
+    vkUpdateDescriptorSets(gVulkanContext.vkDevice, _ARRAYSIZE(vkWriteDescriptorSet_array), vkWriteDescriptorSet_array, 0, NULL);
 
     return vkResult;
 }
 
 uint32_t Material_BasicPBR::findMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties) {
     VkPhysicalDeviceMemoryProperties memProperties;
-    vkGetPhysicalDeviceMemoryProperties(vkPhysicalDevice_Selected, &memProperties);
+    vkGetPhysicalDeviceMemoryProperties(gVulkanContext.vkPhysicalDevice, &memProperties);
 
     for (uint32_t i = 0; i < memProperties.memoryTypeCount; i++) {
         if ((typeFilter & (1 << i)) &&
@@ -308,7 +308,7 @@ VkResult Material_BasicPBR::loadTextureData_dds_c_bc7(ImageData* imageData, cons
     bufInfo.usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
     bufInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
 
-    VkResult vkRes = vkCreateBuffer(vkDevice, &bufInfo, nullptr, &stagingBuffer);
+    VkResult vkRes = vkCreateBuffer(gVulkanContext.vkDevice, &bufInfo, nullptr, &stagingBuffer);
     if (vkRes != VK_SUCCESS) {
         fprintf(gpFILE, "loadTextureData_dds_c_bc7(): vkCreateBuffer failed (%d)\n", vkRes);
         free(subs);
@@ -316,7 +316,7 @@ VkResult Material_BasicPBR::loadTextureData_dds_c_bc7(ImageData* imageData, cons
     }
 
     VkMemoryRequirements memReq = {};
-    vkGetBufferMemoryRequirements(vkDevice, stagingBuffer, &memReq);
+    vkGetBufferMemoryRequirements(gVulkanContext.vkDevice, stagingBuffer, &memReq);
 
     VkMemoryAllocateInfo allocInfo = {};
     allocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
@@ -325,35 +325,35 @@ VkResult Material_BasicPBR::loadTextureData_dds_c_bc7(ImageData* imageData, cons
         VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
     if (allocInfo.memoryTypeIndex == UINT32_MAX) {
         fprintf(gpFILE, "loadTextureData_dds_c_bc7(): findMemoryType failed for staging\n");
-        vkDestroyBuffer(vkDevice, stagingBuffer, nullptr);
+        vkDestroyBuffer(gVulkanContext.vkDevice, stagingBuffer, nullptr);
         free(subs);
         return VK_ERROR_MEMORY_MAP_FAILED;
     }
 
-    vkRes = vkAllocateMemory(vkDevice, &allocInfo, nullptr, &stagingMemory);
+    vkRes = vkAllocateMemory(gVulkanContext.vkDevice, &allocInfo, nullptr, &stagingMemory);
     if (vkRes != VK_SUCCESS) {
         fprintf(gpFILE, "loadTextureData_dds_c_bc7(): vkAllocateMemory failed (%d)\n", vkRes);
-        vkDestroyBuffer(vkDevice, stagingBuffer, nullptr);
+        vkDestroyBuffer(gVulkanContext.vkDevice, stagingBuffer, nullptr);
         free(subs);
         return vkRes;
     }
 
-    vkRes = vkBindBufferMemory(vkDevice, stagingBuffer, stagingMemory, 0);
+    vkRes = vkBindBufferMemory(gVulkanContext.vkDevice, stagingBuffer, stagingMemory, 0);
     if (vkRes != VK_SUCCESS) {
         fprintf(gpFILE, "loadTextureData_dds_c_bc7(): vkBindBufferMemory failed (%d)\n", vkRes);
-        vkFreeMemory(vkDevice, stagingMemory, nullptr);
-        vkDestroyBuffer(vkDevice, stagingBuffer, nullptr);
+        vkFreeMemory(gVulkanContext.vkDevice, stagingMemory, nullptr);
+        vkDestroyBuffer(gVulkanContext.vkDevice, stagingBuffer, nullptr);
         free(subs);
         return vkRes;
     }
 
     // Map and copy BC7 subresources into staging (use bc7_subresource_size)
     void* mapped = NULL;
-    vkRes = vkMapMemory(vkDevice, stagingMemory, 0, totalSize, 0, &mapped);
+    vkRes = vkMapMemory(gVulkanContext.vkDevice, stagingMemory, 0, totalSize, 0, &mapped);
     if (vkRes != VK_SUCCESS) {
         fprintf(gpFILE, "loadTextureData_dds_c_bc7(): vkMapMemory failed (%d)\n", vkRes);
-        vkFreeMemory(vkDevice, stagingMemory, nullptr);
-        vkDestroyBuffer(vkDevice, stagingBuffer, nullptr);
+        vkFreeMemory(gVulkanContext.vkDevice, stagingMemory, nullptr);
+        vkDestroyBuffer(gVulkanContext.vkDevice, stagingBuffer, nullptr);
         free(subs);
         return vkRes;
     }
@@ -370,9 +370,9 @@ VkResult Material_BasicPBR::loadTextureData_dds_c_bc7(ImageData* imageData, cons
 
             if (!img->m_mem) {
                 fprintf(gpFILE, "loadTextureData_dds_c_bc7(): null m_mem for layer=%u mip=%u\n", layer, mip);
-                vkUnmapMemory(vkDevice, stagingMemory);
-                vkFreeMemory(vkDevice, stagingMemory, nullptr);
-                vkDestroyBuffer(vkDevice, stagingBuffer, nullptr);
+                vkUnmapMemory(gVulkanContext.vkDevice, stagingMemory);
+                vkFreeMemory(gVulkanContext.vkDevice, stagingMemory, nullptr);
+                vkDestroyBuffer(gVulkanContext.vkDevice, stagingBuffer, nullptr);
                 free(subs);
                 return VK_ERROR_INITIALIZATION_FAILED;
             }
@@ -390,7 +390,7 @@ VkResult Material_BasicPBR::loadTextureData_dds_c_bc7(ImageData* imageData, cons
         }
     }
 
-    vkUnmapMemory(vkDevice, stagingMemory);
+    vkUnmapMemory(gVulkanContext.vkDevice, stagingMemory);
 
     // Create VkImage with the DDS mipCount / arrayCount
     VkImageCreateInfo imageInfo = {};
@@ -410,17 +410,17 @@ VkResult Material_BasicPBR::loadTextureData_dds_c_bc7(ImageData* imageData, cons
     imageInfo.flags = (arrayCount == 6) ? VK_IMAGE_CREATE_CUBE_COMPATIBLE_BIT : 0;
 
     VkImage image = VK_NULL_HANDLE;
-    vkRes = vkCreateImage(vkDevice, &imageInfo, nullptr, &image);
+    vkRes = vkCreateImage(gVulkanContext.vkDevice, &imageInfo, nullptr, &image);
     if (vkRes != VK_SUCCESS) {
         fprintf(gpFILE, "loadTextureData_dds_c_bc7(): vkCreateImage failed (%d)\n", vkRes);
-        vkFreeMemory(vkDevice, stagingMemory, nullptr);
-        vkDestroyBuffer(vkDevice, stagingBuffer, nullptr);
+        vkFreeMemory(gVulkanContext.vkDevice, stagingMemory, nullptr);
+        vkDestroyBuffer(gVulkanContext.vkDevice, stagingBuffer, nullptr);
         free(subs);
         return vkRes;
     }
 
     VkMemoryRequirements imageMemReq = {};
-    vkGetImageMemoryRequirements(vkDevice, image, &imageMemReq);
+    vkGetImageMemoryRequirements(gVulkanContext.vkDevice, image, &imageMemReq);
 
     VkMemoryAllocateInfo imageAlloc = {};
     imageAlloc.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
@@ -428,31 +428,31 @@ VkResult Material_BasicPBR::loadTextureData_dds_c_bc7(ImageData* imageData, cons
     imageAlloc.memoryTypeIndex = findMemoryType(imageMemReq.memoryTypeBits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
     if (imageAlloc.memoryTypeIndex == UINT32_MAX) {
         fprintf(gpFILE, "loadTextureData_dds_c_bc7(): findMemoryType failed for image\n");
-        vkDestroyImage(vkDevice, image, nullptr);
-        vkFreeMemory(vkDevice, stagingMemory, nullptr);
-        vkDestroyBuffer(vkDevice, stagingBuffer, nullptr);
+        vkDestroyImage(gVulkanContext.vkDevice, image, nullptr);
+        vkFreeMemory(gVulkanContext.vkDevice, stagingMemory, nullptr);
+        vkDestroyBuffer(gVulkanContext.vkDevice, stagingBuffer, nullptr);
         free(subs);
         return VK_ERROR_MEMORY_MAP_FAILED;
     }
 
     VkDeviceMemory imageMemory = VK_NULL_HANDLE;
-    vkRes = vkAllocateMemory(vkDevice, &imageAlloc, nullptr, &imageMemory);
+    vkRes = vkAllocateMemory(gVulkanContext.vkDevice, &imageAlloc, nullptr, &imageMemory);
     if (vkRes != VK_SUCCESS) {
         fprintf(gpFILE, "loadTextureData_dds_c_bc7(): vkAllocateMemory(image) failed (%d)\n", vkRes);
-        vkDestroyImage(vkDevice, image, nullptr);
-        vkFreeMemory(vkDevice, stagingMemory, nullptr);
-        vkDestroyBuffer(vkDevice, stagingBuffer, nullptr);
+        vkDestroyImage(gVulkanContext.vkDevice, image, nullptr);
+        vkFreeMemory(gVulkanContext.vkDevice, stagingMemory, nullptr);
+        vkDestroyBuffer(gVulkanContext.vkDevice, stagingBuffer, nullptr);
         free(subs);
         return vkRes;
     }
 
-    vkRes = vkBindImageMemory(vkDevice, image, imageMemory, 0);
+    vkRes = vkBindImageMemory(gVulkanContext.vkDevice, image, imageMemory, 0);
     if (vkRes != VK_SUCCESS) {
         fprintf(gpFILE, "loadTextureData_dds_c_bc7(): vkBindImageMemory failed (%d)\n", vkRes);
-        vkFreeMemory(vkDevice, imageMemory, nullptr);
-        vkDestroyImage(vkDevice, image, nullptr);
-        vkFreeMemory(vkDevice, stagingMemory, nullptr);
-        vkDestroyBuffer(vkDevice, stagingBuffer, nullptr);
+        vkFreeMemory(gVulkanContext.vkDevice, imageMemory, nullptr);
+        vkDestroyImage(gVulkanContext.vkDevice, image, nullptr);
+        vkFreeMemory(gVulkanContext.vkDevice, stagingMemory, nullptr);
+        vkDestroyBuffer(gVulkanContext.vkDevice, stagingBuffer, nullptr);
         free(subs);
         return vkRes;
     }
@@ -460,18 +460,18 @@ VkResult Material_BasicPBR::loadTextureData_dds_c_bc7(ImageData* imageData, cons
     // Command buffer: transition, copy, transition
     VkCommandBufferAllocateInfo cmdAlloc = {};
     cmdAlloc.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
-    cmdAlloc.commandPool = vkCommandPool;
+    cmdAlloc.commandPool = gVulkanContext.vkCommandPool;
     cmdAlloc.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
     cmdAlloc.commandBufferCount = 1;
 
     VkCommandBuffer cmd = VK_NULL_HANDLE;
-    vkRes = vkAllocateCommandBuffers(vkDevice, &cmdAlloc, &cmd);
+    vkRes = vkAllocateCommandBuffers(gVulkanContext.vkDevice, &cmdAlloc, &cmd);
     if (vkRes != VK_SUCCESS) {
         fprintf(gpFILE, "loadTextureData_dds_c_bc7(): vkAllocateCommandBuffers failed (%d)\n", vkRes);
-        vkFreeMemory(vkDevice, imageMemory, nullptr);
-        vkDestroyImage(vkDevice, image, nullptr);
-        vkFreeMemory(vkDevice, stagingMemory, nullptr);
-        vkDestroyBuffer(vkDevice, stagingBuffer, nullptr);
+        vkFreeMemory(gVulkanContext.vkDevice, imageMemory, nullptr);
+        vkDestroyImage(gVulkanContext.vkDevice, image, nullptr);
+        vkFreeMemory(gVulkanContext.vkDevice, stagingMemory, nullptr);
+        vkDestroyBuffer(gVulkanContext.vkDevice, stagingBuffer, nullptr);
         free(subs);
         return vkRes;
     }
@@ -482,11 +482,11 @@ VkResult Material_BasicPBR::loadTextureData_dds_c_bc7(ImageData* imageData, cons
     vkRes = vkBeginCommandBuffer(cmd, &beginInfo);
     if (vkRes != VK_SUCCESS) {
         fprintf(gpFILE, "loadTextureData_dds_c_bc7(): vkBeginCommandBuffer failed (%d)\n", vkRes);
-        vkFreeCommandBuffers(vkDevice, vkCommandPool, 1, &cmd);
-        vkFreeMemory(vkDevice, imageMemory, nullptr);
-        vkDestroyImage(vkDevice, image, nullptr);
-        vkFreeMemory(vkDevice, stagingMemory, nullptr);
-        vkDestroyBuffer(vkDevice, stagingBuffer, nullptr);
+        vkFreeCommandBuffers(gVulkanContext.vkDevice, gVulkanContext.vkCommandPool, 1, &cmd);
+        vkFreeMemory(gVulkanContext.vkDevice, imageMemory, nullptr);
+        vkDestroyImage(gVulkanContext.vkDevice, image, nullptr);
+        vkFreeMemory(gVulkanContext.vkDevice, stagingMemory, nullptr);
+        vkDestroyBuffer(gVulkanContext.vkDevice, stagingBuffer, nullptr);
         free(subs);
         return vkRes;
     }
@@ -514,11 +514,11 @@ VkResult Material_BasicPBR::loadTextureData_dds_c_bc7(ImageData* imageData, cons
     VkBufferImageCopy* copies = (VkBufferImageCopy*)malloc(sizeof(VkBufferImageCopy) * subCount);
     if (!copies) {
         fprintf(gpFILE, "loadTextureData_dds_c_bc7(): malloc copies failed\n");
-        vkFreeCommandBuffers(vkDevice, vkCommandPool, 1, &cmd);
-        vkFreeMemory(vkDevice, imageMemory, nullptr);
-        vkDestroyImage(vkDevice, image, nullptr);
-        vkFreeMemory(vkDevice, stagingMemory, nullptr);
-        vkDestroyBuffer(vkDevice, stagingBuffer, nullptr);
+        vkFreeCommandBuffers(gVulkanContext.vkDevice, gVulkanContext.vkCommandPool, 1, &cmd);
+        vkFreeMemory(gVulkanContext.vkDevice, imageMemory, nullptr);
+        vkDestroyImage(gVulkanContext.vkDevice, image, nullptr);
+        vkFreeMemory(gVulkanContext.vkDevice, stagingMemory, nullptr);
+        vkDestroyBuffer(gVulkanContext.vkDevice, stagingBuffer, nullptr);
         free(subs);
         return VK_ERROR_OUT_OF_HOST_MEMORY;
     }
@@ -565,11 +565,11 @@ VkResult Material_BasicPBR::loadTextureData_dds_c_bc7(ImageData* imageData, cons
         fprintf(gpFILE, "loadTextureData_dds_c_bc7(): vkEndCommandBuffer failed (%d)\n", vkRes);
         free(copies);
         free(subs);
-        vkFreeCommandBuffers(vkDevice, vkCommandPool, 1, &cmd);
-        vkFreeMemory(vkDevice, imageMemory, nullptr);
-        vkDestroyImage(vkDevice, image, nullptr);
-        vkFreeMemory(vkDevice, stagingMemory, nullptr);
-        vkDestroyBuffer(vkDevice, stagingBuffer, nullptr);
+        vkFreeCommandBuffers(gVulkanContext.vkDevice, gVulkanContext.vkCommandPool, 1, &cmd);
+        vkFreeMemory(gVulkanContext.vkDevice, imageMemory, nullptr);
+        vkDestroyImage(gVulkanContext.vkDevice, image, nullptr);
+        vkFreeMemory(gVulkanContext.vkDevice, stagingMemory, nullptr);
+        vkDestroyBuffer(gVulkanContext.vkDevice, stagingBuffer, nullptr);
         return vkRes;
     }
 
@@ -578,34 +578,34 @@ VkResult Material_BasicPBR::loadTextureData_dds_c_bc7(ImageData* imageData, cons
     submit.commandBufferCount = 1;
     submit.pCommandBuffers = &cmd;
 
-    vkRes = vkQueueSubmit(vkQueue, 1, &submit, VK_NULL_HANDLE);
+    vkRes = vkQueueSubmit(gVulkanContext.vkGraphicsQueue, 1, &submit, VK_NULL_HANDLE);
     if (vkRes != VK_SUCCESS) {
         fprintf(gpFILE, "loadTextureData_dds_c_bc7(): vkQueueSubmit failed (%d)\n", vkRes);
         free(copies);
         free(subs);
-        vkFreeCommandBuffers(vkDevice, vkCommandPool, 1, &cmd);
-        vkFreeMemory(vkDevice, imageMemory, nullptr);
-        vkDestroyImage(vkDevice, image, nullptr);
-        vkFreeMemory(vkDevice, stagingMemory, nullptr);
-        vkDestroyBuffer(vkDevice, stagingBuffer, nullptr);
+        vkFreeCommandBuffers(gVulkanContext.vkDevice, gVulkanContext.vkCommandPool, 1, &cmd);
+        vkFreeMemory(gVulkanContext.vkDevice, imageMemory, nullptr);
+        vkDestroyImage(gVulkanContext.vkDevice, image, nullptr);
+        vkFreeMemory(gVulkanContext.vkDevice, stagingMemory, nullptr);
+        vkDestroyBuffer(gVulkanContext.vkDevice, stagingBuffer, nullptr);
         return vkRes;
     }
 
-    vkRes = vkQueueWaitIdle(vkQueue);
+    vkRes = vkQueueWaitIdle(gVulkanContext.vkGraphicsQueue);
     if (vkRes != VK_SUCCESS) {
         fprintf(gpFILE, "loadTextureData_dds_c_bc7(): vkQueueWaitIdle failed (%d)\n", vkRes);
         free(copies);
         free(subs);
-        vkFreeCommandBuffers(vkDevice, vkCommandPool, 1, &cmd);
-        vkFreeMemory(vkDevice, imageMemory, nullptr);
-        vkDestroyImage(vkDevice, image, nullptr);
-        vkFreeMemory(vkDevice, stagingMemory, nullptr);
-        vkDestroyBuffer(vkDevice, stagingBuffer, nullptr);
+        vkFreeCommandBuffers(gVulkanContext.vkDevice, gVulkanContext.vkCommandPool, 1, &cmd);
+        vkFreeMemory(gVulkanContext.vkDevice, imageMemory, nullptr);
+        vkDestroyImage(gVulkanContext.vkDevice, image, nullptr);
+        vkFreeMemory(gVulkanContext.vkDevice, stagingMemory, nullptr);
+        vkDestroyBuffer(gVulkanContext.vkDevice, stagingBuffer, nullptr);
         return vkRes;
     }
 
     // free command buffer
-    vkFreeCommandBuffers(vkDevice, vkCommandPool, 1, &cmd);
+    vkFreeCommandBuffers(gVulkanContext.vkDevice, gVulkanContext.vkCommandPool, 1, &cmd);
 
     // Create image view
     VkImageViewCreateInfo viewInfo = {};
@@ -622,21 +622,21 @@ VkResult Material_BasicPBR::loadTextureData_dds_c_bc7(ImageData* imageData, cons
     viewInfo.subresourceRange.layerCount = arrayCount;
 
     VkImageView imageView = VK_NULL_HANDLE;
-    vkRes = vkCreateImageView(vkDevice, &viewInfo, nullptr, &imageView);
+    vkRes = vkCreateImageView(gVulkanContext.vkDevice, &viewInfo, nullptr, &imageView);
     if (vkRes != VK_SUCCESS) {
         fprintf(gpFILE, "loadTextureData_dds_c_bc7(): vkCreateImageView failed (%d)\n", vkRes);
         free(copies);
         free(subs);
-        vkFreeMemory(vkDevice, imageMemory, nullptr);
-        vkDestroyImage(vkDevice, image, nullptr);
-        vkFreeMemory(vkDevice, stagingMemory, nullptr);
-        vkDestroyBuffer(vkDevice, stagingBuffer, nullptr);
+        vkFreeMemory(gVulkanContext.vkDevice, imageMemory, nullptr);
+        vkDestroyImage(gVulkanContext.vkDevice, image, nullptr);
+        vkFreeMemory(gVulkanContext.vkDevice, stagingMemory, nullptr);
+        vkDestroyBuffer(gVulkanContext.vkDevice, stagingBuffer, nullptr);
         return vkRes;
     }
 
     // cleanup staging
-    vkDestroyBuffer(vkDevice, stagingBuffer, nullptr);
-    vkFreeMemory(vkDevice, stagingMemory, nullptr);
+    vkDestroyBuffer(gVulkanContext.vkDevice, stagingBuffer, nullptr);
+    vkFreeMemory(gVulkanContext.vkDevice, stagingMemory, nullptr);
 
     // fill output
     imageData->vkImage = image;
@@ -745,7 +745,7 @@ VkResult Material_BasicPBR::loadTextureData_dds_c_bc5_normal(ImageData* imageDat
     bufInfo.usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
     bufInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
 
-    VkResult vkRes = vkCreateBuffer(vkDevice, &bufInfo, nullptr, &stagingBuffer);
+    VkResult vkRes = vkCreateBuffer(gVulkanContext.vkDevice, &bufInfo, nullptr, &stagingBuffer);
     if (vkRes != VK_SUCCESS) {
         fprintf(gpFILE, "loadTextureData_dds_c_bc5_normal(): vkCreateBuffer failed (%d)\n", vkRes);
         free(subs);
@@ -753,7 +753,7 @@ VkResult Material_BasicPBR::loadTextureData_dds_c_bc5_normal(ImageData* imageDat
     }
 
     VkMemoryRequirements memReq = {};
-    vkGetBufferMemoryRequirements(vkDevice, stagingBuffer, &memReq);
+    vkGetBufferMemoryRequirements(gVulkanContext.vkDevice, stagingBuffer, &memReq);
 
     VkMemoryAllocateInfo allocInfo = {};
     allocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
@@ -762,35 +762,35 @@ VkResult Material_BasicPBR::loadTextureData_dds_c_bc5_normal(ImageData* imageDat
         VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
     if (allocInfo.memoryTypeIndex == UINT32_MAX) {
         fprintf(gpFILE, "loadTextureData_dds_c_bc5_normal(): findMemoryType failed for staging\n");
-        vkDestroyBuffer(vkDevice, stagingBuffer, nullptr);
+        vkDestroyBuffer(gVulkanContext.vkDevice, stagingBuffer, nullptr);
         free(subs);
         return VK_ERROR_MEMORY_MAP_FAILED;
     }
 
-    vkRes = vkAllocateMemory(vkDevice, &allocInfo, nullptr, &stagingMemory);
+    vkRes = vkAllocateMemory(gVulkanContext.vkDevice, &allocInfo, nullptr, &stagingMemory);
     if (vkRes != VK_SUCCESS) {
         fprintf(gpFILE, "loadTextureData_dds_c_bc5_normal(): vkAllocateMemory failed (%d)\n", vkRes);
-        vkDestroyBuffer(vkDevice, stagingBuffer, nullptr);
+        vkDestroyBuffer(gVulkanContext.vkDevice, stagingBuffer, nullptr);
         free(subs);
         return vkRes;
     }
 
-    vkRes = vkBindBufferMemory(vkDevice, stagingBuffer, stagingMemory, 0);
+    vkRes = vkBindBufferMemory(gVulkanContext.vkDevice, stagingBuffer, stagingMemory, 0);
     if (vkRes != VK_SUCCESS) {
         fprintf(gpFILE, "loadTextureData_dds_c_bc5_normal(): vkBindBufferMemory failed (%d)\n", vkRes);
-        vkFreeMemory(vkDevice, stagingMemory, nullptr);
-        vkDestroyBuffer(vkDevice, stagingBuffer, nullptr);
+        vkFreeMemory(gVulkanContext.vkDevice, stagingMemory, nullptr);
+        vkDestroyBuffer(gVulkanContext.vkDevice, stagingBuffer, nullptr);
         free(subs);
         return vkRes;
     }
 
     // Map and copy BC5 subresources into staging (use bc5_subresource_size)
     void* mapped = NULL;
-    vkRes = vkMapMemory(vkDevice, stagingMemory, 0, totalSize, 0, &mapped);
+    vkRes = vkMapMemory(gVulkanContext.vkDevice, stagingMemory, 0, totalSize, 0, &mapped);
     if (vkRes != VK_SUCCESS) {
         fprintf(gpFILE, "loadTextureData_dds_c_bc5_normal(): vkMapMemory failed (%d)\n", vkRes);
-        vkFreeMemory(vkDevice, stagingMemory, nullptr);
-        vkDestroyBuffer(vkDevice, stagingBuffer, nullptr);
+        vkFreeMemory(gVulkanContext.vkDevice, stagingMemory, nullptr);
+        vkDestroyBuffer(gVulkanContext.vkDevice, stagingBuffer, nullptr);
         free(subs);
         return vkRes;
     }
@@ -807,9 +807,9 @@ VkResult Material_BasicPBR::loadTextureData_dds_c_bc5_normal(ImageData* imageDat
 
             if (!img->m_mem) {
                 fprintf(gpFILE, "loadTextureData_dds_c_bc5_normal(): null m_mem for layer=%u mip=%u\n", layer, mip);
-                vkUnmapMemory(vkDevice, stagingMemory);
-                vkFreeMemory(vkDevice, stagingMemory, nullptr);
-                vkDestroyBuffer(vkDevice, stagingBuffer, nullptr);
+                vkUnmapMemory(gVulkanContext.vkDevice, stagingMemory);
+                vkFreeMemory(gVulkanContext.vkDevice, stagingMemory, nullptr);
+                vkDestroyBuffer(gVulkanContext.vkDevice, stagingBuffer, nullptr);
                 free(subs);
                 return VK_ERROR_INITIALIZATION_FAILED;
             }
@@ -827,7 +827,7 @@ VkResult Material_BasicPBR::loadTextureData_dds_c_bc5_normal(ImageData* imageDat
         }
     }
 
-    vkUnmapMemory(vkDevice, stagingMemory);
+    vkUnmapMemory(gVulkanContext.vkDevice, stagingMemory);
 
     // Create VkImage with the DDS mipCount / arrayCount
     VkImageCreateInfo imageInfo = {};
@@ -847,17 +847,17 @@ VkResult Material_BasicPBR::loadTextureData_dds_c_bc5_normal(ImageData* imageDat
     imageInfo.flags = (arrayCount == 6) ? VK_IMAGE_CREATE_CUBE_COMPATIBLE_BIT : 0;
 
     VkImage image = VK_NULL_HANDLE;
-    vkRes = vkCreateImage(vkDevice, &imageInfo, nullptr, &image);
+    vkRes = vkCreateImage(gVulkanContext.vkDevice, &imageInfo, nullptr, &image);
     if (vkRes != VK_SUCCESS) {
         fprintf(gpFILE, "loadTextureData_dds_c_bc5_normal(): vkCreateImage failed (%d)\n", vkRes);
-        vkFreeMemory(vkDevice, stagingMemory, nullptr);
-        vkDestroyBuffer(vkDevice, stagingBuffer, nullptr);
+        vkFreeMemory(gVulkanContext.vkDevice, stagingMemory, nullptr);
+        vkDestroyBuffer(gVulkanContext.vkDevice, stagingBuffer, nullptr);
         free(subs);
         return vkRes;
     }
 
     VkMemoryRequirements imageMemReq = {};
-    vkGetImageMemoryRequirements(vkDevice, image, &imageMemReq);
+    vkGetImageMemoryRequirements(gVulkanContext.vkDevice, image, &imageMemReq);
 
     VkMemoryAllocateInfo imageAlloc = {};
     imageAlloc.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
@@ -865,31 +865,31 @@ VkResult Material_BasicPBR::loadTextureData_dds_c_bc5_normal(ImageData* imageDat
     imageAlloc.memoryTypeIndex = findMemoryType(imageMemReq.memoryTypeBits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
     if (imageAlloc.memoryTypeIndex == UINT32_MAX) {
         fprintf(gpFILE, "loadTextureData_dds_c_bc5_normal(): findMemoryType failed for image\n");
-        vkDestroyImage(vkDevice, image, nullptr);
-        vkFreeMemory(vkDevice, stagingMemory, nullptr);
-        vkDestroyBuffer(vkDevice, stagingBuffer, nullptr);
+        vkDestroyImage(gVulkanContext.vkDevice, image, nullptr);
+        vkFreeMemory(gVulkanContext.vkDevice, stagingMemory, nullptr);
+        vkDestroyBuffer(gVulkanContext.vkDevice, stagingBuffer, nullptr);
         free(subs);
         return VK_ERROR_MEMORY_MAP_FAILED;
     }
 
     VkDeviceMemory imageMemory = VK_NULL_HANDLE;
-    vkRes = vkAllocateMemory(vkDevice, &imageAlloc, nullptr, &imageMemory);
+    vkRes = vkAllocateMemory(gVulkanContext.vkDevice, &imageAlloc, nullptr, &imageMemory);
     if (vkRes != VK_SUCCESS) {
         fprintf(gpFILE, "loadTextureData_dds_c_bc5_normal(): vkAllocateMemory(image) failed (%d)\n", vkRes);
-        vkDestroyImage(vkDevice, image, nullptr);
-        vkFreeMemory(vkDevice, stagingMemory, nullptr);
-        vkDestroyBuffer(vkDevice, stagingBuffer, nullptr);
+        vkDestroyImage(gVulkanContext.vkDevice, image, nullptr);
+        vkFreeMemory(gVulkanContext.vkDevice, stagingMemory, nullptr);
+        vkDestroyBuffer(gVulkanContext.vkDevice, stagingBuffer, nullptr);
         free(subs);
         return vkRes;
     }
 
-    vkRes = vkBindImageMemory(vkDevice, image, imageMemory, 0);
+    vkRes = vkBindImageMemory(gVulkanContext.vkDevice, image, imageMemory, 0);
     if (vkRes != VK_SUCCESS) {
         fprintf(gpFILE, "loadTextureData_dds_c_bc5_normal(): vkBindImageMemory failed (%d)\n", vkRes);
-        vkFreeMemory(vkDevice, imageMemory, nullptr);
-        vkDestroyImage(vkDevice, image, nullptr);
-        vkFreeMemory(vkDevice, stagingMemory, nullptr);
-        vkDestroyBuffer(vkDevice, stagingBuffer, nullptr);
+        vkFreeMemory(gVulkanContext.vkDevice, imageMemory, nullptr);
+        vkDestroyImage(gVulkanContext.vkDevice, image, nullptr);
+        vkFreeMemory(gVulkanContext.vkDevice, stagingMemory, nullptr);
+        vkDestroyBuffer(gVulkanContext.vkDevice, stagingBuffer, nullptr);
         free(subs);
         return vkRes;
     }
@@ -897,18 +897,18 @@ VkResult Material_BasicPBR::loadTextureData_dds_c_bc5_normal(ImageData* imageDat
     // Command buffer: transition, copy, transition
     VkCommandBufferAllocateInfo cmdAlloc = {};
     cmdAlloc.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
-    cmdAlloc.commandPool = vkCommandPool;
+    cmdAlloc.commandPool = gVulkanContext.vkCommandPool;
     cmdAlloc.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
     cmdAlloc.commandBufferCount = 1;
 
     VkCommandBuffer cmd = VK_NULL_HANDLE;
-    vkRes = vkAllocateCommandBuffers(vkDevice, &cmdAlloc, &cmd);
+    vkRes = vkAllocateCommandBuffers(gVulkanContext.vkDevice, &cmdAlloc, &cmd);
     if (vkRes != VK_SUCCESS) {
         fprintf(gpFILE, "loadTextureData_dds_c_bc5_normal(): vkAllocateCommandBuffers failed (%d)\n", vkRes);
-        vkFreeMemory(vkDevice, imageMemory, nullptr);
-        vkDestroyImage(vkDevice, image, nullptr);
-        vkFreeMemory(vkDevice, stagingMemory, nullptr);
-        vkDestroyBuffer(vkDevice, stagingBuffer, nullptr);
+        vkFreeMemory(gVulkanContext.vkDevice, imageMemory, nullptr);
+        vkDestroyImage(gVulkanContext.vkDevice, image, nullptr);
+        vkFreeMemory(gVulkanContext.vkDevice, stagingMemory, nullptr);
+        vkDestroyBuffer(gVulkanContext.vkDevice, stagingBuffer, nullptr);
         free(subs);
         return vkRes;
     }
@@ -919,11 +919,11 @@ VkResult Material_BasicPBR::loadTextureData_dds_c_bc5_normal(ImageData* imageDat
     vkRes = vkBeginCommandBuffer(cmd, &beginInfo);
     if (vkRes != VK_SUCCESS) {
         fprintf(gpFILE, "loadTextureData_dds_c_bc5_normal(): vkBeginCommandBuffer failed (%d)\n", vkRes);
-        vkFreeCommandBuffers(vkDevice, vkCommandPool, 1, &cmd);
-        vkFreeMemory(vkDevice, imageMemory, nullptr);
-        vkDestroyImage(vkDevice, image, nullptr);
-        vkFreeMemory(vkDevice, stagingMemory, nullptr);
-        vkDestroyBuffer(vkDevice, stagingBuffer, nullptr);
+        vkFreeCommandBuffers(gVulkanContext.vkDevice, gVulkanContext.vkCommandPool, 1, &cmd);
+        vkFreeMemory(gVulkanContext.vkDevice, imageMemory, nullptr);
+        vkDestroyImage(gVulkanContext.vkDevice, image, nullptr);
+        vkFreeMemory(gVulkanContext.vkDevice, stagingMemory, nullptr);
+        vkDestroyBuffer(gVulkanContext.vkDevice, stagingBuffer, nullptr);
         free(subs);
         return vkRes;
     }
@@ -951,11 +951,11 @@ VkResult Material_BasicPBR::loadTextureData_dds_c_bc5_normal(ImageData* imageDat
     VkBufferImageCopy* copies = (VkBufferImageCopy*)malloc(sizeof(VkBufferImageCopy) * subCount);
     if (!copies) {
         fprintf(gpFILE, "loadTextureData_dds_c_bc5_normal(): malloc copies failed\n");
-        vkFreeCommandBuffers(vkDevice, vkCommandPool, 1, &cmd);
-        vkFreeMemory(vkDevice, imageMemory, nullptr);
-        vkDestroyImage(vkDevice, image, nullptr);
-        vkFreeMemory(vkDevice, stagingMemory, nullptr);
-        vkDestroyBuffer(vkDevice, stagingBuffer, nullptr);
+        vkFreeCommandBuffers(gVulkanContext.vkDevice, gVulkanContext.vkCommandPool, 1, &cmd);
+        vkFreeMemory(gVulkanContext.vkDevice, imageMemory, nullptr);
+        vkDestroyImage(gVulkanContext.vkDevice, image, nullptr);
+        vkFreeMemory(gVulkanContext.vkDevice, stagingMemory, nullptr);
+        vkDestroyBuffer(gVulkanContext.vkDevice, stagingBuffer, nullptr);
         free(subs);
         return VK_ERROR_OUT_OF_HOST_MEMORY;
     }
@@ -1002,11 +1002,11 @@ VkResult Material_BasicPBR::loadTextureData_dds_c_bc5_normal(ImageData* imageDat
         fprintf(gpFILE, "loadTextureData_dds_c_bc5_normal(): vkEndCommandBuffer failed (%d)\n", vkRes);
         free(copies);
         free(subs);
-        vkFreeCommandBuffers(vkDevice, vkCommandPool, 1, &cmd);
-        vkFreeMemory(vkDevice, imageMemory, nullptr);
-        vkDestroyImage(vkDevice, image, nullptr);
-        vkFreeMemory(vkDevice, stagingMemory, nullptr);
-        vkDestroyBuffer(vkDevice, stagingBuffer, nullptr);
+        vkFreeCommandBuffers(gVulkanContext.vkDevice, gVulkanContext.vkCommandPool, 1, &cmd);
+        vkFreeMemory(gVulkanContext.vkDevice, imageMemory, nullptr);
+        vkDestroyImage(gVulkanContext.vkDevice, image, nullptr);
+        vkFreeMemory(gVulkanContext.vkDevice, stagingMemory, nullptr);
+        vkDestroyBuffer(gVulkanContext.vkDevice, stagingBuffer, nullptr);
         return vkRes;
     }
 
@@ -1015,34 +1015,34 @@ VkResult Material_BasicPBR::loadTextureData_dds_c_bc5_normal(ImageData* imageDat
     submit.commandBufferCount = 1;
     submit.pCommandBuffers = &cmd;
 
-    vkRes = vkQueueSubmit(vkQueue, 1, &submit, VK_NULL_HANDLE);
+    vkRes = vkQueueSubmit(gVulkanContext.vkGraphicsQueue, 1, &submit, VK_NULL_HANDLE);
     if (vkRes != VK_SUCCESS) {
         fprintf(gpFILE, "loadTextureData_dds_c_bc5_normal(): vkQueueSubmit failed (%d)\n", vkRes);
         free(copies);
         free(subs);
-        vkFreeCommandBuffers(vkDevice, vkCommandPool, 1, &cmd);
-        vkFreeMemory(vkDevice, imageMemory, nullptr);
-        vkDestroyImage(vkDevice, image, nullptr);
-        vkFreeMemory(vkDevice, stagingMemory, nullptr);
-        vkDestroyBuffer(vkDevice, stagingBuffer, nullptr);
+        vkFreeCommandBuffers(gVulkanContext.vkDevice, gVulkanContext.vkCommandPool, 1, &cmd);
+        vkFreeMemory(gVulkanContext.vkDevice, imageMemory, nullptr);
+        vkDestroyImage(gVulkanContext.vkDevice, image, nullptr);
+        vkFreeMemory(gVulkanContext.vkDevice, stagingMemory, nullptr);
+        vkDestroyBuffer(gVulkanContext.vkDevice, stagingBuffer, nullptr);
         return vkRes;
     }
 
-    vkRes = vkQueueWaitIdle(vkQueue);
+    vkRes = vkQueueWaitIdle(gVulkanContext.vkGraphicsQueue);
     if (vkRes != VK_SUCCESS) {
         fprintf(gpFILE, "loadTextureData_dds_c_bc5_normal(): vkQueueWaitIdle failed (%d)\n", vkRes);
         free(copies);
         free(subs);
-        vkFreeCommandBuffers(vkDevice, vkCommandPool, 1, &cmd);
-        vkFreeMemory(vkDevice, imageMemory, nullptr);
-        vkDestroyImage(vkDevice, image, nullptr);
-        vkFreeMemory(vkDevice, stagingMemory, nullptr);
-        vkDestroyBuffer(vkDevice, stagingBuffer, nullptr);
+        vkFreeCommandBuffers(gVulkanContext.vkDevice, gVulkanContext.vkCommandPool, 1, &cmd);
+        vkFreeMemory(gVulkanContext.vkDevice, imageMemory, nullptr);
+        vkDestroyImage(gVulkanContext.vkDevice, image, nullptr);
+        vkFreeMemory(gVulkanContext.vkDevice, stagingMemory, nullptr);
+        vkDestroyBuffer(gVulkanContext.vkDevice, stagingBuffer, nullptr);
         return vkRes;
     }
 
     // free command buffer
-    vkFreeCommandBuffers(vkDevice, vkCommandPool, 1, &cmd);
+    vkFreeCommandBuffers(gVulkanContext.vkDevice, gVulkanContext.vkCommandPool, 1, &cmd);
 
     // Create image view
     VkImageViewCreateInfo viewInfo = {};
@@ -1059,21 +1059,21 @@ VkResult Material_BasicPBR::loadTextureData_dds_c_bc5_normal(ImageData* imageDat
     viewInfo.subresourceRange.layerCount = arrayCount;
 
     VkImageView imageView = VK_NULL_HANDLE;
-    vkRes = vkCreateImageView(vkDevice, &viewInfo, nullptr, &imageView);
+    vkRes = vkCreateImageView(gVulkanContext.vkDevice, &viewInfo, nullptr, &imageView);
     if (vkRes != VK_SUCCESS) {
         fprintf(gpFILE, "loadTextureData_dds_c_bc5_normal(): vkCreateImageView failed (%d)\n", vkRes);
         free(copies);
         free(subs);
-        vkFreeMemory(vkDevice, imageMemory, nullptr);
-        vkDestroyImage(vkDevice, image, nullptr);
-        vkFreeMemory(vkDevice, stagingMemory, nullptr);
-        vkDestroyBuffer(vkDevice, stagingBuffer, nullptr);
+        vkFreeMemory(gVulkanContext.vkDevice, imageMemory, nullptr);
+        vkDestroyImage(gVulkanContext.vkDevice, image, nullptr);
+        vkFreeMemory(gVulkanContext.vkDevice, stagingMemory, nullptr);
+        vkDestroyBuffer(gVulkanContext.vkDevice, stagingBuffer, nullptr);
         return vkRes;
     }
 
     // cleanup staging
-    vkDestroyBuffer(vkDevice, stagingBuffer, nullptr);
-    vkFreeMemory(vkDevice, stagingMemory, nullptr);
+    vkDestroyBuffer(gVulkanContext.vkDevice, stagingBuffer, nullptr);
+    vkFreeMemory(gVulkanContext.vkDevice, stagingMemory, nullptr);
 
     // fill output
     imageData->vkImage = image;

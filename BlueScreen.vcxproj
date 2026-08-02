@@ -161,6 +161,8 @@
     <ClInclude Include="stb_image.h" />
     <ClInclude Include="targetver.h" />
     <ClInclude Include="VK.h" />
+    <ClInclude Include="VulkanContext.h" />
+    <ClInclude Include="Win32Window.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="AnimatedModel.cpp" />
@@ -176,6 +178,8 @@
     <ClCompile Include="imgui\imgui_widgets.cpp" />
     <ClCompile Include="Material_BasicPBR.cpp" />
     <ClCompile Include="MyWin32.cpp" />
+    <ClCompile Include="VulkanContext.cpp" />
+    <ClCompile Include="Win32Window.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="BlueScreen.rc" />
