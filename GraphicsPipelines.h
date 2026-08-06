@@ -4,13 +4,14 @@
 #include <windows.h>
 #include <vector>
 #include "VulkanContext.h"
+#include "SwapchainContext.h"
 
 //extern VkDevice vkDevice;
 extern DescriptorSetLayouts* gpDescriptorSetLayouts;
 extern FILE* gpFILE;
 extern VkViewport vkViewport;
 extern VkRect2D vkScissor;
-extern VkExtent2D vkExtent2D_Swapchain;
+//extern VkExtent2D vkExtent2D_Swapchain;
 extern VkRect2D vkRect2D_Scissor;
 //extern  VkRenderPass vkRenderPass;
 

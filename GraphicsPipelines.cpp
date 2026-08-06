@@ -417,16 +417,16 @@ VkResult GraphicsPipelines::createGraphicsPipeline_Impostor(VkPipelineLayoutCrea
     memset((void*)&vkViewport, 0, sizeof(VkViewport));
     vkViewport.x = 0.0f;
     vkViewport.y = 0.0f;
-    vkViewport.width = (float)vkExtent2D_Swapchain.width;
-    vkViewport.height = (float)vkExtent2D_Swapchain.height;
+    vkViewport.width = (float)gSwapchain.vkExtent2D.width;
+    vkViewport.height = (float)gSwapchain.vkExtent2D.height;
     vkViewport.minDepth = 0.0f;
     vkViewport.maxDepth = 1.0f;
 
     memset((void*)&vkRect2D_Scissor, 0, sizeof(VkRect2D));
     vkRect2D_Scissor.offset.x = 0;
     vkRect2D_Scissor.offset.y = 0;
-    vkRect2D_Scissor.extent.width = vkExtent2D_Swapchain.width;
-    vkRect2D_Scissor.extent.height = vkExtent2D_Swapchain.height;
+    vkRect2D_Scissor.extent.width = gSwapchain.vkExtent2D.width;
+    vkRect2D_Scissor.extent.height = gSwapchain.vkExtent2D.height;
 
     VkPipelineViewportStateCreateInfo vkPipelineViewportStateCreateInfo;
     memset((void*)&vkPipelineViewportStateCreateInfo, 0, sizeof(VkPipelineViewportStateCreateInfo));
@@ -692,16 +692,16 @@ VkResult GraphicsPipelines::createGraphicsPipeline_Phong(VkPipelineLayoutCreateI
     memset((void*)&vkViewport, 0, sizeof(VkViewport));
     vkViewport.x = 0.0f;
     vkViewport.y = 0.0f;
-    vkViewport.width = (float)vkExtent2D_Swapchain.width;
-    vkViewport.height = (float)vkExtent2D_Swapchain.height;
+    vkViewport.width = (float)gSwapchain.vkExtent2D.width;
+    vkViewport.height = (float)gSwapchain.vkExtent2D.height;
     vkViewport.minDepth = 0.0f;
     vkViewport.maxDepth = 1.0f;
 
     memset((void*)&vkRect2D_Scissor, 0, sizeof(VkRect2D));
     vkRect2D_Scissor.offset.x = 0;
     vkRect2D_Scissor.offset.y = 0;
-    vkRect2D_Scissor.extent.width = vkExtent2D_Swapchain.width;
-    vkRect2D_Scissor.extent.height = vkExtent2D_Swapchain.height;
+    vkRect2D_Scissor.extent.width = gSwapchain.vkExtent2D.width;
+    vkRect2D_Scissor.extent.height = gSwapchain.vkExtent2D.height;
 
     VkPipelineViewportStateCreateInfo vkPipelineViewportStateCreateInfo;
     memset((void*)&vkPipelineViewportStateCreateInfo, 0, sizeof(VkPipelineViewportStateCreateInfo));
@@ -967,16 +967,16 @@ VkResult GraphicsPipelines::createGraphicsPipeline_PBR(VkPipelineLayoutCreateInf
     memset((void*)&vkViewport, 0, sizeof(VkViewport));
     vkViewport.x = 0.0f;
     vkViewport.y = 0.0f;
-    vkViewport.width = (float)vkExtent2D_Swapchain.width;
-    vkViewport.height = (float)vkExtent2D_Swapchain.height;
+    vkViewport.width = (float)gSwapchain.vkExtent2D.width;
+    vkViewport.height = (float)gSwapchain.vkExtent2D.height;
     vkViewport.minDepth = 0.0f;
     vkViewport.maxDepth = 1.0f;
 
     memset((void*)&vkRect2D_Scissor, 0, sizeof(VkRect2D));
     vkRect2D_Scissor.offset.x = 0;
     vkRect2D_Scissor.offset.y = 0;
-    vkRect2D_Scissor.extent.width = vkExtent2D_Swapchain.width;
-    vkRect2D_Scissor.extent.height = vkExtent2D_Swapchain.height;
+    vkRect2D_Scissor.extent.width = gSwapchain.vkExtent2D.width;
+    vkRect2D_Scissor.extent.height = gSwapchain.vkExtent2D.height;
 
     VkPipelineViewportStateCreateInfo vkPipelineViewportStateCreateInfo;
     memset((void*)&vkPipelineViewportStateCreateInfo, 0, sizeof(VkPipelineViewportStateCreateInfo));
@@ -1257,16 +1257,16 @@ VkResult GraphicsPipelines::createGraphicsPipeline_PBR_Skinned(VkPipelineLayoutC
     memset((void*)&vkViewport, 0, sizeof(VkViewport));
     vkViewport.x = 0.0f;
     vkViewport.y = 0.0f;
-    vkViewport.width = (float)vkExtent2D_Swapchain.width;
-    vkViewport.height = (float)vkExtent2D_Swapchain.height;
+    vkViewport.width = (float)gSwapchain.vkExtent2D.width;
+    vkViewport.height = (float)gSwapchain.vkExtent2D.height;
     vkViewport.minDepth = 0.0f;
     vkViewport.maxDepth = 1.0f;
 
     memset((void*)&vkRect2D_Scissor, 0, sizeof(VkRect2D));
     vkRect2D_Scissor.offset.x = 0;
     vkRect2D_Scissor.offset.y = 0;
-    vkRect2D_Scissor.extent.width = vkExtent2D_Swapchain.width;
-    vkRect2D_Scissor.extent.height = vkExtent2D_Swapchain.height;
+    vkRect2D_Scissor.extent.width = gSwapchain.vkExtent2D.width;
+    vkRect2D_Scissor.extent.height = gSwapchain.vkExtent2D.height;
 
     VkPipelineViewportStateCreateInfo vkPipelineViewportStateCreateInfo;
     memset((void*)&vkPipelineViewportStateCreateInfo, 0, sizeof(VkPipelineViewportStateCreateInfo));
@@ -1493,16 +1493,16 @@ VkResult GraphicsPipelines::createGraphicsPipeline_PreviewImage(VkPipelineLayout
     memset((void*)&vkViewport, 0, sizeof(VkViewport));
     vkViewport.x = 0.0f;
     vkViewport.y = 0.0f;
-    vkViewport.width = (float)vkExtent2D_Swapchain.width;
-    vkViewport.height = (float)vkExtent2D_Swapchain.height;
+    vkViewport.width = (float)gSwapchain.vkExtent2D.width;
+    vkViewport.height = (float)gSwapchain.vkExtent2D.height;
     vkViewport.minDepth = 0.0f;
     vkViewport.maxDepth = 1.0f;
 
     memset((void*)&vkRect2D_Scissor, 0, sizeof(VkRect2D));
     vkRect2D_Scissor.offset.x = 0;
     vkRect2D_Scissor.offset.y = 0;
-    vkRect2D_Scissor.extent.width = vkExtent2D_Swapchain.width;
-    vkRect2D_Scissor.extent.height = vkExtent2D_Swapchain.height;
+    vkRect2D_Scissor.extent.width = gSwapchain.vkExtent2D.width;
+    vkRect2D_Scissor.extent.height = gSwapchain.vkExtent2D.height;
 
     VkPipelineViewportStateCreateInfo vkPipelineViewportStateCreateInfo;
     memset((void*)&vkPipelineViewportStateCreateInfo, 0, sizeof(VkPipelineViewportStateCreateInfo));
@@ -1752,16 +1752,16 @@ VkResult GraphicsPipelines::createGraphicsPipeline_WhiteVertex(VkPipelineLayoutC
     memset((void*)&vkViewport, 0, sizeof(VkViewport));
     vkViewport.x = 0.0f;
     vkViewport.y = 0.0f;
-    vkViewport.width = (float)vkExtent2D_Swapchain.width;
-    vkViewport.height = (float)vkExtent2D_Swapchain.height;
+    vkViewport.width = (float)gSwapchain.vkExtent2D.width;
+    vkViewport.height = (float)gSwapchain.vkExtent2D.height;
     vkViewport.minDepth = 0.0f;
     vkViewport.maxDepth = 1.0f;
 
     memset((void*)&vkRect2D_Scissor, 0, sizeof(VkRect2D));
     vkRect2D_Scissor.offset.x = 0;
     vkRect2D_Scissor.offset.y = 0;
-    vkRect2D_Scissor.extent.width = vkExtent2D_Swapchain.width;
-    vkRect2D_Scissor.extent.height = vkExtent2D_Swapchain.height;
+    vkRect2D_Scissor.extent.width = gSwapchain.vkExtent2D.width;
+    vkRect2D_Scissor.extent.height = gSwapchain.vkExtent2D.height;
 
     VkPipelineViewportStateCreateInfo vkPipelineViewportStateCreateInfo;
     memset((void*)&vkPipelineViewportStateCreateInfo, 0, sizeof(VkPipelineViewportStateCreateInfo));
@@ -2029,16 +2029,16 @@ VkResult GraphicsPipelines::createGraphicsPipeline_ColoredVertex(VkPipelineLayou
     memset((void*)&vkViewport, 0, sizeof(VkViewport));
     vkViewport.x = 0.0f;
     vkViewport.y = 0.0f;
-    vkViewport.width = (float)vkExtent2D_Swapchain.width;
-    vkViewport.height = (float)vkExtent2D_Swapchain.height;
+    vkViewport.width = (float)gSwapchain.vkExtent2D.width;
+    vkViewport.height = (float)gSwapchain.vkExtent2D.height;
     vkViewport.minDepth = 0.0f;
     vkViewport.maxDepth = 1.0f;
 
     memset((void*)&vkRect2D_Scissor, 0, sizeof(VkRect2D));
     vkRect2D_Scissor.offset.x = 0;
     vkRect2D_Scissor.offset.y = 0;
-    vkRect2D_Scissor.extent.width = vkExtent2D_Swapchain.width;
-    vkRect2D_Scissor.extent.height = vkExtent2D_Swapchain.height;
+    vkRect2D_Scissor.extent.width = gSwapchain.vkExtent2D.width;
+    vkRect2D_Scissor.extent.height = gSwapchain.vkExtent2D.height;
 
     VkPipelineViewportStateCreateInfo vkPipelineViewportStateCreateInfo;
     memset((void*)&vkPipelineViewportStateCreateInfo, 0, sizeof(VkPipelineViewportStateCreateInfo));

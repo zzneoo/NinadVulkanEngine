@@ -5,14 +5,22 @@
 #include <glm/gtc/matrix_transform.hpp>
 
 #define MYICON 101
+#define MAX_FRAMES 2 // for double buffering
+
+// VulkanContext
+// Owns Vulkan instance/device lifetime.
+
+// Win32Window
+// Owns Win32 window and Vulkan surface.
+
+// SwapchainContext
+// Owns swapchain-dependent resources.
+
+// FrameContext
+// Owns per-frame resources (MAX_FRAMES).
 
 //Uniform Buffer Objects------------------------------------------------
-//struct UniformBufferObject_camera
-//{
-//    ///glm::mat4 model;
-//    glm::mat4 view;
-//    glm::mat4 proj;
-//};
+
 
 struct UniformBufferObject_FrameData
 {

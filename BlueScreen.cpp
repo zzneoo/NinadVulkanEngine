@@ -1,8 +1,8 @@
 // header files
 #include <Windows.h>
 #include <stdio.h>
-#include <stdlib.h>
-#include <unordered_map>
+//#include <stdlib.h>
+//#include <unordered_map>
 
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb_image.h"
@@ -13,7 +13,7 @@ using namespace tinyddsloader;
 
 //#define PRINT_EXTENIONS
 
-#define MAX_FRAMES 2 // for double buffering
+
 
 // Vulkan related header files
 #define VK_USE_PLATFORM_WIN32_KHR // define the current Vulkan platform
@@ -45,6 +45,8 @@ using namespace tinyddsloader;
 
 #include "Win32Window.h"
 #include "VulkanContext.h"
+#include "SwapchainContext.h"
+#include "FrameContext.h"
 
 // Vulkan related libraries
 #pragma comment(lib, "vulkan-1.lib")
@@ -107,34 +109,17 @@ uint32_t enabledDeviceExtensionCount = 0;
 const char* enabledDeviceExtensionNames_Array[1];
 
 
-// Color format and color space
-VkFormat        vkFormat_Color = VK_FORMAT_UNDEFINED;
-VkColorSpaceKHR vkColorSpaceKHR = VK_COLOR_SPACE_SRGB_NONLINEAR_KHR;
-
-// Presentation mode
-VkPresentModeKHR vkPresentModeKHR = VK_PRESENT_MODE_FIFO_KHR;
-
-// Swapchain
-int winWidth = WIN_WIDTH;
-int winHeight = WIN_HEIGHT;
-
-VkSwapchainKHR vkSwapchainKHR = VK_NULL_HANDLE;
-VkExtent2D     vkExtent2D_Swapchain;
-
-// Swapchain images and swapchain image views
-uint32_t     gSwapchainImageCount = UINT32_MAX;
-
 // Command buffers
-VkCommandBuffer* vkCommandBuffer_Array = NULL;
+//VkCommandBuffer* vkCommandBuffer_Array = NULL;
 
 
 // Semaphores
 VkSemaphore vkSemaphore_Timeline = VK_NULL_HANDLE;
-VkSemaphore* vkSemaphore_BackBuffer = VK_NULL_HANDLE;
-VkSemaphore* vkSemaphore_RenderComplete = VK_NULL_HANDLE;
+//VkSemaphore* vkSemaphore_BackBuffer = VK_NULL_HANDLE;
+//VkSemaphore* vkSemaphore_RenderComplete = VK_NULL_HANDLE;
 
 uint64_t gTimelineValue = 0;
-uint64_t gFrameTimelineValues[MAX_FRAMES] = {};
+//uint64_t gFrameTimelineValues[MAX_FRAMES] = {};
 
 
 // Clear Color
@@ -142,10 +127,7 @@ VkClearColorValue vkClearColorValue;
 
 // For Rendering
 BOOL     bInitialized = FALSE;
-uint32_t currentImageIndex = UINT32_MAX;
 
-// Swapchain resources
-SwapChainResourceData gSwapChainResourceData;
 
 // position
 VulkanData vertexData_coloredTriangle;
@@ -174,10 +156,6 @@ const uint16_t quad_indices[] =
 };
 
 
-
-//UniformData uniformBufferData_camera[MAX_FRAMES];
-UniformData uniformBufferData_frameData[MAX_FRAMES];
-
 //GrassImage
 ImageData grassTextureData;
 ImageData borderTextureData;
@@ -191,8 +169,6 @@ VkSampler vkSampler_LinearClamp = VK_NULL_HANDLE;
 VkSampler vkSampler_LinearMipmapClamp = VK_NULL_HANDLE;
 
 VkDescriptorPool vkDescriptorPool = VK_NULL_HANDLE;
-VkDescriptorSet  vkDescriptorSets_frameData[MAX_FRAMES];
-VkDescriptorSet  vkDescriptorSets_frameDataBoneData[MAX_FRAMES];
 VkDescriptorSet  vkDescriptorSet_SingleImage;
 VkDescriptorSet  vkDescriptorSet_AlbedoNormal;
 
@@ -1670,13 +1646,13 @@ static VkResult initialLayoutTransitions(void)
 
     transitionDepthLayout(
         commandBuffer,
-        gSwapChainResourceData.imageData_depthBuffer[0].vkImage,
+		gSwapchain.resources.imageData_depthBuffer[0].vkImage,
         VK_IMAGE_LAYOUT_UNDEFINED,
         VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL
     );
     transitionDepthLayout(
         commandBuffer,
-        gSwapChainResourceData.imageData_depthBuffer[1].vkImage,
+        gSwapchain.resources.imageData_depthBuffer[1].vkImage,
         VK_IMAGE_LAYOUT_UNDEFINED,
         VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL
     );
@@ -2234,7 +2210,7 @@ VkResult initialize(void)
 	init_info.RenderPass = VK_NULL_HANDLE;
     init_info.Subpass = 0;
     init_info.MinImageCount = 2;    // e.g. 2 or 3
-    init_info.ImageCount = gSwapchainImageCount; // Match your swapchain image count
+    init_info.ImageCount = gSwapchain.imageCount; // Match your swapchain image count
     init_info.MSAASamples = VK_SAMPLE_COUNT_1_BIT;
     init_info.Allocator = nullptr;
     init_info.CheckVkResultFn = check_vk_result;
@@ -2406,15 +2382,15 @@ VkResult resize(int width, int height)
     bInitialized = FALSE; // set to false to avoid multiple calls to resize() before initialization is completed
 
     // set the global winWidth and winHeight variables
-    winWidth = width;
-    winHeight = height;
+    gSwapchain.width = width;
+    gSwapchain.height = height;
 
     //--------------------------------------------------------------------------------------
     if (gVulkanContext.vkDevice)
         vkDeviceWaitIdle(gVulkanContext.vkDevice); // wait for the device to finish all operations before resizing
 
     //destroy old swapchain
-    if (vkSwapchainKHR == VK_NULL_HANDLE)
+    if (gSwapchain.vkSwapchainKHR == VK_NULL_HANDLE)
     {
         fprintf(gpFILE, "resize() : vkSwapchainKHR is already NULL canot proceed.\n");
         return VK_ERROR_INITIALIZATION_FAILED;
@@ -2438,17 +2414,10 @@ VkResult resize(int width, int height)
     //}
 
     // vkCommandBuffer
-    for (uint32_t i = 0; i < gSwapchainImageCount; i++)
+    for (uint32_t i = 0; i < gSwapchain.imageCount; i++)
     {
-        vkFreeCommandBuffers(gVulkanContext.vkDevice, gVulkanContext.vkCommandPool, 1, &vkCommandBuffer_Array[i]);
+        vkFreeCommandBuffers(gVulkanContext.vkDevice, gVulkanContext.vkCommandPool, 1, &gFrames[i].commandBuffer);
         // fprintf(gpFILE, "resize() : vkFreeCommandBuffers() succeeded for iteration %d.\n", i);
-    }
-    if (vkCommandBuffer_Array)
-    {
-        free(vkCommandBuffer_Array);
-        vkCommandBuffer_Array = NULL;
-
-        // fprintf(gpFILE, "resize() : successfully freed memory for the command buffer array.\n");
     }
 
     // pipeline
@@ -2468,10 +2437,10 @@ VkResult resize(int width, int height)
 
 
     // destroy swapchain
-    if (vkSwapchainKHR)
+    if (gSwapchain.vkSwapchainKHR)
     {
-        vkDestroySwapchainKHR(gVulkanContext.vkDevice, vkSwapchainKHR, NULL);
-        vkSwapchainKHR = VK_NULL_HANDLE;
+        vkDestroySwapchainKHR(gVulkanContext.vkDevice, gSwapchain.vkSwapchainKHR, NULL);
+        gSwapchain.vkSwapchainKHR = VK_NULL_HANDLE;
 
         //fprintf(gpFILE, "resize() : vkDestroySwapchainKHR() succeeded.\n");
     }
@@ -2732,7 +2701,7 @@ VkResult display(void)
 
 
 
-    uint64_t waitValue = gFrameTimelineValues[curIndex];
+	uint64_t waitValue = gFrames[curIndex].timelineValue;
 
     if (waitValue != 0)
     {
@@ -2749,11 +2718,11 @@ VkResult display(void)
     // Acquire next image from the swapchain
     vkResult = vkAcquireNextImageKHR(
         gVulkanContext.vkDevice,
-        vkSwapchainKHR,
+        gSwapchain.vkSwapchainKHR,
         UINT64_MAX,
-        vkSemaphore_BackBuffer[curIndex],  // now using per-frame semaphore
+        gFrames[curIndex].vkSemaphore_Acquire,  // now using per-frame semaphore
         VK_NULL_HANDLE,
-        &currentImageIndex
+        &gSwapchain.currentImageIndex
     );
     if (vkResult != VK_SUCCESS)
     {
@@ -2775,7 +2744,7 @@ VkResult display(void)
     //--------------------------------------------------------------------------------------
         //IMGUI dynamic
     {
-        vkResult = buildCommandBuffers(curIndex,currentImageIndex);
+        vkResult = buildCommandBuffers(curIndex,gSwapchain.currentImageIndex);
         if (vkResult != VK_SUCCESS)
         {
             fprintf(gpFILE, "display() : buildCommandBuffers() failed (%d).\n", vkResult);
@@ -2784,7 +2753,7 @@ VkResult display(void)
     }
 
     uint64_t signalValue = ++gTimelineValue;
-    gFrameTimelineValues[curIndex] = signalValue;
+    gFrames[curIndex].timelineValue = signalValue;
 
 
     uint64_t signalValues[] =
@@ -2795,7 +2764,7 @@ VkResult display(void)
 
     VkSemaphore waitSemaphores[] =
     {
-        vkSemaphore_BackBuffer[curIndex]
+        gFrames[curIndex].vkSemaphore_Acquire
     };
 
     VkPipelineStageFlags waitStages[] =
@@ -2811,7 +2780,7 @@ VkResult display(void)
 
     VkSemaphore signalSemaphores[] =
     {
-        vkSemaphore_RenderComplete[curIndex],
+        gFrames[curIndex].vkSemaphore_RenderComplete,
         vkSemaphore_Timeline
     };
 
@@ -2822,7 +2791,7 @@ VkResult display(void)
     submitInfo.pWaitSemaphores = waitSemaphores;
     submitInfo.pWaitDstStageMask = waitStages;
     submitInfo.commandBufferCount = 1;
-    submitInfo.pCommandBuffers = &vkCommandBuffer_Array[curIndex];
+    submitInfo.pCommandBuffers = &gFrames[curIndex].commandBuffer;
     submitInfo.signalSemaphoreCount = 2;
     submitInfo.pSignalSemaphores = signalSemaphores;
 
@@ -2840,10 +2809,10 @@ VkResult display(void)
     memset(&vkPresentInfoKHR, 0, sizeof(VkPresentInfoKHR));
     vkPresentInfoKHR.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
     vkPresentInfoKHR.waitSemaphoreCount = 1;
-    vkPresentInfoKHR.pWaitSemaphores = &vkSemaphore_RenderComplete[curIndex];
+    vkPresentInfoKHR.pWaitSemaphores = &gFrames[curIndex].vkSemaphore_RenderComplete;
     vkPresentInfoKHR.swapchainCount = 1;
-    vkPresentInfoKHR.pSwapchains = &vkSwapchainKHR;
-    vkPresentInfoKHR.pImageIndices = &currentImageIndex;
+    vkPresentInfoKHR.pSwapchains = &gSwapchain.vkSwapchainKHR;
+    vkPresentInfoKHR.pImageIndices = &gSwapchain.currentImageIndex;
 
     vkResult = vkQueuePresentKHR(gVulkanContext.vkGraphicsQueue, &vkPresentInfoKHR);
     if (vkResult != VK_SUCCESS)
@@ -2945,29 +2914,22 @@ void uninitialize(void)
 
 	//Semaphores
 
-    for (size_t i = 0; i < gSwapchainImageCount; i++)
+    for (size_t i = 0; i < gSwapchain.imageCount; i++)
     {
-        if (vkSemaphore_RenderComplete[i])
+        if (gFrames[i].vkSemaphore_RenderComplete)
         {
-            vkDestroySemaphore(gVulkanContext.vkDevice, vkSemaphore_RenderComplete[i], NULL);
-            vkSemaphore_RenderComplete[i] = VK_NULL_HANDLE;
+            vkDestroySemaphore(gVulkanContext.vkDevice, gFrames[i].vkSemaphore_RenderComplete, NULL);
+            gFrames[i].vkSemaphore_RenderComplete = VK_NULL_HANDLE;
 
         }
 
-        if (vkSemaphore_BackBuffer[i])
+        if (gFrames[i].vkSemaphore_Acquire)
         {
-            vkDestroySemaphore(gVulkanContext.vkDevice, vkSemaphore_BackBuffer[i], NULL);
-            vkSemaphore_BackBuffer[i] = VK_NULL_HANDLE;
+            vkDestroySemaphore(gVulkanContext.vkDevice, gFrames[i].vkSemaphore_Acquire, NULL);
+            gFrames[i].vkSemaphore_Acquire = VK_NULL_HANDLE;
 
         }
     }
-
-    free(vkSemaphore_BackBuffer);
-    vkSemaphore_BackBuffer = NULL;
-
-    free(vkSemaphore_RenderComplete);
-    vkSemaphore_RenderComplete = NULL;
-
 
 	//timeline semaphore
     if (vkSemaphore_Timeline)
@@ -2977,21 +2939,6 @@ void uninitialize(void)
 	}
 
 
-
-    //// sub-step 5 for Step (17)
-    //if (vkFramebuffer_Array)
-    //{
-    //    for (uint32_t i = 0; i < gSwapchainImageCount; i++)
-    //    {
-    //        vkDestroyFramebuffer(gVulkanContext.vkDevice, vkFramebuffer_Array[i], NULL);
-    //        vkFramebuffer_Array[i] = VK_NULL_HANDLE;
-
-    //    }
-
-    //    free(vkFramebuffer_Array);
-    //    vkFramebuffer_Array = NULL;
-
-    //}
 
     // pipeline
     //destroyGraphicsPipelines();
@@ -3014,12 +2961,11 @@ void uninitialize(void)
     {
         vkDestroyDescriptorPool(gVulkanContext.vkDevice, vkDescriptorPool, NULL);
         vkDescriptorPool = VK_NULL_HANDLE;
-        vkDescriptorSets_frameData[0] = VK_NULL_HANDLE; // set to NULL to avoid dangling pointer
-        vkDescriptorSets_frameData[1] = VK_NULL_HANDLE; // set to NULL to avoid dangling pointer
+        gFrames[0].vkDescriptor_FrameData = VK_NULL_HANDLE; // set to NULL to avoid dangling pointer
+        gFrames[1].vkDescriptor_FrameData = VK_NULL_HANDLE; // set to NULL to avoid dangling pointer
 
-        vkDescriptorSets_frameDataBoneData[0] = VK_NULL_HANDLE; // set to NULL to avoid dangling pointer
-        vkDescriptorSets_frameDataBoneData[1] = VK_NULL_HANDLE; // set to NULL to avoid dangling pointer
-
+        gFrames[0].vkDescriptor_FrameDataBoneData = VK_NULL_HANDLE; // set to NULL to avoid dangling pointer
+        gFrames[1].vkDescriptor_FrameDataBoneData = VK_NULL_HANDLE; // set to NULL to avoid dangling pointer
 
     }
 
@@ -3088,32 +3034,27 @@ void uninitialize(void)
     for (uint32_t i = 0; i < MAX_FRAMES; i++)
     {
         // Unmap the uniformData memory
-        vkUnmapMemory(gVulkanContext.vkDevice, uniformBufferData_frameData[i].vkDeviceMemory);
+        vkUnmapMemory(gVulkanContext.vkDevice, gFrames[i].uniformData.vkDeviceMemory);
 
         //uniformData
-        if (uniformBufferData_frameData[i].vkDeviceMemory)
+        if (gFrames[i].uniformData.vkDeviceMemory)
         {
-            vkFreeMemory(gVulkanContext.vkDevice, uniformBufferData_frameData[i].vkDeviceMemory, NULL);
-            uniformBufferData_frameData[i].vkDeviceMemory = VK_NULL_HANDLE;
+            vkFreeMemory(gVulkanContext.vkDevice, gFrames[i].uniformData.vkDeviceMemory, NULL);
+            gFrames[i].uniformData.vkDeviceMemory = VK_NULL_HANDLE;
         }
-        if (uniformBufferData_frameData[i].vkBuffer)
+        if (gFrames[i].uniformData.vkBuffer)
         {
-            vkDestroyBuffer(gVulkanContext.vkDevice, uniformBufferData_frameData[i].vkBuffer, NULL);
-            uniformBufferData_frameData[i].vkBuffer = VK_NULL_HANDLE;
+            vkDestroyBuffer(gVulkanContext.vkDevice, gFrames[i].uniformData.vkBuffer, NULL);
+            gFrames[i].uniformData.vkBuffer = VK_NULL_HANDLE;
         }
     }
 
-    for (uint32_t i = 0; i < gSwapchainImageCount; i++)
+    for (uint32_t i = 0; i < gSwapchain.imageCount; i++)
     {
-        vkFreeCommandBuffers(gVulkanContext.vkDevice, gVulkanContext.vkCommandPool, 1, &vkCommandBuffer_Array[i]);
+        vkFreeCommandBuffers(gVulkanContext.vkDevice, gVulkanContext.vkCommandPool, 1, &gFrames[i].commandBuffer);
     }
 
-    if (vkCommandBuffer_Array)
-    {
-        free(vkCommandBuffer_Array);
-        vkCommandBuffer_Array = NULL;
 
-    }
 
     if (gVulkanContext.vkCommandPool)
     {
@@ -3139,16 +3080,15 @@ void uninitialize(void)
 
 
     // Destroy Vulkan swapchain
-    if (vkSwapchainKHR)
+    if (gSwapchain.vkSwapchainKHR)
     {
         vkDestroySwapchainKHR(
             gVulkanContext.vkDevice,       // [in] Vulkan device handle,
-            vkSwapchainKHR, // [in] Vulkan swapchain handle
+            gSwapchain.vkSwapchainKHR, // [in] Vulkan swapchain handle
             NULL            // [in, optional] custom memory allocator
         );
 
-        vkSwapchainKHR = VK_NULL_HANDLE;
-
+        gSwapchain.vkSwapchainKHR = VK_NULL_HANDLE;
     }
     destroySamplers();
 
@@ -5238,18 +5178,17 @@ VkResult getPhysicalDeviceSurfaceFormatAndColorSpace(void)
      // decide the surface color format first
     if (formatCount == 1 && vkSurfaceFormatKHR_Array[0].format == VK_FORMAT_UNDEFINED) // here, "undefined" means that Vulkan doesn't have a default format, so you can give one yours and it will try to give you that, if it can't, swapchain creation will fail
     {
-        vkFormat_Color = VK_FORMAT_B8G8R8A8_UNORM;
+        gSwapchain.vkFormat = VK_FORMAT_B8G8R8A8_UNORM;
     }
     else
     {
-        vkFormat_Color = vkSurfaceFormatKHR_Array[0].format;
+        gSwapchain.vkFormat = vkSurfaceFormatKHR_Array[0].format;
     }
 
     // now decide the surface color space
-    vkColorSpaceKHR = vkSurfaceFormatKHR_Array[0].colorSpace;
-
-    vkFormat_Color = VK_FORMAT_B8G8R8A8_SRGB;
-    vkColorSpaceKHR = VK_COLOR_SPACE_SRGB_NONLINEAR_KHR;
+    gSwapchain.vkColorSpace = vkSurfaceFormatKHR_Array[0].colorSpace;
+    gSwapchain.vkFormat = VK_FORMAT_B8G8R8A8_SRGB;
+    gSwapchain.vkColorSpace = VK_COLOR_SPACE_SRGB_NONLINEAR_KHR;
 
     /*
      *  Free the above created array
@@ -5322,14 +5261,14 @@ VkResult getPhysicalDevicePresentMode(void)
     {
         if (vkPresentModeKHR_Array[i] == VK_PRESENT_MODE_MAILBOX_KHR)
         {
-            vkPresentModeKHR = VK_PRESENT_MODE_MAILBOX_KHR;
+            gSwapchain.vkPresentModeKHR = VK_PRESENT_MODE_MAILBOX_KHR;
             break;
         }
     }
 
-    if (vkPresentModeKHR != VK_PRESENT_MODE_MAILBOX_KHR)
+    if (gSwapchain.vkPresentModeKHR != VK_PRESENT_MODE_MAILBOX_KHR)
     {
-        vkPresentModeKHR = VK_PRESENT_MODE_FIFO_KHR;
+        gSwapchain.vkPresentModeKHR = VK_PRESENT_MODE_FIFO_KHR;
     }
 
     /*
@@ -5596,16 +5535,16 @@ VkResult createSwapchain(VkBool32 vsync) // vsync == vertical synchronisation
      *              and comparing them with current width and height of window, decide image width and
      *              image height of the swapchain.
      */
-    memset((void*)&vkExtent2D_Swapchain, 0, sizeof(VkExtent2D));
+    memset((void*)&gSwapchain.vkExtent2D, 0, sizeof(VkExtent2D));
 
     if (vkSurfaceCapabilitiesKHR.currentExtent.width != UINT32_MAX)
     {
-        vkExtent2D_Swapchain.width = vkSurfaceCapabilitiesKHR.currentExtent.width;
-        vkExtent2D_Swapchain.height = vkSurfaceCapabilitiesKHR.currentExtent.height;
+        gSwapchain.vkExtent2D.width = vkSurfaceCapabilitiesKHR.currentExtent.width;
+        gSwapchain.vkExtent2D.height = vkSurfaceCapabilitiesKHR.currentExtent.height;
 
         fprintf(gpFILE, "createSwapchain() : (1) Swapchain Image width x height = %u x %u\n",
-            vkExtent2D_Swapchain.width,
-            vkExtent2D_Swapchain.height); // using %u because width and height are unsigned integers
+            gSwapchain.vkExtent2D.width,
+            gSwapchain.vkExtent2D.height); // using %u because width and height are unsigned integers
     }
     else
     {
@@ -5613,11 +5552,11 @@ VkResult createSwapchain(VkBool32 vsync) // vsync == vertical synchronisation
         VkExtent2D vkExtent2D;
         memset((void*)&vkExtent2D, 0, sizeof(VkExtent2D));
 
-        vkExtent2D.width = (uint32_t)winWidth;
-        vkExtent2D.height = (uint32_t)winHeight;
+        vkExtent2D.width = (uint32_t)gSwapchain.width;
+        vkExtent2D.height = (uint32_t)gSwapchain.height;
 
-        vkExtent2D_Swapchain.width = glm::max(vkSurfaceCapabilitiesKHR.minImageExtent.width, glm::min(vkSurfaceCapabilitiesKHR.maxImageExtent.width, vkExtent2D.width)); // clamp the width between minImageExtent.width and maxImageExtent.width
-        vkExtent2D_Swapchain.height = glm::max(vkSurfaceCapabilitiesKHR.minImageExtent.height, glm::min(vkSurfaceCapabilitiesKHR.maxImageExtent.height, vkExtent2D.height)); // clamp the height between minImageExtent.height and maxImageExtent.height
+        gSwapchain.vkExtent2D.width = glm::max(vkSurfaceCapabilitiesKHR.minImageExtent.width, glm::min(vkSurfaceCapabilitiesKHR.maxImageExtent.width, vkExtent2D.width)); // clamp the width between minImageExtent.width and maxImageExtent.width
+        gSwapchain.vkExtent2D.height = glm::max(vkSurfaceCapabilitiesKHR.minImageExtent.height, glm::min(vkSurfaceCapabilitiesKHR.maxImageExtent.height, vkExtent2D.height)); // clamp the height between minImageExtent.height and maxImageExtent.height
 
         /*
          * Example of clamping between minimum and maximum values:
@@ -5628,8 +5567,8 @@ VkResult createSwapchain(VkBool32 vsync) // vsync == vertical synchronisation
          */
 
         fprintf(gpFILE, "createSwapchain() : (2) Swapchain Image width x height = %u x %u\n",
-            vkExtent2D_Swapchain.width,
-            vkExtent2D_Swapchain.height); // using %u because width and height are unsigned integers
+            gSwapchain.vkExtent2D.width,
+            gSwapchain.vkExtent2D.height); // using %u because width and height are unsigned integers
     }
 
     /*
@@ -5678,16 +5617,16 @@ VkResult createSwapchain(VkBool32 vsync) // vsync == vertical synchronisation
     vkSwapchainCreateInfoKHR.flags = 0;
     vkSwapchainCreateInfoKHR.surface = gWindow.vkSurfaceKHR;
     vkSwapchainCreateInfoKHR.minImageCount = desiredNumberOfSwapchainImages;
-    vkSwapchainCreateInfoKHR.imageFormat = vkFormat_Color;
-    vkSwapchainCreateInfoKHR.imageColorSpace = vkColorSpaceKHR;
-    vkSwapchainCreateInfoKHR.imageExtent.width = vkExtent2D_Swapchain.width;
-    vkSwapchainCreateInfoKHR.imageExtent.height = vkExtent2D_Swapchain.height;
+    vkSwapchainCreateInfoKHR.imageFormat = gSwapchain.vkFormat;
+    vkSwapchainCreateInfoKHR.imageColorSpace = gSwapchain.vkColorSpace;
+    vkSwapchainCreateInfoKHR.imageExtent.width = gSwapchain.vkExtent2D.width;
+    vkSwapchainCreateInfoKHR.imageExtent.height = gSwapchain.vkExtent2D.height;
     vkSwapchainCreateInfoKHR.imageUsage = vkImageUsageFlags;
     vkSwapchainCreateInfoKHR.preTransform = vkSurfaceTransformFlagBitsKHR;
     vkSwapchainCreateInfoKHR.imageArrayLayers = 1;                                 // used for layered rendering (eg. in mobiles) 
     vkSwapchainCreateInfoKHR.imageSharingMode = VK_SHARING_MODE_EXCLUSIVE;         // for sharing swapchain across queues (exclusive means don't share)
     vkSwapchainCreateInfoKHR.compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR; // same giving glClearColor(0.0f, 0.0f, 0.0f, 1.0f) -> the last 1.0f
-    vkSwapchainCreateInfoKHR.presentMode = vkPresentModeKHR;
+    vkSwapchainCreateInfoKHR.presentMode = gSwapchain.vkPresentModeKHR;
     vkSwapchainCreateInfoKHR.clipped = VK_TRUE;
 
     // oldSwapchain member will be used in resize() later
@@ -5699,7 +5638,7 @@ VkResult createSwapchain(VkBool32 vsync) // vsync == vertical synchronisation
         gVulkanContext.vkDevice,                  // [in] vulkan device handle
         &vkSwapchainCreateInfoKHR, // [in] pointer to a VkSwapchainCreateInfoKHR structure
         NULL,                      // [in, optional] custom memory allocator
-        &vkSwapchainKHR            // [out] pointer to VkSwapchainKHR 
+        &gSwapchain.vkSwapchainKHR            // [out] pointer to VkSwapchainKHR 
     );
 
     if (vkResult != VK_SUCCESS)
@@ -5725,8 +5664,8 @@ VkResult createImagesAndImageViews(void)
     // Get swapchain image count in a global variable using vkGetSwapchainImagesKHR().
     vkResult = vkGetSwapchainImagesKHR(
         gVulkanContext.vkDevice,             // [in] VkDevice (logical device)
-        vkSwapchainKHR,       // [in] VkSwapchainKHR
-        &gSwapchainImageCount, // [out] Swapchain Image Count
+        gSwapchain.vkSwapchainKHR,       // [in] VkSwapchainKHR
+        &gSwapchain.imageCount, // [out] Swapchain Image Count
         NULL                  // [out, optional] Swapchain Image array
     );
 
@@ -5735,7 +5674,7 @@ VkResult createImagesAndImageViews(void)
         fprintf(gpFILE, "createImagesAndImageViews() : vkGetSwapchainImagesKHR()'s 1st call failed.\n");
         return(vkResult);
     }
-    else if (gSwapchainImageCount == 0)
+    else if (gSwapchain.imageCount == 0)
     {
         vkResult = VK_ERROR_INITIALIZATION_FAILED;
         fprintf(gpFILE, "createImagesAndImageViews() : Swapchain image count is 0.\n");
@@ -5743,18 +5682,18 @@ VkResult createImagesAndImageViews(void)
     }
     else
     {
-        fprintf(gpFILE, "createImagesAndImageViews() : gives swapchain image count = %d\n", gSwapchainImageCount);
+        fprintf(gpFILE, "createImagesAndImageViews() : gives swapchain image count = %d\n", gSwapchain.imageCount);
     }
 
     // Declare a global VkImage array and allocate it to the swapchain image count using malloc().
-    gSwapChainResourceData.swapchainImage_Array = (VkImage*)malloc(sizeof(VkImage) * gSwapchainImageCount);
+    gSwapchain.resources.swapchainImage_Array = (VkImage*)malloc(sizeof(VkImage) * gSwapchain.imageCount);
 
     // Now call the same function again, which we called in step 1 and fill this array.
     vkResult = vkGetSwapchainImagesKHR(
         gVulkanContext.vkDevice,
-        vkSwapchainKHR,
-        &gSwapchainImageCount,
-        gSwapChainResourceData.swapchainImage_Array
+        gSwapchain.vkSwapchainKHR,
+        &gSwapchain.imageCount,
+        gSwapchain.resources.swapchainImage_Array
     );
 
     if (vkResult != VK_SUCCESS)
@@ -5764,7 +5703,7 @@ VkResult createImagesAndImageViews(void)
     }
 
     //  Declare another global array of type VkImageView and allocate it to the size of swapchain image count.
-    gSwapChainResourceData.swapchainImageView_Array = (VkImageView*)malloc(sizeof(VkImageView) * gSwapchainImageCount);
+    gSwapchain.resources.swapchainImageView_Array = (VkImageView*)malloc(sizeof(VkImageView) * gSwapchain.imageCount);
 
     // Declare and initialize VkImageViewCreateInfo struct except its “.image” member.
     VkImageViewCreateInfo vkImageViewCreateInfo;
@@ -5773,7 +5712,7 @@ VkResult createImagesAndImageViews(void)
     vkImageViewCreateInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
     vkImageViewCreateInfo.pNext = NULL;
     vkImageViewCreateInfo.flags = 0;
-    vkImageViewCreateInfo.format = vkFormat_Color;
+    vkImageViewCreateInfo.format = gSwapchain.vkFormat;
     vkImageViewCreateInfo.components.r = VK_COMPONENT_SWIZZLE_R; // part of VkComponentMapping
     vkImageViewCreateInfo.components.g = VK_COMPONENT_SWIZZLE_G;
     vkImageViewCreateInfo.components.b = VK_COMPONENT_SWIZZLE_B;
@@ -5789,15 +5728,15 @@ VkResult createImagesAndImageViews(void)
     //  Now, start a loop for swapchain image count and inside this loop initialize the above “.image” member 
     //              to the swapchain image array index we obtained above and then call vkCreateImageView() API 
     //              to fill the above image view array.
-    for (uint32_t i = 0; i < gSwapchainImageCount; i++)
+    for (uint32_t i = 0; i < gSwapchain.imageCount; i++)
     {
-        vkImageViewCreateInfo.image = gSwapChainResourceData.swapchainImage_Array[i];
+        vkImageViewCreateInfo.image = gSwapchain.resources.swapchainImage_Array[i];
 
         vkResult = vkCreateImageView(
             gVulkanContext.vkDevice,                    // [in] VkDevice
             &vkImageViewCreateInfo,      // [in] VkImageViewCreateInfo *
             NULL,                        // [in] custom memory allocator
-            &gSwapChainResourceData.swapchainImageView_Array[i] // [out] VkImageView * 
+            &gSwapchain.resources.swapchainImageView_Array[i] // [out] VkImageView * 
         );
 
         if (vkResult != VK_SUCCESS)
@@ -5859,15 +5798,15 @@ VkResult createCommandBuffers(void)
     vkCommandBufferAllocateInfo.commandBufferCount = 1;
 
     // sub-step 2 : Declare a command buffer array globally and allocate it to the size of swapchain image count.
-    vkCommandBuffer_Array = (VkCommandBuffer*)malloc(sizeof(VkCommandBuffer) * gSwapchainImageCount);
+    // vkCommandBuffer_Array = (VkCommandBuffer*)malloc(sizeof(VkCommandBuffer) * gSwapchain.imageCount);
 
     // sub-step 3 : In a loop which is equal to swapchain image count, allocate each command buffer 
     //              in the above array by using vkAllocateCommandBuffers() API. 
     //              Remember, at the time of allocation, all buffers are going to be empty. 
     //              Later we will record graphics / compute commands into them.
-    for (uint32_t i = 0; i < gSwapchainImageCount; i++)
+    for (uint32_t i = 0; i < gSwapchain.imageCount; i++)
     {
-        vkResult = vkAllocateCommandBuffers(gVulkanContext.vkDevice, &vkCommandBufferAllocateInfo, &vkCommandBuffer_Array[i]);
+        vkResult = vkAllocateCommandBuffers(gVulkanContext.vkDevice, &vkCommandBufferAllocateInfo, &gFrames[i].commandBuffer);
         if (vkResult != VK_SUCCESS)
         {
             fprintf(gpFILE, "createCommandBuffers() : vkAllocateCommandBuffers failed for iteration %d.\n", i);
@@ -7268,94 +7207,6 @@ VkResult createUniformBuffer(void)
 
     VkResult vkResult = VK_SUCCESS;
 
-    ////UniformBufferObject_camera 
- //   for (uint32_t k = 0; k < MAX_FRAMES; k++)
- //   {
- //       //code
- //       VkBufferCreateInfo vkBufferCreateInfo;
- //       memset((void*)&vkBufferCreateInfo, 0, sizeof(VkBufferCreateInfo));
-
- //       vkBufferCreateInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
- //       vkBufferCreateInfo.pNext = NULL;
- //       vkBufferCreateInfo.flags = 0;
- //       vkBufferCreateInfo.size = sizeof(UniformBufferObject_camera);
- //       vkBufferCreateInfo.usage = VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT;
-
- //       memset((void*)&uniformBufferData_camera[k], 0, sizeof(UniformData));
-
- //       vkResult = vkCreateBuffer(vkDevice, &vkBufferCreateInfo, NULL, &uniformBufferData_camera[k].vkBuffer);
-
- //       if (vkResult != VK_SUCCESS)
- //       {
- //           fprintf(gpFILE, "createUniformBuffer() -> vkCreateBuffer():  failed.\n");
- //           return(vkResult);
- //       }
-
- //       //------------
- //       VkMemoryRequirements vkMemoryRequirements;
- //       memset((void*)&vkMemoryRequirements, 0, sizeof(vkMemoryRequirements));
-
- //       vkGetBufferMemoryRequirements(vkDevice, uniformBufferData_camera[k].vkBuffer, &vkMemoryRequirements);
-
- //       //------------
- //       VkMemoryAllocateInfo vkMemoryAllocateInfo;
- //       memset((void*)&vkMemoryAllocateInfo, 0, sizeof(vkMemoryAllocateInfo));
-
- //       vkMemoryAllocateInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
- //       vkMemoryAllocateInfo.pNext = NULL;
- //       vkMemoryAllocateInfo.allocationSize = vkMemoryRequirements.size;
- //       vkMemoryAllocateInfo.memoryTypeIndex = 0;
-
- //       //-------------
- //       for (uint32_t i = 0; i < vkPhysicalDeviceMemoryProperties.memoryTypeCount; i++)
- //       {
- //           if ((vkMemoryRequirements.memoryTypeBits & 1) == 1)
- //           {
-    //			if (vkPhysicalDeviceMemoryProperties.memoryTypes[i].propertyFlags & (VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT | VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT)) // host visible and coherent memory (no need to manage vulkan cache for flushing or mapping)
-    //			{
-    //				// If the memory type is suitable, set the memoryTypeIndex and break the loop
- //                   vkMemoryAllocateInfo.memoryTypeIndex = i;
- //                   break;
- //               }
- //           }
-
- //           vkMemoryRequirements.memoryTypeBits >>= 1;
- //       }
-
- //       //--------------
- //       vkResult = vkAllocateMemory(vkDevice, &vkMemoryAllocateInfo, NULL, &uniformBufferData_camera[k].vkDeviceMemory);
- //       if (vkResult != VK_SUCCESS)
- //       {
- //           fprintf(gpFILE, "createUniformBuffer() -> vkAllocateMemory() :  failed.\n");
- //           return(vkResult);
- //       }
-
-
- //       //---------------
- //       vkResult = vkBindBufferMemory(vkDevice, uniformBufferData_camera[k].vkBuffer, uniformBufferData_camera[k].vkDeviceMemory, 0);
- //       if (vkResult != VK_SUCCESS)
- //       {
- //           fprintf(gpFILE, "createUniformBuffer() -> vkBindBufferMemory() :  failed.\n");
- //           return(vkResult);
- //       }
-
- //       // Map the uniform buffer memory
-
- //       vkResult = vkMapMemory(vkDevice, uniformBufferData_camera[k].vkDeviceMemory, 0, sizeof(UniformBufferObject_camera), 0, &uniformBufferData_camera[k].pData);
- //       if (vkResult != VK_SUCCESS)
- //       {
- //           fprintf(gpFILE, "createUniformBuffer() -> vkMapMemory() :  failed.\n");
- //           return(vkResult);
- //       }
-
- //       //call updateUniformBuffer() to update the uniform buffer with initial data
- //       vkResult = updateUniformBuffer_camera(k);
- //       if (vkResult != VK_SUCCESS)
- //       {
- //           fprintf(gpFILE, "createUniformBuffer() -> updateUniformBuffer() :  failed.\n");
- //           return(vkResult);
- //       }
- //   }
 
     //UniformBufferObject_frameData
     for (uint32_t k = 0; k < MAX_FRAMES; k++)
@@ -7370,9 +7221,9 @@ VkResult createUniformBuffer(void)
         vkBufferCreateInfo.size = sizeof(UniformBufferObject_FrameData);
         vkBufferCreateInfo.usage = VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT;
 
-        memset((void*)&uniformBufferData_frameData[k], 0, sizeof(UniformData));
+        memset((void*)&gFrames[k].uniformData, 0, sizeof(UniformData));
 
-        vkResult = vkCreateBuffer(gVulkanContext.vkDevice, &vkBufferCreateInfo, NULL, &uniformBufferData_frameData[k].vkBuffer);
+        vkResult = vkCreateBuffer(gVulkanContext.vkDevice, &vkBufferCreateInfo, NULL, &gFrames[k].uniformData.vkBuffer);
 
         if (vkResult != VK_SUCCESS)
         {
@@ -7384,7 +7235,7 @@ VkResult createUniformBuffer(void)
         VkMemoryRequirements vkMemoryRequirements;
         memset((void*)&vkMemoryRequirements, 0, sizeof(vkMemoryRequirements));
 
-        vkGetBufferMemoryRequirements(gVulkanContext.vkDevice, uniformBufferData_frameData[k].vkBuffer, &vkMemoryRequirements);
+        vkGetBufferMemoryRequirements(gVulkanContext.vkDevice, gFrames[k].uniformData.vkBuffer, &vkMemoryRequirements);
 
         //------------
         VkMemoryAllocateInfo vkMemoryAllocateInfo;
@@ -7400,7 +7251,7 @@ VkResult createUniformBuffer(void)
         {
             if ((vkMemoryRequirements.memoryTypeBits & 1) == 1)
             {
-                if (gVulkanContext.vkPhysicalDeviceMemoryProperties.memoryTypes[i].propertyFlags & (VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT | VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT)) // host visible and coherent memory (no need to manage vulkan cache for flushing or mapping)
+                if (gVulkanContext.vkPhysicalDeviceMemoryProperties.memoryTypes[i].propertyFlags & ( VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT)) // host visible and coherent memory (no need to manage vulkan cache for flushing or mapping)
                 {
                     // If the memory type is suitable, set the memoryTypeIndex and break the loop
                     vkMemoryAllocateInfo.memoryTypeIndex = i;
@@ -7412,7 +7263,7 @@ VkResult createUniformBuffer(void)
         }
 
         //--------------
-        vkResult = vkAllocateMemory(gVulkanContext.vkDevice, &vkMemoryAllocateInfo, NULL, &uniformBufferData_frameData[k].vkDeviceMemory);
+        vkResult = vkAllocateMemory(gVulkanContext.vkDevice, &vkMemoryAllocateInfo, NULL, &gFrames[k].uniformData.vkDeviceMemory);
         if (vkResult != VK_SUCCESS)
         {
             fprintf(gpFILE, "createUniformBuffer() -> vkAllocateMemory() :  failed.\n");
@@ -7421,7 +7272,7 @@ VkResult createUniformBuffer(void)
 
 
         //---------------
-        vkResult = vkBindBufferMemory(gVulkanContext.vkDevice, uniformBufferData_frameData[k].vkBuffer, uniformBufferData_frameData[k].vkDeviceMemory, 0);
+        vkResult = vkBindBufferMemory(gVulkanContext.vkDevice, gFrames[k].uniformData.vkBuffer, gFrames[k].uniformData.vkDeviceMemory, 0);
         if (vkResult != VK_SUCCESS)
         {
             fprintf(gpFILE, "createUniformBuffer() -> vkBindBufferMemory() :  failed.\n");
@@ -7430,7 +7281,7 @@ VkResult createUniformBuffer(void)
 
         // Map the uniform buffer memory
 
-        vkResult = vkMapMemory(gVulkanContext.vkDevice, uniformBufferData_frameData[k].vkDeviceMemory, 0, sizeof(UniformBufferObject_FrameData), 0, &uniformBufferData_frameData[k].pData);
+        vkResult = vkMapMemory(gVulkanContext.vkDevice, gFrames[k].uniformData.vkDeviceMemory, 0, sizeof(UniformBufferObject_FrameData), 0, &gFrames[k].uniformData.pData);
         if (vkResult != VK_SUCCESS)
         {
             fprintf(gpFILE, "createUniformBuffer() -> vkMapMemory() :  failed.\n");
@@ -7502,7 +7353,7 @@ VkResult updateUniformBuffer_frameData(uint32_t curIndex)
     uniformTransformBufferObject_frameData.cameraPos = camera.GetCameraPos(); // camera position
 
     // Copy the data to the uniform buffer
-    memcpy(uniformBufferData_frameData[curIndex].pData, &uniformTransformBufferObject_frameData, sizeof(UniformBufferObject_FrameData));
+    memcpy(gFrames[curIndex].uniformData.pData, &uniformTransformBufferObject_frameData, sizeof(UniformBufferObject_FrameData));
 
     return vkResult;
 }
@@ -7976,25 +7827,24 @@ VkResult createDescriptorSet_FrameData(void)
     VkResult vkResult = VK_SUCCESS;
 
     // code
-    // Declare and initialize VkDescriptorSetAllocateInfo structure.
-    VkDescriptorSetAllocateInfo vkDescriptorSetAllocateInfo;
-    memset((void*)&vkDescriptorSetAllocateInfo, 0, sizeof(VkDescriptorSetAllocateInfo));
 
-    VkDescriptorSetLayout layouts[MAX_FRAMES]{};
+   // VkDescriptorSetLayout layouts[MAX_FRAMES]{};
     for (uint32_t i = 0; i < MAX_FRAMES; i++)
-        layouts[i] = gpDescriptorSetLayouts->vkDescriptorSetLayout_frameData;
+    {
+        VkDescriptorSetLayout layout =
+            gpDescriptorSetLayouts->vkDescriptorSetLayout_frameData;
 
-    //------------------------------------------------------------------------------------------------
-    vkDescriptorSetAllocateInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
-    vkDescriptorSetAllocateInfo.pNext = NULL;
-    vkDescriptorSetAllocateInfo.descriptorPool = vkDescriptorPool; // global descriptor pool
-    vkDescriptorSetAllocateInfo.descriptorSetCount = MAX_FRAMES;//
-    vkDescriptorSetAllocateInfo.pSetLayouts = layouts; // pointer to the descriptor set layout
+        VkDescriptorSetAllocateInfo info{};
+        info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
+        info.descriptorPool = vkDescriptorPool;
+        info.descriptorSetCount = 1;
+        info.pSetLayouts = &layout;
 
-
-    // Call vkAllocateDescriptorSets() to allocate the descriptor set
-    vkResult = vkAllocateDescriptorSets(gVulkanContext.vkDevice, &vkDescriptorSetAllocateInfo, vkDescriptorSets_frameData);
-
+        vkResult = vkAllocateDescriptorSets(
+            gVulkanContext.vkDevice,
+            &info,
+            &gFrames[i].vkDescriptor_FrameData);
+    }
     if (vkResult != VK_SUCCESS)
     {
         fprintf(gpFILE, "createDiscriptorSet() : vkAllocateDescriptorSets() failed.\n");
@@ -8013,7 +7863,7 @@ VkResult createDescriptorSet_FrameData(void)
 
         VkDescriptorBufferInfo vkDescriptorBufferInfo_frameData;
         memset((void*)&vkDescriptorBufferInfo_frameData, 0, sizeof(VkDescriptorBufferInfo));
-        vkDescriptorBufferInfo_frameData.buffer = uniformBufferData_frameData[i].vkBuffer; // uniform buffer
+        vkDescriptorBufferInfo_frameData.buffer = gFrames[i].uniformData.vkBuffer; // uniform buffer
         vkDescriptorBufferInfo_frameData.offset = 0; // offset in the buffer
         vkDescriptorBufferInfo_frameData.range = sizeof(UniformBufferObject_FrameData); // size of the buffer
 
@@ -8024,7 +7874,7 @@ VkResult createDescriptorSet_FrameData(void)
 
         vkWriteDescriptorSet_array[0].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
         vkWriteDescriptorSet_array[0].pNext = NULL;
-        vkWriteDescriptorSet_array[0].dstSet = vkDescriptorSets_frameData[i]; // descriptor set
+        vkWriteDescriptorSet_array[0].dstSet = gFrames[i].vkDescriptor_FrameData; // descriptor set
         vkWriteDescriptorSet_array[0].dstBinding = 0; // 0 means the index number of the binding
         vkWriteDescriptorSet_array[0].dstArrayElement = 0; // 0 means the index number of the array element
         vkWriteDescriptorSet_array[0].descriptorCount = 1; // we are using only one descriptor, more incase of array
@@ -8064,21 +7914,23 @@ VkResult createDescriptorSet_FrameDataBoneData(void)
     VkDescriptorSetAllocateInfo vkDescriptorSetAllocateInfo;
     memset((void*)&vkDescriptorSetAllocateInfo, 0, sizeof(VkDescriptorSetAllocateInfo));
 
-    VkDescriptorSetLayout layouts[MAX_FRAMES]{};
+    //VkDescriptorSetLayout layouts[MAX_FRAMES]{};
     for (uint32_t i = 0; i < MAX_FRAMES; i++)
-        layouts[i] = gpDescriptorSetLayouts->vkDescriptorSetLayout_frameDataBoneData;
+    {
+        VkDescriptorSetLayout layout =
+            gpDescriptorSetLayouts->vkDescriptorSetLayout_frameDataBoneData;
 
-    //------------------------------------------------------------------------------------------------
-    vkDescriptorSetAllocateInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
-    vkDescriptorSetAllocateInfo.pNext = NULL;
-    vkDescriptorSetAllocateInfo.descriptorPool = vkDescriptorPool; // global descriptor pool
-    vkDescriptorSetAllocateInfo.descriptorSetCount = MAX_FRAMES;//
-    vkDescriptorSetAllocateInfo.pSetLayouts = layouts; // pointer to the descriptor set layout
+        VkDescriptorSetAllocateInfo info{};
+        info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
+        info.descriptorPool = vkDescriptorPool;
+        info.descriptorSetCount = 1;
+        info.pSetLayouts = &layout;
 
-
-    // Call vkAllocateDescriptorSets() to allocate the descriptor set
-    vkResult = vkAllocateDescriptorSets(gVulkanContext.vkDevice, &vkDescriptorSetAllocateInfo, vkDescriptorSets_frameDataBoneData);
-
+        vkResult = vkAllocateDescriptorSets(
+            gVulkanContext.vkDevice,
+            &info,
+            &gFrames[i].vkDescriptor_FrameDataBoneData);
+    }
     if (vkResult != VK_SUCCESS)
     {
         fprintf(gpFILE, "createDiscriptorSet() : vkAllocateDescriptorSets() failed.\n");
@@ -8097,7 +7949,7 @@ VkResult createDescriptorSet_FrameDataBoneData(void)
 
         VkDescriptorBufferInfo vkDescriptorBufferInfo_frameData;
         memset((void*)&vkDescriptorBufferInfo_frameData, 0, sizeof(VkDescriptorBufferInfo));
-        vkDescriptorBufferInfo_frameData.buffer = uniformBufferData_frameData[i].vkBuffer; // uniform buffer
+        vkDescriptorBufferInfo_frameData.buffer = gFrames[i].uniformData.vkBuffer; // uniform buffer
         vkDescriptorBufferInfo_frameData.offset = 0; // offset in the buffer
         vkDescriptorBufferInfo_frameData.range = sizeof(UniformBufferObject_FrameData); // size of the buffer
 
@@ -8114,7 +7966,7 @@ VkResult createDescriptorSet_FrameDataBoneData(void)
 
         vkWriteDescriptorSet_array[0].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
         vkWriteDescriptorSet_array[0].pNext = NULL;
-        vkWriteDescriptorSet_array[0].dstSet = vkDescriptorSets_frameDataBoneData[i]; // descriptor set
+        vkWriteDescriptorSet_array[0].dstSet = gFrames[i].vkDescriptor_FrameDataBoneData; // descriptor set
         vkWriteDescriptorSet_array[0].dstBinding = 0; // 0 means the index number of the binding
         vkWriteDescriptorSet_array[0].dstArrayElement = 0; // 0 means the index number of the array element
         vkWriteDescriptorSet_array[0].descriptorCount = 1; // we are using only one descriptor, more incase of array
@@ -8125,7 +7977,7 @@ VkResult createDescriptorSet_FrameDataBoneData(void)
 
 		vkWriteDescriptorSet_array[1].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
 		vkWriteDescriptorSet_array[1].pNext = NULL;
-		vkWriteDescriptorSet_array[1].dstSet = vkDescriptorSets_frameDataBoneData[i]; // descriptor set
+		vkWriteDescriptorSet_array[1].dstSet = gFrames[i].vkDescriptor_FrameDataBoneData; // descriptor set
 		vkWriteDescriptorSet_array[1].dstBinding = 1; // 1 means the index number of the binding
 		vkWriteDescriptorSet_array[1].dstArrayElement = 0; // 0 means the index number of the array element
 		vkWriteDescriptorSet_array[1].descriptorCount = 1; // we are using only one descriptor
@@ -8345,8 +8197,8 @@ VkResult createDepthResources(void)
     imageInfo.pNext = NULL;
     imageInfo.flags = 0;
     imageInfo.imageType = VK_IMAGE_TYPE_2D;
-    imageInfo.extent.width = vkExtent2D_Swapchain.width;
-    imageInfo.extent.height = vkExtent2D_Swapchain.height;
+    imageInfo.extent.width = gSwapchain.vkExtent2D.width;
+    imageInfo.extent.height = gSwapchain.vkExtent2D.height;
     imageInfo.extent.depth = 1;
     imageInfo.mipLevels = 1;
     imageInfo.arrayLayers = 1;
@@ -8357,11 +8209,11 @@ VkResult createDepthResources(void)
     imageInfo.samples = VK_SAMPLE_COUNT_1_BIT;
     imageInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
 
-    gSwapChainResourceData.imageData_depthBuffer = (ImageData*)malloc(sizeof(ImageData) * MAX_FRAMES);
+    gSwapchain.resources.imageData_depthBuffer = (ImageData*)malloc(sizeof(ImageData) * MAX_FRAMES);
 
     for (uint32_t i = 0; i < MAX_FRAMES; i++)
     {
-        vkResult = vkCreateImage(gVulkanContext.vkDevice, &imageInfo, NULL, &gSwapChainResourceData.imageData_depthBuffer[i].vkImage);
+        vkResult = vkCreateImage(gVulkanContext.vkDevice, &imageInfo, NULL, &gSwapchain.resources.imageData_depthBuffer[i].vkImage);
         if (vkResult != VK_SUCCESS)
         {
             fprintf(gpFILE, "Failed to create depth image.\n");
@@ -8369,7 +8221,7 @@ VkResult createDepthResources(void)
         }
 
         VkMemoryRequirements memRequirements;
-        vkGetImageMemoryRequirements(gVulkanContext.vkDevice, gSwapChainResourceData.imageData_depthBuffer[i].vkImage, &memRequirements);
+        vkGetImageMemoryRequirements(gVulkanContext.vkDevice, gSwapchain.resources.imageData_depthBuffer[i].vkImage, &memRequirements);
 
         VkMemoryAllocateInfo allocInfo;
         memset(&allocInfo, 0, sizeof(VkMemoryAllocateInfo));
@@ -8381,7 +8233,7 @@ VkResult createDepthResources(void)
             VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT
         );
 
-        vkResult = vkAllocateMemory(gVulkanContext.vkDevice, &allocInfo, NULL, &gSwapChainResourceData.imageData_depthBuffer[i].vkDeviceMemory);
+        vkResult = vkAllocateMemory(gVulkanContext.vkDevice, &allocInfo, NULL, &gSwapchain.resources.imageData_depthBuffer[i].vkDeviceMemory);
         if (vkResult != VK_SUCCESS)
         {
             fprintf(gpFILE, "Failed to allocate depth image memory.\n");
@@ -8389,13 +8241,13 @@ VkResult createDepthResources(void)
         }
 
 
-        vkBindImageMemory(gVulkanContext.vkDevice, gSwapChainResourceData.imageData_depthBuffer[i].vkImage, gSwapChainResourceData.imageData_depthBuffer[i].vkDeviceMemory, 0);
+        vkBindImageMemory(gVulkanContext.vkDevice, gSwapchain.resources.imageData_depthBuffer[i].vkImage, gSwapchain.resources.imageData_depthBuffer[i].vkDeviceMemory, 0);
 
 
         //Image View 
         VkImageViewCreateInfo viewInfo = {};
         viewInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
-        viewInfo.image = gSwapChainResourceData.imageData_depthBuffer[i].vkImage;
+        viewInfo.image = gSwapchain.resources.imageData_depthBuffer[i].vkImage;
         viewInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
         viewInfo.format = VK_FORMAT_D32_SFLOAT;
         viewInfo.subresourceRange.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT;
@@ -8404,7 +8256,7 @@ VkResult createDepthResources(void)
         viewInfo.subresourceRange.baseArrayLayer = 0;
         viewInfo.subresourceRange.layerCount = 1;
 
-        vkResult = vkCreateImageView(gVulkanContext.vkDevice, &viewInfo, nullptr, &gSwapChainResourceData.imageData_depthBuffer[i].vkImageView);
+        vkResult = vkCreateImageView(gVulkanContext.vkDevice, &viewInfo, nullptr, &gSwapchain.resources.imageData_depthBuffer[i].vkImageView);
         if (vkResult != VK_SUCCESS) {
             fprintf(gpFILE, "Failed to create depth image view.\n");
             return vkResult;
@@ -8445,54 +8297,53 @@ void destroySwapchainResources(void)
     //Swapchain images and image views-------------------------------------
 
         // destroy swapchain images and image views
-    for (uint32_t i = 0; i < gSwapchainImageCount; i++)
+    for (uint32_t i = 0; i < gSwapchain.imageCount; i++)
     {
-        vkDestroyImageView(gVulkanContext.vkDevice, gSwapChainResourceData.swapchainImageView_Array[i], NULL);
-        gSwapChainResourceData.swapchainImageView_Array[i] = VK_NULL_HANDLE;
+        vkDestroyImageView(gVulkanContext.vkDevice, gSwapchain.resources.swapchainImageView_Array[i], NULL);
+        gSwapchain.resources.swapchainImageView_Array[i] = VK_NULL_HANDLE;
 
         //vkDestroyImage(gVulkanContext.vkDevice, swapchainImage_Array[i], NULL);// Not needed, as images are managed by the swapchain  
-        gSwapChainResourceData.swapchainImage_Array[i] = VK_NULL_HANDLE;
-
+        gSwapchain.resources.swapchainImage_Array[i] = VK_NULL_HANDLE;
     }
 
-    if (gSwapChainResourceData.swapchainImageView_Array)
+    if (gSwapchain.resources.swapchainImageView_Array)
     {
-        free(gSwapChainResourceData.swapchainImageView_Array);
-        gSwapChainResourceData.swapchainImageView_Array = NULL;
+        free(gSwapchain.resources.swapchainImageView_Array);
+        gSwapchain.resources.swapchainImageView_Array = NULL;
     }
-    if (gSwapChainResourceData.swapchainImage_Array)
+    if (gSwapchain.resources.swapchainImage_Array)
     {
-        free(gSwapChainResourceData.swapchainImage_Array);
-        gSwapChainResourceData.swapchainImage_Array = NULL;
+        free(gSwapchain.resources.swapchainImage_Array);
+        gSwapchain.resources.swapchainImage_Array = NULL;
     }
 
     //destroy depth resources
     for (uint32_t i = 0; i < MAX_FRAMES; i++)
     {
         //image view
-        if (gSwapChainResourceData.imageData_depthBuffer[i].vkImageView)
+        if (gSwapchain.resources.imageData_depthBuffer[i].vkImageView)
         {
-            vkDestroyImageView(gVulkanContext.vkDevice, gSwapChainResourceData.imageData_depthBuffer[i].vkImageView, NULL);
-            gSwapChainResourceData.imageData_depthBuffer[i].vkImageView = VK_NULL_HANDLE;
+            vkDestroyImageView(gVulkanContext.vkDevice, gSwapchain.resources.imageData_depthBuffer[i].vkImageView, NULL);
+            gSwapchain.resources.imageData_depthBuffer[i].vkImageView = VK_NULL_HANDLE;
         }
         //image
-        if (gSwapChainResourceData.imageData_depthBuffer[i].vkImage)
+        if (gSwapchain.resources.imageData_depthBuffer[i].vkImage)
         {
-            vkDestroyImage(gVulkanContext.vkDevice, gSwapChainResourceData.imageData_depthBuffer[i].vkImage, NULL);
-            gSwapChainResourceData.imageData_depthBuffer[i].vkImage = VK_NULL_HANDLE;
+            vkDestroyImage(gVulkanContext.vkDevice, gSwapchain.resources.imageData_depthBuffer[i].vkImage, NULL);
+            gSwapchain.resources.imageData_depthBuffer[i].vkImage = VK_NULL_HANDLE;
         }
         // free depth buffer memory
-        if (gSwapChainResourceData.imageData_depthBuffer[i].vkDeviceMemory)
+        if (gSwapchain.resources.imageData_depthBuffer[i].vkDeviceMemory)
         {
-            vkFreeMemory(gVulkanContext.vkDevice, gSwapChainResourceData.imageData_depthBuffer[i].vkDeviceMemory, NULL);
-            gSwapChainResourceData.imageData_depthBuffer[i].vkDeviceMemory = VK_NULL_HANDLE;
+            vkFreeMemory(gVulkanContext.vkDevice, gSwapchain.resources.imageData_depthBuffer[i].vkDeviceMemory, NULL);
+            gSwapchain.resources.imageData_depthBuffer[i].vkDeviceMemory = VK_NULL_HANDLE;
         }
     }
 
-    if (gSwapChainResourceData.imageData_depthBuffer)
+    if (gSwapchain.resources.imageData_depthBuffer)
     {
-        free(gSwapChainResourceData.imageData_depthBuffer);
-        gSwapChainResourceData.imageData_depthBuffer = NULL;
+        free(gSwapchain.resources.imageData_depthBuffer);
+        gSwapchain.resources.imageData_depthBuffer = NULL;
     }
 
     //---------------------------------------------------------------------
@@ -8656,18 +8507,15 @@ VkResult createSemaphores(void)
     vkSemaphoreCreateInfo.pNext = NULL; // by default, the semaphore will be created as a binary semaphore. 
     vkSemaphoreCreateInfo.flags = 0;    // MUST be 0, this member is reserved.
 
-    vkSemaphore_BackBuffer = (VkSemaphore*)malloc(sizeof(VkSemaphore) * gSwapchainImageCount);
-    vkSemaphore_RenderComplete = (VkSemaphore*)malloc(sizeof(VkSemaphore) * gSwapchainImageCount);
 
-
-    for (uint32_t i = 0; i < gSwapchainImageCount; i++)
+    for (uint32_t i = 0; i < gSwapchain.imageCount; i++)
     {
         //Now call vkCreateSemaphore() API 2 times to create our 2 semaphore objects. Remember, both will use the same create info structure.
         vkResult = vkCreateSemaphore(
             gVulkanContext.vkDevice,               // [in] vulkan logical device
             &vkSemaphoreCreateInfo, // [in] pointer to a semaphore create info structure
             NULL,                   // [in, optional] pointer to a custom memory allocator
-            &vkSemaphore_BackBuffer[i] // [out] VkSemaphore object
+            &gFrames[i].vkSemaphore_Acquire // [out] VkSemaphore object
         );
 
         if (vkResult != VK_SUCCESS)
@@ -8680,7 +8528,7 @@ VkResult createSemaphores(void)
             gVulkanContext.vkDevice,
             &vkSemaphoreCreateInfo,
             NULL,
-            &vkSemaphore_RenderComplete[i]
+            &gFrames[i].vkSemaphore_RenderComplete
         );
 
         if (vkResult != VK_SUCCESS)
@@ -8792,7 +8640,7 @@ VkResult RenderImGui(uint32_t curIndex)
     ImDrawData* draw_data = ImGui::GetDrawData();
 
     // Render ImGui
-    ImGui_ImplVulkan_RenderDrawData(draw_data, vkCommandBuffer_Array[curIndex]);
+    ImGui_ImplVulkan_RenderDrawData(draw_data, gFrames[curIndex].commandBuffer);
 
     return vkResult;
 }
@@ -8801,9 +8649,9 @@ VkResult RenderImGui(uint32_t curIndex)
 void RenderFullscreenQuad(uint32_t curIndex)
 {
     // Bind the pipeline and descriptor sets
-    vkCmdBindPipeline(vkCommandBuffer_Array[curIndex], VK_PIPELINE_BIND_POINT_GRAPHICS, gpGraphicsPipelines->PreviewImage.vkPipeline);
-    vkCmdBindDescriptorSets(vkCommandBuffer_Array[curIndex], VK_PIPELINE_BIND_POINT_GRAPHICS, gpGraphicsPipelines->PreviewImage.vkPipelineLayout, 0, 1, &vkDescriptorSet_SingleImage, 0, NULL);
-    vkCmdDraw(vkCommandBuffer_Array[curIndex], 3, 1, 0, 0);
+    vkCmdBindPipeline(gFrames[curIndex].commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, gpGraphicsPipelines->PreviewImage.vkPipeline);
+    vkCmdBindDescriptorSets(gFrames[curIndex].commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, gpGraphicsPipelines->PreviewImage.vkPipelineLayout, 0, 1, &vkDescriptorSet_SingleImage, 0, NULL);
+    vkCmdDraw(gFrames[curIndex].commandBuffer, 3, 1, 0, 0);
 }
 
 void RenderColoredTriangle(uint32_t curIndex)
@@ -8828,12 +8676,12 @@ void RenderColoredTriangle(uint32_t curIndex)
 
 
     // Bind the pipeline and descriptor sets
-    vkCmdBindPipeline(vkCommandBuffer_Array[curIndex], VK_PIPELINE_BIND_POINT_GRAPHICS, gpGraphicsPipelines->ColoredVertex.vkPipeline);
-    vkCmdBindDescriptorSets(vkCommandBuffer_Array[curIndex], VK_PIPELINE_BIND_POINT_GRAPHICS, gpGraphicsPipelines->ColoredVertex.vkPipelineLayout, 0, 1, &vkDescriptorSets_frameData[curIndex], 0, NULL);
+    vkCmdBindPipeline(gFrames[curIndex].commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, gpGraphicsPipelines->ColoredVertex.vkPipeline);
+    vkCmdBindDescriptorSets(gFrames[curIndex].commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, gpGraphicsPipelines->ColoredVertex.vkPipelineLayout, 0, 1, &gFrames[curIndex].vkDescriptor_FrameData, 0, NULL);
 
     // Push the model matrix
     vkCmdPushConstants(
-        vkCommandBuffer_Array[curIndex],
+        gFrames[curIndex].commandBuffer,
         gpGraphicsPipelines->ColoredVertex.vkPipelineLayout,
         VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, // stages where the push constant will be used
         0,                                      // offset
@@ -8842,10 +8690,10 @@ void RenderColoredTriangle(uint32_t curIndex)
     );
     // Bind vertex buffer
     VkDeviceSize offset = 0;
-    vkCmdBindVertexBuffers(vkCommandBuffer_Array[curIndex], 0, 1, &vertexData_coloredTriangle.vkBuffer, &offset);
+    vkCmdBindVertexBuffers(gFrames[curIndex].commandBuffer, 0, 1, &vertexData_coloredTriangle.vkBuffer, &offset);
 
     // Draw the triangle
-    vkCmdDraw(vkCommandBuffer_Array[curIndex], 3, 1, 0, 0);
+    vkCmdDraw(gFrames[curIndex].commandBuffer, 3, 1, 0, 0);
 }
 
 void RenderAxes(uint32_t curIndex)
@@ -8859,12 +8707,12 @@ void RenderAxes(uint32_t curIndex)
     pushConstants.fFactor = 1.0f;
 
     // Bind the pipeline and descriptor sets
-    vkCmdBindPipeline(vkCommandBuffer_Array[curIndex], VK_PIPELINE_BIND_POINT_GRAPHICS, gpGraphicsPipelines->ColoredVertex.vkPipeline);
-    vkCmdBindDescriptorSets(vkCommandBuffer_Array[curIndex], VK_PIPELINE_BIND_POINT_GRAPHICS, gpGraphicsPipelines->ColoredVertex.vkPipelineLayout, 0, 1, &vkDescriptorSets_frameData[curIndex], 0, NULL);
+    vkCmdBindPipeline(gFrames[curIndex].commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, gpGraphicsPipelines->ColoredVertex.vkPipeline);
+    vkCmdBindDescriptorSets(gFrames[curIndex].commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, gpGraphicsPipelines->ColoredVertex.vkPipelineLayout, 0, 1, &gFrames[curIndex].vkDescriptor_FrameData, 0, NULL);
 
     // Push the model matrix
     vkCmdPushConstants(
-        vkCommandBuffer_Array[curIndex],
+        gFrames[curIndex].commandBuffer,
         gpGraphicsPipelines->ColoredVertex.vkPipelineLayout,
         VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, // stages where the push constant will be used
         0,                                      // offset
@@ -8873,11 +8721,10 @@ void RenderAxes(uint32_t curIndex)
     );
     // Bind vertex buffer
     VkDeviceSize offset = 0;
-    vkCmdBindVertexBuffers(vkCommandBuffer_Array[curIndex], 0, 1, &vertexData_Axis.vkBuffer, &offset);
+    vkCmdBindVertexBuffers(gFrames[curIndex].commandBuffer, 0, 1, &vertexData_Axis.vkBuffer, &offset);
 
     // Draw the triangle
-    vkCmdDraw(vkCommandBuffer_Array[curIndex], 9, 1, 0, 0);
-
+    vkCmdDraw(gFrames[curIndex].commandBuffer, 9, 1, 0, 0);
 
 }
 
@@ -8898,14 +8745,14 @@ void RenderImpostor(uint32_t curIndex)
 
 
     // Bind the pipeline and descriptor sets
-    vkCmdBindPipeline(vkCommandBuffer_Array[curIndex], VK_PIPELINE_BIND_POINT_GRAPHICS, gpGraphicsPipelines->Impostor.vkPipeline);
+    vkCmdBindPipeline(gFrames[curIndex].commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, gpGraphicsPipelines->Impostor.vkPipeline);
 
-    VkDescriptorSet vkLocalDescriptorSets[] = { vkDescriptorSets_frameData[curIndex], vkDescriptorSet_AlbedoNormal };
-    vkCmdBindDescriptorSets(vkCommandBuffer_Array[curIndex], VK_PIPELINE_BIND_POINT_GRAPHICS, gpGraphicsPipelines->Impostor.vkPipelineLayout, 0, 2, vkLocalDescriptorSets, 0, NULL);
+    VkDescriptorSet vkLocalDescriptorSets[] = { gFrames[curIndex].vkDescriptor_FrameData, vkDescriptorSet_AlbedoNormal };
+    vkCmdBindDescriptorSets(gFrames[curIndex].commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, gpGraphicsPipelines->Impostor.vkPipelineLayout, 0, 2, vkLocalDescriptorSets, 0, NULL);
 
     // Push the model matrix
     vkCmdPushConstants(
-        vkCommandBuffer_Array[curIndex],
+        gFrames[curIndex].commandBuffer,
         gpGraphicsPipelines->Impostor.vkPipelineLayout,
         VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, // stages where the push constant will be used
         0,                                      // offset
@@ -8914,9 +8761,9 @@ void RenderImpostor(uint32_t curIndex)
     );
     // Bind vertex buffer
     VkDeviceSize offset = 0;
-    vkCmdBindVertexBuffers(vkCommandBuffer_Array[curIndex], 0, 1, &ImpostorBufferData.vertexData.vkBuffer, &offset);
-    vkCmdBindIndexBuffer(vkCommandBuffer_Array[curIndex], ImpostorBufferData.indexData.vkBuffer, 0, VK_INDEX_TYPE_UINT16);
-    vkCmdDrawIndexed(vkCommandBuffer_Array[curIndex], (uint32_t)24, 1, 0, 0, 0);
+    vkCmdBindVertexBuffers(gFrames[curIndex].commandBuffer, 0, 1, &ImpostorBufferData.vertexData.vkBuffer, &offset);
+    vkCmdBindIndexBuffer(gFrames[curIndex].commandBuffer, ImpostorBufferData.indexData.vkBuffer, 0, VK_INDEX_TYPE_UINT16);
+    vkCmdDrawIndexed(gFrames[curIndex].commandBuffer, (uint32_t)24, 1, 0, 0, 0);
 
 }
 
@@ -8937,14 +8784,14 @@ void RenderCube(uint32_t curIndex)
 
 
     // Bind the pipeline and descriptor sets
-    vkCmdBindPipeline(vkCommandBuffer_Array[curIndex], VK_PIPELINE_BIND_POINT_GRAPHICS, gpGraphicsPipelines->Phong.vkPipeline);
+    vkCmdBindPipeline(gFrames[curIndex].commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, gpGraphicsPipelines->Phong.vkPipeline);
 
-    VkDescriptorSet vkLocalDescriptorSets[] = { vkDescriptorSets_frameData[curIndex] };
-    vkCmdBindDescriptorSets(vkCommandBuffer_Array[curIndex], VK_PIPELINE_BIND_POINT_GRAPHICS, gpGraphicsPipelines->Phong.vkPipelineLayout, 0, 1, vkLocalDescriptorSets, 0, NULL);
+    VkDescriptorSet vkLocalDescriptorSets[] = { gFrames[curIndex].vkDescriptor_FrameData };
+    vkCmdBindDescriptorSets(gFrames[curIndex].commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, gpGraphicsPipelines->Phong.vkPipelineLayout, 0, 1, vkLocalDescriptorSets, 0, NULL);
 
     // Push the model matrix
     vkCmdPushConstants(
-        vkCommandBuffer_Array[curIndex],
+        gFrames[curIndex].commandBuffer,
         gpGraphicsPipelines->Phong.vkPipelineLayout,
         VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, // stages where the push constant will be used
         0,                                      // offset
@@ -8953,9 +8800,9 @@ void RenderCube(uint32_t curIndex)
     );
     // Bind vertex buffer
     VkDeviceSize offset = 0;
-    vkCmdBindVertexBuffers(vkCommandBuffer_Array[curIndex], 0, 1, &CubeBufferData.vertexData.vkBuffer, &offset);
-    vkCmdBindIndexBuffer(vkCommandBuffer_Array[curIndex], CubeBufferData.indexData.vkBuffer, 0, VK_INDEX_TYPE_UINT16);
-    vkCmdDrawIndexed(vkCommandBuffer_Array[curIndex], (uint32_t)36, 1, 0, 0, 0);
+    vkCmdBindVertexBuffers(gFrames[curIndex].commandBuffer, 0, 1, &CubeBufferData.vertexData.vkBuffer, &offset);
+    vkCmdBindIndexBuffer(gFrames[curIndex].commandBuffer, CubeBufferData.indexData.vkBuffer, 0, VK_INDEX_TYPE_UINT16);
+    vkCmdDrawIndexed(gFrames[curIndex].commandBuffer, (uint32_t)36, 1, 0, 0, 0);
 
 }
 
@@ -8981,14 +8828,14 @@ void RenderSuzanne(uint32_t curIndex)
 
 
     // Bind the pipeline and descriptor sets
-    vkCmdBindPipeline(vkCommandBuffer_Array[curIndex], VK_PIPELINE_BIND_POINT_GRAPHICS, gpGraphicsPipelines->Phong.vkPipeline);
+    vkCmdBindPipeline(gFrames[curIndex].commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, gpGraphicsPipelines->Phong.vkPipeline);
 
-    VkDescriptorSet vkLocalDescriptorSets[] = { vkDescriptorSets_frameData[curIndex] };
-    vkCmdBindDescriptorSets(vkCommandBuffer_Array[curIndex], VK_PIPELINE_BIND_POINT_GRAPHICS, gpGraphicsPipelines->Phong.vkPipelineLayout, 0, 1, vkLocalDescriptorSets, 0, NULL);
+    VkDescriptorSet vkLocalDescriptorSets[] = { gFrames[curIndex].vkDescriptor_FrameData };
+    vkCmdBindDescriptorSets(gFrames[curIndex].commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, gpGraphicsPipelines->Phong.vkPipelineLayout, 0, 1, vkLocalDescriptorSets, 0, NULL);
 
     // Push the model matrix
     vkCmdPushConstants(
-        vkCommandBuffer_Array[curIndex],
+        gFrames[curIndex].commandBuffer,
         gpGraphicsPipelines->Phong.vkPipelineLayout,
         VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, // stages where the push constant will be used
         0,                                      // offset
@@ -8997,9 +8844,9 @@ void RenderSuzanne(uint32_t curIndex)
     );
     // Bind vertex buffer
     VkDeviceSize offset = 0;
-    vkCmdBindVertexBuffers(vkCommandBuffer_Array[curIndex], 0, 1, &SuzanneBufferData.vertexData.vkBuffer, &offset);
-    vkCmdBindIndexBuffer(vkCommandBuffer_Array[curIndex], SuzanneBufferData.indexData.vkBuffer, 0, VK_INDEX_TYPE_UINT16);
-    vkCmdDrawIndexed(vkCommandBuffer_Array[curIndex], SuzanneBufferData.indicesCount, 1, 0, 0, 0);
+    vkCmdBindVertexBuffers(gFrames[curIndex].commandBuffer, 0, 1, &SuzanneBufferData.vertexData.vkBuffer, &offset);
+    vkCmdBindIndexBuffer(gFrames[curIndex].commandBuffer, SuzanneBufferData.indexData.vkBuffer, 0, VK_INDEX_TYPE_UINT16);
+    vkCmdDrawIndexed(gFrames[curIndex].commandBuffer, SuzanneBufferData.indicesCount, 1, 0, 0, 0);
 
 }
 
@@ -9025,14 +8872,14 @@ void RenderPBR_Basic(uint32_t curIndex)
 
 
     // Bind the pipeline and descriptor sets
-    vkCmdBindPipeline(vkCommandBuffer_Array[curIndex], VK_PIPELINE_BIND_POINT_GRAPHICS, gpGraphicsPipelines->PBR.vkPipeline);
+    vkCmdBindPipeline(gFrames[curIndex].commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, gpGraphicsPipelines->PBR.vkPipeline);
 
-    VkDescriptorSet vkLocalDescriptorSets[] = { vkDescriptorSets_frameData[curIndex],pMaterial_BasicPBR_GrassyGround->getDescriptorSet() };
-    vkCmdBindDescriptorSets(vkCommandBuffer_Array[curIndex], VK_PIPELINE_BIND_POINT_GRAPHICS, gpGraphicsPipelines->PBR.vkPipelineLayout, 0, _ARRAYSIZE(vkLocalDescriptorSets), vkLocalDescriptorSets, 0, NULL);
+    VkDescriptorSet vkLocalDescriptorSets[] = { gFrames[curIndex].vkDescriptor_FrameData,pMaterial_BasicPBR_GrassyGround->getDescriptorSet() };
+    vkCmdBindDescriptorSets(gFrames[curIndex].commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, gpGraphicsPipelines->PBR.vkPipelineLayout, 0, _ARRAYSIZE(vkLocalDescriptorSets), vkLocalDescriptorSets, 0, NULL);
 
     // Push the model matrix
     vkCmdPushConstants(
-        vkCommandBuffer_Array[curIndex],
+        gFrames[curIndex].commandBuffer,
         gpGraphicsPipelines->PBR.vkPipelineLayout,
         VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, // stages where the push constant will be used
         0,                                      // offset
@@ -9041,9 +8888,9 @@ void RenderPBR_Basic(uint32_t curIndex)
     );
     // Bind vertex buffer
     VkDeviceSize offset = 0;
-    vkCmdBindVertexBuffers(vkCommandBuffer_Array[curIndex], 0, 1, &SphereBufferData.vertexData.vkBuffer, &offset);
-    vkCmdBindIndexBuffer(vkCommandBuffer_Array[curIndex], SphereBufferData.indexData.vkBuffer, 0, VK_INDEX_TYPE_UINT16);
-    vkCmdDrawIndexed(vkCommandBuffer_Array[curIndex], SphereBufferData.indicesCount, 1, 0, 0, 0);
+    vkCmdBindVertexBuffers(gFrames[curIndex].commandBuffer, 0, 1, &SphereBufferData.vertexData.vkBuffer, &offset);
+    vkCmdBindIndexBuffer(gFrames[curIndex].commandBuffer, SphereBufferData.indexData.vkBuffer, 0, VK_INDEX_TYPE_UINT16);
+    vkCmdDrawIndexed(gFrames[curIndex].commandBuffer, SphereBufferData.indicesCount, 1, 0, 0, 0);
 
 }
 
@@ -9077,15 +8924,15 @@ void RenderPBR_Skinned(uint32_t curIndex)
 
 
     // Bind the pipeline and descriptor sets
-    vkCmdBindPipeline(vkCommandBuffer_Array[curIndex], VK_PIPELINE_BIND_POINT_GRAPHICS, gpGraphicsPipelines->PBR_Skinned.vkPipeline);
+    vkCmdBindPipeline(gFrames[curIndex].commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, gpGraphicsPipelines->PBR_Skinned.vkPipeline);
 
-    VkDescriptorSet vkLocalDescriptorSets[] = { vkDescriptorSets_frameDataBoneData[curIndex],pModel_Rat->GetMaterialDescriptorSet(0),global_textureArray_vkDescriptorSet };
+    VkDescriptorSet vkLocalDescriptorSets[] = { gFrames[curIndex].vkDescriptor_FrameDataBoneData,pModel_Rat->GetMaterialDescriptorSet(0),global_textureArray_vkDescriptorSet };
   //  VkDescriptorSet vkLocalDescriptorSets[] = { vkDescriptorSets_frameDataBoneData[curIndex],pMaterial_BasicPBR_GrassyGround->getDescriptorSet() };
-    vkCmdBindDescriptorSets(vkCommandBuffer_Array[curIndex], VK_PIPELINE_BIND_POINT_GRAPHICS, gpGraphicsPipelines->PBR_Skinned.vkPipelineLayout, 0, _ARRAYSIZE(vkLocalDescriptorSets), vkLocalDescriptorSets, 0, NULL);
+    vkCmdBindDescriptorSets(gFrames[curIndex].commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, gpGraphicsPipelines->PBR_Skinned.vkPipelineLayout, 0, _ARRAYSIZE(vkLocalDescriptorSets), vkLocalDescriptorSets, 0, NULL);
 
     // Push the model matrix
     vkCmdPushConstants(
-        vkCommandBuffer_Array[curIndex],
+        gFrames[curIndex].commandBuffer,
         gpGraphicsPipelines->PBR_Skinned.vkPipelineLayout,
         VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, // stages where the push constant will be used
         0,                                      // offset
@@ -9097,9 +8944,9 @@ void RenderPBR_Skinned(uint32_t curIndex)
 
 	const VulkanComboData* vulkanComboData_Rat = pModel_Rat->GetVulkanComboData();
 
-    vkCmdBindVertexBuffers(vkCommandBuffer_Array[curIndex], 0, 1, &vulkanComboData_Rat->vertexData.vkBuffer, &offset);
-    vkCmdBindIndexBuffer(vkCommandBuffer_Array[curIndex], vulkanComboData_Rat->indexData.vkBuffer, 0, VK_INDEX_TYPE_UINT32);
-    vkCmdDrawIndexed(vkCommandBuffer_Array[curIndex], vulkanComboData_Rat->indicesCount, 1, 0, 0, 0);
+    vkCmdBindVertexBuffers(gFrames[curIndex].commandBuffer, 0, 1, &vulkanComboData_Rat->vertexData.vkBuffer, &offset);
+    vkCmdBindIndexBuffer(gFrames[curIndex].commandBuffer, vulkanComboData_Rat->indexData.vkBuffer, 0, VK_INDEX_TYPE_UINT32);
+    vkCmdDrawIndexed(gFrames[curIndex].commandBuffer, vulkanComboData_Rat->indicesCount, 1, 0, 0, 0);
 
 }
 
@@ -9208,7 +9055,7 @@ VkResult buildCommandBuffers(uint32_t curIndex, uint32_t currentImageIndex)
     // === Only operate on curIndex ===
 
     // Reset the command buffer
-    vkResult = vkResetCommandBuffer(vkCommandBuffer_Array[curIndex], 0);
+    vkResult = vkResetCommandBuffer(gFrames[curIndex].commandBuffer, 0);
     if (vkResult != VK_SUCCESS)
     {
         fprintf(gpFILE, "buildCommandBuffers() : vkResetCommandBuffer() failed for command buffer %d.\n", curIndex);
@@ -9220,7 +9067,7 @@ VkResult buildCommandBuffers(uint32_t curIndex, uint32_t currentImageIndex)
     beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
     beginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
 
-    vkResult = vkBeginCommandBuffer(vkCommandBuffer_Array[curIndex], &beginInfo);
+    vkResult = vkBeginCommandBuffer(gFrames[curIndex].commandBuffer, &beginInfo);
     if (vkResult != VK_SUCCESS)
     {
         fprintf(gpFILE, "buildCommandBuffers() : vkBeginCommandBuffer() failed for command buffer %d.\n", curIndex);
@@ -9252,8 +9099,8 @@ VkResult buildCommandBuffers(uint32_t curIndex, uint32_t currentImageIndex)
     //Dynamic Rendering
 
     transitionImageLayout(
-        vkCommandBuffer_Array[curIndex],
-        gSwapChainResourceData.swapchainImage_Array[currentImageIndex],
+        gFrames[curIndex].commandBuffer,
+        gSwapchain.resources.swapchainImage_Array[currentImageIndex],
         VK_IMAGE_LAYOUT_UNDEFINED,
         VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL
 	);
@@ -9262,7 +9109,7 @@ VkResult buildCommandBuffers(uint32_t curIndex, uint32_t currentImageIndex)
 	// We can also use dynamic rendering instead of render pass and framebuffer. In that case, we need to declare and initialize VkRenderingInfo structure and call vkCmdBeginRendering() API to begin the dynamic rendering. Remember, if we are using dynamic rendering, then we don't need to create render pass and framebuffer objects at all.
     VkRenderingAttachmentInfo colorAttachment{};
     colorAttachment.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO;
-	colorAttachment.imageView = gSwapChainResourceData.swapchainImageView_Array[currentImageIndex];
+	colorAttachment.imageView = gSwapchain.resources.swapchainImageView_Array[currentImageIndex];
     colorAttachment.imageLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
     colorAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
     colorAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
@@ -9271,7 +9118,7 @@ VkResult buildCommandBuffers(uint32_t curIndex, uint32_t currentImageIndex)
 
     VkRenderingAttachmentInfo depthAttachment{};
     depthAttachment.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO;
-	depthAttachment.imageView = gSwapChainResourceData.imageData_depthBuffer[currentImageIndex].vkImageView;
+	depthAttachment.imageView = gSwapchain.resources.imageData_depthBuffer[currentImageIndex].vkImageView;
     depthAttachment.imageLayout = VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL;
     depthAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
     depthAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
@@ -9280,12 +9127,12 @@ VkResult buildCommandBuffers(uint32_t curIndex, uint32_t currentImageIndex)
 	VkRenderingInfo renderingInfo{};
 	renderingInfo.sType = VK_STRUCTURE_TYPE_RENDERING_INFO;
 	renderingInfo.renderArea.offset = { 0, 0 };
-	renderingInfo.renderArea.extent = vkExtent2D_Swapchain;
+    renderingInfo.renderArea.extent = gSwapchain.vkExtent2D;
 	renderingInfo.layerCount = 1;
 	renderingInfo.colorAttachmentCount = 1;
 	renderingInfo.pColorAttachments = &colorAttachment;
 	renderingInfo.pDepthAttachment = &depthAttachment;
-	vkCmdBeginRendering(vkCommandBuffer_Array[curIndex], &renderingInfo);
+	vkCmdBeginRendering(gFrames[curIndex].commandBuffer, &renderingInfo);
 
 
     // RenderFullscreenQuad(curIndex); // Render the fullscreen quad
@@ -9313,12 +9160,12 @@ VkResult buildCommandBuffers(uint32_t curIndex, uint32_t currentImageIndex)
    // vkCmdEndRenderPass(vkCommandBuffer_Array[curIndex]);
 
 	// If we are using dynamic rendering, then we need to call vkCmdEndRendering() API to end the dynamic rendering.
-	vkCmdEndRendering(vkCommandBuffer_Array[curIndex]);
+	vkCmdEndRendering(gFrames[curIndex].commandBuffer);
 
 
     transitionImageLayout(
-        vkCommandBuffer_Array[curIndex],
-        gSwapChainResourceData.swapchainImage_Array[currentImageIndex],
+        gFrames[curIndex].commandBuffer,
+        gSwapchain.resources.swapchainImage_Array[currentImageIndex],
         VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
         VK_IMAGE_LAYOUT_PRESENT_SRC_KHR
 	);
@@ -9327,7 +9174,7 @@ VkResult buildCommandBuffers(uint32_t curIndex, uint32_t currentImageIndex)
 
 
 
-    vkResult = vkEndCommandBuffer(vkCommandBuffer_Array[curIndex]);
+    vkResult = vkEndCommandBuffer(gFrames[curIndex].commandBuffer);
     if (vkResult != VK_SUCCESS)
     {
         fprintf(gpFILE, "buildCommandBuffers() : vkEndCommandBuffer() failed for command buffer %d.\n", curIndex);

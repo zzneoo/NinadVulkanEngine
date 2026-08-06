@@ -145,6 +145,7 @@
     <ClInclude Include="BlueScreen.h" />
     <ClInclude Include="Camera.h" />
     <ClInclude Include="DescriptorSetLayouts.h" />
+    <ClInclude Include="FrameContext.h" />
     <ClInclude Include="framework.h" />
     <ClInclude Include="GraphicsPipelines.h" />
     <ClInclude Include="imgui\imconfig.h" />
@@ -159,6 +160,7 @@
     <ClInclude Include="MyWin32.h" />
     <ClInclude Include="Resource.h" />
     <ClInclude Include="stb_image.h" />
+    <ClInclude Include="SwapchainContext.h" />
     <ClInclude Include="targetver.h" />
     <ClInclude Include="VK.h" />
     <ClInclude Include="VulkanContext.h" />
@@ -169,6 +171,7 @@
     <ClCompile Include="BlueScreen.cpp" />
     <ClCompile Include="Camera.cpp" />
     <ClCompile Include="DescriptorSetLayouts.cpp" />
+    <ClCompile Include="FrameContext.cpp" />
     <ClCompile Include="GraphicsPipelines.cpp" />
     <ClCompile Include="imgui\imgui.cpp" />
     <ClCompile Include="imgui\imgui_draw.cpp" />
@@ -178,6 +181,7 @@
     <ClCompile Include="imgui\imgui_widgets.cpp" />
     <ClCompile Include="Material_BasicPBR.cpp" />
     <ClCompile Include="MyWin32.cpp" />
+    <ClCompile Include="SwapchainContext.cpp" />
     <ClCompile Include="VulkanContext.cpp" />
     <ClCompile Include="Win32Window.cpp" />
   </ItemGroup>
