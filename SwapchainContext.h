@@ -1,7 +1,12 @@
 #pragma once
+#define NOMINMAX
 
 #include <vulkan/vulkan.h>
 #include "VK.h"    // For SwapChainResourceData
+#include "VulkanContext.h"
+
+
+extern FILE* gpFILE;
 
 class SwapchainContext
 {
@@ -24,10 +29,26 @@ public:
     uint32_t imageCount = 0;
 
     // Images / image views / depth / framebuffers
-    SwapChainResourceData resources;
+    SwapChainResourceData resourceData;
 
     // Rendering
     uint32_t currentImageIndex = UINT32_MAX;
+
+	VkResult Initialize();
+	void Shutdown();
+
+    private:
+
+        VkResult CreateSwapchain(VkBool32 vsync);
+		void DestroySwapchain();
+
+        VkResult CreateSwapchainResources();
+		void DestroySwapchainResources();
+
+		VkResult CreateImagesAndImageViews(void);
+        VkResult CreateDepthResources(void);
+
+		VkResult GetSupportedDepthFormat(VkFormat* pVkFormat);
 };
 
 extern SwapchainContext gSwapchain;
