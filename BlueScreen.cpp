@@ -173,7 +173,6 @@ int WINAPI WinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, _
     // function prototypes
     VkResult initialize(void);
     VkResult display(void);
-    void update(void);
     void uninitialize();
 
     // For Windows 10 and later
@@ -324,9 +323,6 @@ int WINAPI WinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, _
                 fprintf(gpFILE, "WinMain() : display() failed (%d).\n", vkResult);
                 bDone = TRUE;
             }
-
-            // Update
-            update();
 
             MyWin32::iFrameID++;
         }
@@ -2373,8 +2369,8 @@ VkResult resize(int width, int height)
 
 VkResult display(void)
 {
+    void update(uint32_t curIndex);
     VkResult buildCommandBuffers(uint32_t curIndex, uint32_t currentImageIndex);
-    //VkResult updateUniformBuffer_camera(uint32_t curIndex);
     VkResult updateUniformBuffer_frameData(uint32_t curIndex);
 
     VkResult vkResult = VK_SUCCESS;
@@ -2533,13 +2529,17 @@ VkResult display(void)
         return vkResult;
     }
 
+
+	// Update the application state (e.g., animations, camera, etc.)
+	update(curIndex);
+    
     // Advance to next frame
     currentFrame++;
 
     return vkResult;
 }
 
-void update(void)
+void update(uint32_t curIndex)
 {
     // code
 	MyWin32::dTotalElapsedTime += MyWin32::fDeltaTime * 100.0f;
@@ -2549,6 +2549,9 @@ void update(void)
     {
         camera.UpdateViewMatrix(gWindow.hwnd);
     }
+
+	//Animated Model Update
+    pModel_Rat->UpdateAnimation(MyWin32::fDeltaTime * 1.0f, curIndex);
 
 }
 
@@ -6854,7 +6857,7 @@ void RenderSuzanne(uint32_t curIndex)
     if (fAngle >= 360.0f)
         fAngle = fAngle - 360.0f; // Reset the angle if it exceeds 360 degrees
 
-    PushConstants pushConstants;
+    PushConstants pushConstants{};
     pushConstants.model = glm::translate(glm::mat4(1.0f), glm::vec3(-3.0f, -10.0f, 2.0f)) * glm::rotate(glm::mat4(1.0f), glm::radians(fAngle), glm::vec3(0.0f, 0.0f, 1.0f));
     //pushConstants.model = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.0f, 0.0f));
     //ushConstants.model = glm::mat4(1.0f); // Identity matrix for no transformation
@@ -6891,14 +6894,14 @@ void RenderSuzanne(uint32_t curIndex)
 
 }
 
-void RenderPBR_Basic(uint32_t curIndex)
+void RenderPBR_Sphere(uint32_t curIndex)
 {
     static float fAngle = 0.0f;
     fAngle += MyWin32::fDeltaTime * 20.0f; // Increment the angle for rotation
     if (fAngle >= 360.0f)
         fAngle = fAngle - 360.0f; // Reset the angle if it exceeds 360 degrees
 
-    PushConstants pushConstants;
+    PushConstants pushConstants{};
     pushConstants.model = glm::translate(glm::mat4(1.0f), glm::vec3(-3.0f, 10.0f, 2.0f)) * glm::rotate(glm::mat4(1.0f), glm::radians(fAngle), glm::vec3(0.0f, 0.0f, 1.0f));
     //pushConstants.model = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.0f, 0.0f));
     //ushConstants.model = glm::mat4(1.0f); // Identity matrix for no transformation
@@ -6911,12 +6914,8 @@ void RenderPBR_Basic(uint32_t curIndex)
     pushConstants.fFactor = 1.0f;
 #endif //IMGUI_ENABLE
 
+    pushConstants.materialIDs = pMaterial_BasicPBR_GrassyGround->GetPBR_MaterialGlobalIDs();
 
-    // Bind the pipeline and descriptor sets
-    vkCmdBindPipeline(gFrames[curIndex].commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, gpGraphicsPipelines->PBR.vkPipeline);
-
-    VkDescriptorSet vkLocalDescriptorSets[] = { gFrames[curIndex].vkDescriptor_FrameData,pMaterial_BasicPBR_GrassyGround->getDescriptorSet() };
-    vkCmdBindDescriptorSets(gFrames[curIndex].commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, gpGraphicsPipelines->PBR.vkPipelineLayout, 0, _ARRAYSIZE(vkLocalDescriptorSets), vkLocalDescriptorSets, 0, NULL);
 
     // Push the model matrix
     vkCmdPushConstants(
@@ -6935,26 +6934,36 @@ void RenderPBR_Basic(uint32_t curIndex)
 
 }
 
-void RenderPBR_Skinned(uint32_t curIndex)
+void RenderPBR_Basic(uint32_t curIndex)
+{
+    // Bind the pipeline and descriptor sets
+    vkCmdBindPipeline(gFrames[curIndex].commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, gpGraphicsPipelines->PBR.vkPipeline);
+
+	//vkDescriptorSets
+	VkDescriptorSet vkLocalDescriptorSets[] = { gFrames[curIndex].vkDescriptor_FrameData,global_textureArray_vkDescriptorSet };
+    vkCmdBindDescriptorSets(gFrames[curIndex].commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, gpGraphicsPipelines->PBR.vkPipelineLayout, 0, _ARRAYSIZE(vkLocalDescriptorSets), vkLocalDescriptorSets, 0, NULL);
+
+    RenderPBR_Sphere(curIndex);
+}
+
+void RenderPBR_Skinned_RAT(uint32_t curIndex)
 {
     static float fAngle = 0.0f;
     fAngle += MyWin32::fDeltaTime * 20.0f; // Increment the angle for rotation
     if (fAngle >= 360.0f)
         fAngle = fAngle - 360.0f; // Reset the angle if it exceeds 360 degrees
 
-    pModel_Rat->UpdateAnimation(MyWin32::fDeltaTime * 1.0f, curIndex);
+    PushConstants pushConstants{};
+    glm::mat4 translation = glm::translate(glm::mat4(1.0f), glm::vec3(5.0f, 5.0f, 0.0f));
+    glm::mat4 rotation = glm::rotate(glm::mat4(1.0f), glm::radians(fAngle), glm::vec3(0.0f, 0.0f, 1.0f));
+    glm::mat4 scale = glm::scale(glm::mat4(1.0f), glm::vec3(0.2f, 0.2f, 0.2f));
 
-    PushConstants pushConstants;
-	glm::mat4 translation = glm::translate(glm::mat4(1.0f), glm::vec3(5.0f, 5.0f, 0.0f));
-	glm::mat4 rotation = glm::rotate(glm::mat4(1.0f), glm::radians(fAngle), glm::vec3(0.0f, 0.0f, 1.0f));
-	glm::mat4 scale = glm::scale(glm::mat4(1.0f), glm::vec3(0.2f, 0.2f, 0.2f));
-
-	pushConstants.model = translation * rotation * scale;
+    pushConstants.model = translation * rotation * scale;
     //pushConstants.model = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.0f, 0.0f));
     //ushConstants.model = glm::mat4(1.0f); // Identity matrix for no transformation
 
-	pushConstants.materialIDs = pModel_Rat->GetPBR_MaterialGlobalIDs();
-    
+    pushConstants.materialIDs = pModel_Rat->GetPBR_MaterialGlobalIDs();
+
 #ifdef IMGUI_ENABLE
     pushConstants.v3Color = v3Color;
     pushConstants.fFactor = fFactor;
@@ -6963,13 +6972,6 @@ void RenderPBR_Skinned(uint32_t curIndex)
     pushConstants.fFactor = 1.0f;
 #endif //IMGUI_ENABLE
 
-
-    // Bind the pipeline and descriptor sets
-    vkCmdBindPipeline(gFrames[curIndex].commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, gpGraphicsPipelines->PBR_Skinned.vkPipeline);
-
-    VkDescriptorSet vkLocalDescriptorSets[] = { gFrames[curIndex].vkDescriptor_FrameDataBoneData,pModel_Rat->GetMaterialDescriptorSet(0),global_textureArray_vkDescriptorSet };
-  //  VkDescriptorSet vkLocalDescriptorSets[] = { vkDescriptorSets_frameDataBoneData[curIndex],pMaterial_BasicPBR_GrassyGround->getDescriptorSet() };
-    vkCmdBindDescriptorSets(gFrames[curIndex].commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, gpGraphicsPipelines->PBR_Skinned.vkPipelineLayout, 0, _ARRAYSIZE(vkLocalDescriptorSets), vkLocalDescriptorSets, 0, NULL);
 
     // Push the model matrix
     vkCmdPushConstants(
@@ -6983,13 +6985,27 @@ void RenderPBR_Skinned(uint32_t curIndex)
     // Bind vertex buffer
     VkDeviceSize offset = 0;
 
-	const VulkanComboData* vulkanComboData_Rat = pModel_Rat->GetVulkanComboData();
+    const VulkanComboData* vulkanComboData_Rat = pModel_Rat->GetVulkanComboData();
 
     vkCmdBindVertexBuffers(gFrames[curIndex].commandBuffer, 0, 1, &vulkanComboData_Rat->vertexData.vkBuffer, &offset);
     vkCmdBindIndexBuffer(gFrames[curIndex].commandBuffer, vulkanComboData_Rat->indexData.vkBuffer, 0, VK_INDEX_TYPE_UINT32);
     vkCmdDrawIndexed(gFrames[curIndex].commandBuffer, vulkanComboData_Rat->indicesCount, 1, 0, 0, 0);
 
 }
+
+void RenderPBR_Skinned(uint32_t curIndex)
+{
+    
+    // Bind the pipeline and descriptor sets
+    vkCmdBindPipeline(gFrames[curIndex].commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, gpGraphicsPipelines->PBR_Skinned.vkPipeline);
+
+    VkDescriptorSet vkLocalDescriptorSets[] = { gFrames[curIndex].vkDescriptor_FrameDataBoneData,pModel_Rat->GetMaterialDescriptorSet(0),global_textureArray_vkDescriptorSet };
+    vkCmdBindDescriptorSets(gFrames[curIndex].commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, gpGraphicsPipelines->PBR_Skinned.vkPipelineLayout, 0, _ARRAYSIZE(vkLocalDescriptorSets), vkLocalDescriptorSets, 0, NULL);
+
+	RenderPBR_Skinned_RAT(curIndex);
+}
+
+
 
 void transitionImageLayout(
     VkCommandBuffer cmd,

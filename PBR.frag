@@ -1,5 +1,7 @@
 #version 460
 
+#extension GL_EXT_nonuniform_qualifier : require
+
 #define saturate(x) clamp(x, 0.0, 1.0)
 
 const float PI = 3.14159265359;
@@ -12,9 +14,11 @@ layout(location = 2) in vec3 outColor;
 layout(location = 3) in vec4 outTangent;
 layout(location = 4) in vec3 vWorldPos;
 
-layout(set = 1, binding = 0) uniform sampler2D tSampler_albedo;
-layout(set = 1, binding = 1) uniform sampler2D tSampler_normal;
-layout(set = 1, binding = 2) uniform sampler2D tSampler_orx;
+//layout(set = 1, binding = 0) uniform sampler2D tSampler_albedo;
+//layout(set = 1, binding = 1) uniform sampler2D tSampler_normal;
+//layout(set = 1, binding = 2) uniform sampler2D tSampler_orx;
+
+layout(set = 1, binding = 0) uniform sampler2D textures[];
 
 layout(std140, set = 0, binding = 0) uniform FrameData 
 {
@@ -56,6 +60,7 @@ layout(push_constant) uniform PushConstants
     mat4 model;
 	vec3 v3Color;
 	float fFactor;
+    uvec4 materialIDs;
 } pc;
 
 //PBR
@@ -101,9 +106,16 @@ void main(void)
 {
     vec2 uv = outTexCoord;
     
+    /*
     vec3 albedo = texture(tSampler_albedo, uv).rgb;
     vec3 normal_map = decodeBC5Normal_fast_robust(texture(tSampler_normal,uv).rg);
     vec3 orx = texture(tSampler_orx, uv).rgb;
+    */
+
+    vec3 albedo = texture(textures[nonuniformEXT(pc.materialIDs.x)], uv).rgb;
+    vec3 normal_map = decodeBC5Normal_fast_robust(
+        texture(textures[nonuniformEXT(pc.materialIDs.y)], uv).rg);
+    vec3 orx = texture(textures[nonuniformEXT(pc.materialIDs.z)], uv).rgb;
 
     float ao = orx.r;
     float roughness = clamp(orx.g, 0.045, 1.0);

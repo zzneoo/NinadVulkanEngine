@@ -2254,7 +2254,7 @@ VkResult GraphicsPipelines::createPipelines(void)
 	//--------------------------------------------------------------------------------------------
 
     //PBR
-	vkDescriptorSetLayouts = { gpDescriptorSetLayouts->vkDescriptorSetLayout_frameData, gpDescriptorSetLayouts->vkDescriptorSetLayout_BasicPBR };
+	vkDescriptorSetLayouts = { gpDescriptorSetLayouts->vkDescriptorSetLayout_frameData, gpDescriptorSetLayouts->vkDescriptorSetLayout_GlobalTextureArray };
 	memset((void*)&vkPipelineLayoutCreateInfo, 0, sizeof(VkPipelineLayoutCreateInfo));
 	vkPipelineLayoutCreateInfo.setLayoutCount = static_cast<uint32_t>(vkDescriptorSetLayouts.size());
 	vkPipelineLayoutCreateInfo.pSetLayouts = vkDescriptorSetLayouts.data();
