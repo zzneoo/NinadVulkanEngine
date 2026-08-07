@@ -70,6 +70,7 @@ using namespace tinyddsloader;
 
 // global function declarations
 LRESULT CALLBACK WndProc(HWND, UINT, WPARAM, LPARAM);
+PFN_vkCmdDrawMeshTasksEXT vkCmdDrawMeshTasksEXT_pfn = nullptr;
 
 #ifdef IMGUI_ENABLE
 //IMGUI related global 
@@ -612,7 +613,7 @@ int file_exists(const char* path) {
 void compileShaderVS_FS(const char* shaderName)
 {
     STARTUPINFOA si = { sizeof(si) };
-    PROCESS_INFORMATION pi;
+    PROCESS_INFORMATION pi{};
 
     char command[256];
 
@@ -668,6 +669,90 @@ void compileShaderVS_FS(const char* shaderName)
         WaitForSingleObject(pInfo.hProcess, INFINITE);
         CloseHandle(pInfo.hProcess);
         CloseHandle(pInfo.hThread);
+        exit(EXIT_FAILURE);
+    }
+}
+
+// compile shader using buildMesh.bat
+void compileShaderTS_MS_FS(const char* shaderName)
+{
+    STARTUPINFOA si = { sizeof(si) };
+    PROCESS_INFORMATION pi{};
+
+    char command[256];
+
+    // Build the command line: cmd.exe /c "build.bat Impostor"
+    snprintf(command, sizeof(command), "cmd.exe /c \"BuildMesh.bat %s\"", shaderName);
+
+    BOOL success = CreateProcessA(
+        NULL,           // App name (null if included in command line)
+        (LPSTR)command, // Command line (must be mutable)
+        NULL, NULL,     // Process/thread security
+        FALSE,          // Inherit handles
+        0,              // Creation flags
+        NULL,           // Environment
+        NULL,           // Current directory
+        &si, &pi
+    );
+
+    if (!success)
+    {
+        std::cerr << "Failed to run process: " << GetLastError() << std::endl;
+        exit(EXIT_FAILURE);
+    }
+
+    // Wait until the process exits
+    WaitForSingleObject(pi.hProcess, INFINITE);
+    CloseHandle(pi.hProcess);
+    CloseHandle(pi.hThread);
+
+
+    //------------verify if shader files exist----------------
+    char filename[256];
+    snprintf(filename, sizeof(filename), "%s.task.spv", shaderName);
+    if (!file_exists(filename))
+    {
+        STARTUPINFOA sInfo = { sizeof(sInfo) };
+        PROCESS_INFORMATION pInfo;
+        snprintf(command, sizeof(command), "notepad.exe \"%s\"", "taskCompileLog.txt");
+
+        if (CreateProcessA(NULL, command, NULL, NULL, FALSE, 0, NULL, NULL, &sInfo, &pInfo))
+        {
+            // Wait until the process exits
+            WaitForSingleObject(pInfo.hProcess, INFINITE);
+            CloseHandle(pInfo.hProcess);
+            CloseHandle(pInfo.hThread);
+        }
+        exit(EXIT_FAILURE);
+    }
+    snprintf(filename, sizeof(filename), "%s.mesh.spv", shaderName);
+    if (!file_exists(filename))
+    {
+        STARTUPINFOA sInfo = { sizeof(sInfo) };
+        PROCESS_INFORMATION pInfo;
+        snprintf(command, sizeof(command), "notepad.exe \"%s\"", "meshCompileLog.txt");
+        if (CreateProcessA(NULL, command, NULL, NULL, FALSE, 0, NULL, NULL, &sInfo, &pInfo))
+        {
+            // Wait until the process exits
+            WaitForSingleObject(pInfo.hProcess, INFINITE);
+            CloseHandle(pInfo.hProcess);
+            CloseHandle(pInfo.hThread);
+        }
+        exit(EXIT_FAILURE);
+    }
+    snprintf(filename, sizeof(filename), "%s.frag.spv", shaderName);
+    if (!file_exists(filename))
+    {
+        STARTUPINFOA sInfo = { sizeof(sInfo) };
+        PROCESS_INFORMATION pInfo;
+        snprintf(command, sizeof(command), "notepad.exe \"%s\"", "fragCompileLog.txt");
+        if (CreateProcessA(NULL, command, NULL, NULL, FALSE, 0, NULL, NULL, &sInfo, &pInfo))
+        {
+            // Wait until the process exits
+            WaitForSingleObject(pInfo.hProcess, INFINITE);
+            CloseHandle(pInfo.hProcess);
+            CloseHandle(pInfo.hThread);
+        }
         exit(EXIT_FAILURE);
     }
 }
@@ -1706,10 +1791,11 @@ VkResult initialize(void)
     // variable declarations
     VkResult vkResult = VK_SUCCESS;
 
-    compileShaderVS_FS("Impostor");
-    compileShaderVS_FS("Phong");
-    compileShaderVS_FS("PBR");
-    compileShaderVS_FS("PBR_Skinned");
+    //compileShaderVS_FS("Impostor");
+    //compileShaderVS_FS("Phong");
+    //compileShaderVS_FS("PBR");
+    //compileShaderVS_FS("PBR_Skinned");
+    compileShaderTS_MS_FS("Meshlet");
 
 
 	vkResult = gVulkanContext.Initialize();
@@ -1725,6 +1811,9 @@ VkResult initialize(void)
         fprintf(gpFILE, "initialize() : gSwapchain.Initialize() failed (%d).\n", vkResult);
 		return(vkResult);
 	}
+
+    vkCmdDrawMeshTasksEXT_pfn = (PFN_vkCmdDrawMeshTasksEXT)vkGetDeviceProcAddr(gVulkanContext.vkDevice,"vkCmdDrawMeshTasksEXT");
+    assert(vkCmdDrawMeshTasksEXT_pfn);
 
 
     //-----------------------------------------------------------------------------------------------
@@ -6943,6 +7032,7 @@ void RenderPBR_Basic(uint32_t curIndex)
 	VkDescriptorSet vkLocalDescriptorSets[] = { gFrames[curIndex].vkDescriptor_FrameData,global_textureArray_vkDescriptorSet };
     vkCmdBindDescriptorSets(gFrames[curIndex].commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, gpGraphicsPipelines->PBR.vkPipelineLayout, 0, _ARRAYSIZE(vkLocalDescriptorSets), vkLocalDescriptorSets, 0, NULL);
 
+	//Render all PBR models here
     RenderPBR_Sphere(curIndex);
 }
 
@@ -7002,6 +7092,7 @@ void RenderPBR_Skinned(uint32_t curIndex)
     VkDescriptorSet vkLocalDescriptorSets[] = { gFrames[curIndex].vkDescriptor_FrameDataBoneData,pModel_Rat->GetMaterialDescriptorSet(0),global_textureArray_vkDescriptorSet };
     vkCmdBindDescriptorSets(gFrames[curIndex].commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, gpGraphicsPipelines->PBR_Skinned.vkPipelineLayout, 0, _ARRAYSIZE(vkLocalDescriptorSets), vkLocalDescriptorSets, 0, NULL);
 
+	//Render all skinned models here
 	RenderPBR_Skinned_RAT(curIndex);
 }
 
@@ -7209,6 +7300,14 @@ VkResult buildCommandBuffers(uint32_t curIndex, uint32_t currentImageIndex)
     RenderPBR_Basic(curIndex); // Render the PBR basic model
 
 	RenderPBR_Skinned(curIndex); // Render the PBR skinned model
+
+    //Meshlet
+    // Bind the pipeline and descriptor sets
+    vkCmdBindPipeline(gFrames[curIndex].commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, gpGraphicsPipelines->Meshlet.vkPipeline);
+    //vkDescriptorSets
+    VkDescriptorSet vkLocalDescriptorSets[] = { gFrames[curIndex].vkDescriptor_FrameData };
+    vkCmdBindDescriptorSets(gFrames[curIndex].commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, gpGraphicsPipelines->Meshlet.vkPipelineLayout, 0, _ARRAYSIZE(vkLocalDescriptorSets), vkLocalDescriptorSets, 0, NULL);
+    vkCmdDrawMeshTasksEXT_pfn(gFrames[curIndex].commandBuffer, 1, 1, 1);
 
 #ifdef IMGUI_ENABLE
     RenderImGui(curIndex); // Render ImGui UI

@@ -32,7 +32,7 @@ public:
     VkPhysicalDevice vkPhysicalDevice = VK_NULL_HANDLE;
     VkPhysicalDeviceMemoryProperties vkPhysicalDeviceMemoryProperties{};
     uint32_t enabledDeviceExtensionCount;
-    const char* enabledDeviceExtensionNames_Array[1]; //for VK_KHR_SWAPCHAIN_EXTENSION_NAME
+    const char* enabledDeviceExtensionNames_Array[2]; //for VK_KHR_SWAPCHAIN_EXTENSION_NAME, MESH_SHADER_EXTENSION
 
     // Queue
     uint32_t vkGraphicsQueueFamilyIndex = UINT32_MAX;
@@ -73,7 +73,7 @@ public:
 		VkResult CreateCommandPool(void);
 
         //debugReportCallback
-        VKAPI_ATTR VkBool32 VKAPI_CALL debugReportCallback(VkDebugReportFlagsEXT vkDebugReportFlagsEXT, VkDebugReportObjectTypeEXT vkDebugReportObjectTypeEXT, uint64_t object, size_t location, int32_t messageCode, const char* pLayerPrefix, const char* pMessage, void* pUserData);
+        //VKAPI_ATTR VkBool32 VKAPI_CALL debugReportCallback(VkDebugReportFlagsEXT vkDebugReportFlagsEXT, VkDebugReportObjectTypeEXT vkDebugReportObjectTypeEXT, uint64_t object, size_t location, int32_t messageCode, const char* pLayerPrefix, const char* pMessage, void* pUserData);
 
 };
 

@@ -29,6 +29,7 @@ public:
 	PipelineData PBR_Skinned;
 	PipelineData WhiteVertex;
 	PipelineData ColoredVertex;
+	PipelineData Meshlet;
 
 	VkResult vkResult;
 
@@ -61,6 +62,7 @@ private:
 	VkResult createGraphicsPipeline_PBR_Skinned(VkPipelineLayoutCreateInfo vkPipelineLayoutCreateInfo);
 	VkResult createGraphicsPipeline_WhiteVertex(VkPipelineLayoutCreateInfo vkPipelineLayoutCreateInfo);
 	VkResult createGraphicsPipeline_ColoredVertex(VkPipelineLayoutCreateInfo vkPipelineLayoutCreateInfo);
+	VkResult createGraphicsPipeline_Meshlet(VkPipelineLayoutCreateInfo vkPipelineLayoutCreateInfo);
 
 
 };

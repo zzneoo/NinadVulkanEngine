@@ -529,6 +529,7 @@ VkResult VulkanContext::FillDeviceExtensionNames(void)
      *                  (2) Required extension names array
      */
     VkBool32 vulkanSwapchainExtensionFound = VK_FALSE;
+    VkBool32 meshShaderExtensionFound = VK_FALSE;
 
     for (uint32_t i = 0; i < deviceExtensionCount; i++)
     {
@@ -537,6 +538,13 @@ VkResult VulkanContext::FillDeviceExtensionNames(void)
         {
             vulkanSwapchainExtensionFound = VK_TRUE;
             enabledDeviceExtensionNames_Array[enabledDeviceExtensionCount++] = VK_KHR_SWAPCHAIN_EXTENSION_NAME;
+        }
+
+        if (strcmp(deviceExtensionNames_Array[i], VK_EXT_MESH_SHADER_EXTENSION_NAME) == 0)
+        {
+            meshShaderExtensionFound = VK_TRUE;
+            enabledDeviceExtensionNames_Array[enabledDeviceExtensionCount++] =
+                VK_EXT_MESH_SHADER_EXTENSION_NAME;
         }
     }
 
@@ -560,6 +568,14 @@ VkResult VulkanContext::FillDeviceExtensionNames(void)
     {
         vkResult = VK_ERROR_INITIALIZATION_FAILED; // return hard-coded failure
         fprintf(gpFILE, "fillDeviceExtensionNames() : VK_KHR_SWAPCHAIN_EXTENSION_NAME not found.\n");
+        return(vkResult);
+    }
+
+    if (meshShaderExtensionFound == VK_FALSE)
+    {
+        vkResult = VK_ERROR_EXTENSION_NOT_PRESENT;
+        fprintf(gpFILE,
+            "fillDeviceExtensionNames() : VK_EXT_mesh_shader not found.\n");
         return(vkResult);
     }
 
@@ -1158,14 +1174,22 @@ VkResult VulkanContext::CreateVulkanDevice(void)
     sync2.synchronization2 = VK_TRUE;
     sync2.pNext = &indexing;
 
-    //descriptorBindingSampledImageUpdateAfterBind
-    //descriptorBindingUpdateUnusedWhilePending
+    VkPhysicalDeviceMeshShaderFeaturesEXT meshShaderFeatures{};
+    meshShaderFeatures.sType =VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MESH_SHADER_FEATURES_EXT;
+    meshShaderFeatures.taskShader = VK_TRUE;
+    meshShaderFeatures.meshShader = VK_TRUE;
+    meshShaderFeatures.pNext = &sync2;
+
+    VkPhysicalDeviceMaintenance4Features maintenance4{};
+    maintenance4.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MAINTENANCE_4_FEATURES;
+    maintenance4.maintenance4 = VK_TRUE;
+    maintenance4.pNext = &meshShaderFeatures;
 
     VkPhysicalDeviceFeatures2 features2{};
     features2.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2;
     features2.features.samplerAnisotropy = VK_TRUE; // enable anisotropic filtering
     features2.features.tessellationShader = VK_TRUE; // enable tessellation shader
-    features2.pNext = &sync2;
+    features2.pNext = &maintenance4;
 
     VkDeviceCreateInfo vkDeviceCreateInfo;
     memset((void*)&vkDeviceCreateInfo, 0, sizeof(VkDeviceCreateInfo));

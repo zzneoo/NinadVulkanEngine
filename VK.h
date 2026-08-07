@@ -159,6 +159,9 @@ typedef struct PipelineData
 	VkPipelineLayout vkPipelineLayout = VK_NULL_HANDLE;
 	VkShaderModule vkVertexShaderModule = VK_NULL_HANDLE;
 	VkShaderModule vkFragmentShaderModule = VK_NULL_HANDLE;
+	VkShaderModule vkTaskShaderModule = VK_NULL_HANDLE;
+	VkShaderModule vkMeshShaderModule = VK_NULL_HANDLE;
+
 }PipelineData;
 
 

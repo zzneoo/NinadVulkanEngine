@@ -209,5 +209,17 @@
     <None Include="PBR_Skinned.vert">
       <Filter>Shaders</Filter>
     </None>
+    <None Include="BuildMesh.bat">
+      <Filter>Source Files</Filter>
+    </None>
+    <None Include="Meshlet.frag">
+      <Filter>Shaders</Filter>
+    </None>
+    <None Include="Meshlet.mesh">
+      <Filter>Shaders</Filter>
+    </None>
+    <None Include="Meshlet.task">
+      <Filter>Shaders</Filter>
+    </None>
   </ItemGroup>
 </Project>

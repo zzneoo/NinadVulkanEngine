@@ -194,8 +194,12 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="build.bat" />
+    <None Include="BuildMesh.bat" />
     <None Include="Impostor.frag" />
     <None Include="Impostor.vert" />
+    <None Include="Meshlet.frag" />
+    <None Include="Meshlet.mesh" />
+    <None Include="Meshlet.task" />
     <None Include="PBR.frag" />
     <None Include="PBR.vert" />
     <None Include="PBR_Skinned.frag" />

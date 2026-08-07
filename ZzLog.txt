@@ -30,6 +30,7 @@ printVkInfo() : Device ID   = 0x2684
 -------------------------------------------------------------------------------------
 -------------------------------------------------------------------------------------
 fillDeviceExtensionNames() : Enabled Vulkan device extension name = VK_KHR_swapchain
+fillDeviceExtensionNames() : Enabled Vulkan device extension name = VK_EXT_mesh_shader
 -------------------------------------------------------------------------------------
 createSwapchain() : minImageCount = 2, maxImageCount = 8
 createSwapchain() : (1) Swapchain Image width x height = 1888 x 992
