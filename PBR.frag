@@ -1,11 +1,15 @@
 #version 460
 
+#define saturate(x) clamp(x, 0.0, 1.0)
+
+const float PI = 3.14159265359;
+
 layout(location = 0) out vec4 fragColor;
 
 layout(location = 0) in vec2 outTexCoord;
 layout(location = 1) in vec3 outNormal;
 layout(location = 2) in vec3 outColor;
-layout(location = 3) in vec3 outTangent;
+layout(location = 3) in vec4 outTangent;
 layout(location = 4) in vec3 vWorldPos;
 
 layout(set = 1, binding = 0) uniform sampler2D tSampler_albedo;
@@ -14,13 +18,14 @@ layout(set = 1, binding = 2) uniform sampler2D tSampler_orx;
 
 layout(std140, set = 0, binding = 0) uniform FrameData 
 {
-    mat4 view;        // offset 0    64 bytes
-    mat4 projection;  // offset 64   64 bytes
-    float fTime;      // offset 128
-    uint  frameID;    // offset 132
-    vec3 cameraPos;   // offset 144  needs to be aligned to 16 bytes
-    float _pad;       // offset 156  pad to 160 (multiple of 16)
-}global;
+    mat4 view;        // offset 0    (64 bytes)
+    mat4 projection;  // offset 64   (64 bytes)
+    float fTime;      // offset 128  (4 bytes)
+    uint  frameID;    // offset 132  (4 bytes)
+    vec2  _pad0;      // offset 136  (8 bytes) -> explicitly aligns cameraPos to 144
+    vec3  cameraPos;  // offset 144  (12 bytes)
+    float _pad1;      // offset 156  (4 bytes) -> rounds struct total to 160
+} global;
 
 vec3 decodeNormalFromBC5_UNORM(vec2 enc) {
     // enc = texture(sampler, uv).rg  -> in [0,1]
@@ -60,7 +65,7 @@ float DistributionGGX(float NdotH, float roughness)
     float a = roughness * roughness;
     float a2 = a * a;
     float denom = (NdotH * NdotH) * (a2 - 1.0) + 1.0;
-    return a2 / max(3.14159265 * denom * denom, 1e-5);
+    return a2 / max(PI * denom * denom, 1e-5);
 }
 
 float GeometrySchlickGGX(float NdotV, float k) 
@@ -97,26 +102,28 @@ void main(void)
     vec2 uv = outTexCoord;
     
     vec3 albedo = texture(tSampler_albedo, uv).rgb;
+    vec3 normal_map = decodeBC5Normal_fast_robust(texture(tSampler_normal,uv).rg);
     vec3 orx = texture(tSampler_orx, uv).rgb;
 
     float ao = orx.r;
-    float roughness= clamp(orx.g, 0.045, 1.0); // avoid 0 to keep denom stable
-    float metallic = clamp(orx.b, 0.0, 1.0);
+    float roughness = clamp(orx.g, 0.045, 1.0);
+    float metallic = saturate(orx.b);
 
-	vec3 normal = normalize(outNormal);
-    vec3 tangent = normalize(outTangent);
-    vec3 bitangent = normalize(cross(normal, tangent));
+    vec3 normal = normalize(outNormal);
 
-    //reorthogonalize tangent
-    //tangent = normalize(tangent - dot(tangent, normal) * normal);
+    vec3 tangent = normalize(outTangent.xyz);
+    tangent = normalize(tangent - normal * dot(normal, tangent));
+
+    vec3 bitangent = cross(normal, tangent) * outTangent.w;
 
     mat3 TBN = mat3(tangent, bitangent, normal);
 
     //-------------------------------------------------------------------
 
-    vec3  normal_map = decodeNormalFromBC5_UNORM(texture(tSampler_normal,uv).rg);
+
 
     vec3 N = normalize(TBN * normal_map);
+    //vec3 N = normalize(normal);
     vec3 V = normalize(global.cameraPos - vWorldPos);
     vec3 L = normalize(vec3(0.0, 1.0, 0.0));
     vec3 H = normalize(V + L);
@@ -126,14 +133,15 @@ void main(void)
     // Base reflectance
     vec3 F0 = mix(vec3(0.04), albedo, metallic);
 
-    float NdotL = max(dot(N, L), 0.001);
-    float NdotV = max(dot(N, V), 0.001);
+    float NdotL = max(dot(N, L), 0.0);
+    float NdotV = max(dot(N, V), 0.0001);
     float NdotH = max(dot(N, H), 0.0);
     float HdotV = max(dot(H, V), 0.0);
 
     float D = DistributionGGX(NdotH, roughness);
     float G = GeometrySmith(NdotV, NdotL, roughness);
     vec3 F = FresnelSchlick(HdotV, F0);
+
 
     vec3 numerator = D * G * F;
     float denom = max(4.0 * NdotV * NdotL, 1e-4);
@@ -143,7 +151,7 @@ void main(void)
     // Energy-conserving diffuse term (Lambert)
     vec3 kS = F; // specular amount
     vec3 kD = (vec3(1.0) - kS) * (1.0 - metallic);
-    vec3 diffuse = kD * albedo / 3.14159265;
+    vec3 diffuse = kD * albedo / PI;
 
     vec3 ambient = albedo * ao * 0.04;
     vec3 Lo = (diffuse + specular) * radiance * NdotL;
@@ -152,5 +160,6 @@ void main(void)
     finalColor = Tonemap_ACES(finalColor);
 
 	fragColor = vec4(finalColor,1.0);
+	//fragColor = vec4(vec3(diffuse), 1.0);
 
 }

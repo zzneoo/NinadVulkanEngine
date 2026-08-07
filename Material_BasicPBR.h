@@ -25,6 +25,10 @@ public:
 	VkDescriptorSet getDescriptorSet(void) const { return(vkDescriptorSet); }
 	VkResult getVkResult(void) const { return (vkResult); }
 
+	const glm::uvec4 GetPBR_MaterialGlobalIDs() const
+	{
+		return glm::uvec4(Albedo.globalTextureArrayIndex, Normal.globalTextureArrayIndex, ORX.globalTextureArrayIndex, 0);
+	}
 
 private:
 

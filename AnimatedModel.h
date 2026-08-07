@@ -48,11 +48,16 @@ public:
         return PBR_Materials[materialIndex].data->getDescriptorSet();
 	}
 
+    const glm::uvec4 GetPBR_MaterialGlobalIDs() const
+    {
+        // Implementation needed
+		return PBR_Materials[0].data->GetPBR_MaterialGlobalIDs();
+    }
 
 private:
     static glm::mat4 aiMat4ToGlm(const aiMatrix4x4& m);
     // Helper: find memory type
-    uint32_t FindMemoryType(VkPhysicalDevice physicalDevice, uint32_t typeFilter, VkMemoryPropertyFlags properties);
+    //uint32_t FindMemoryType(VkPhysicalDevice physicalDevice, uint32_t typeFilter, VkMemoryPropertyFlags properties);
 
     void AddBoneDataToVertex(VertexData_Skinned& v, int boneIndex, float weight);
     VkResult LoadModel_Animated_PBR(const char* modelPath, bool index32, VkDescriptorSetLayout vkDescriptorSetLayout);

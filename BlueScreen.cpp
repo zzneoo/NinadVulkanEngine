@@ -6953,7 +6953,7 @@ void RenderPBR_Skinned(uint32_t curIndex)
     //pushConstants.model = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.0f, 0.0f));
     //ushConstants.model = glm::mat4(1.0f); // Identity matrix for no transformation
 
-	pushConstants.materialIDs = glm::uvec4(0, 1, 2, 0);
+	pushConstants.materialIDs = pModel_Rat->GetPBR_MaterialGlobalIDs();
     
 #ifdef IMGUI_ENABLE
     pushConstants.v3Color = v3Color;

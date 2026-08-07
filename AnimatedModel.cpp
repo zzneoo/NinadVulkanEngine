@@ -595,20 +595,6 @@ glm::mat4 AnimatedModel::aiMat4ToGlm(const aiMatrix4x4& m) {
     return out;
 }
 
-// Helper: find memory type
-uint32_t AnimatedModel::FindMemoryType(VkPhysicalDevice physicalDevice, uint32_t typeFilter, VkMemoryPropertyFlags properties)
-{
-    VkPhysicalDeviceMemoryProperties memProps;
-    vkGetPhysicalDeviceMemoryProperties(physicalDevice, &memProps);
-
-    for (uint32_t i = 0; i < memProps.memoryTypeCount; ++i) {
-        if ((typeFilter & (1u << i)) && ((memProps.memoryTypes[i].propertyFlags & properties) == properties)) {
-            return i;
-        }
-    }
-    throw std::runtime_error("Failed to find suitable memory type!");
-}
-
 void AnimatedModel::AddBoneDataToVertex(VertexData_Skinned& v, int boneIndex, float weight) {
     // Find first zero-weight slot
     for (int i = 0; i < 4; ++i) {
@@ -656,7 +642,7 @@ VkResult AnimatedModel::createSSBO(VkDevice device, VkPhysicalDevice physicalDev
 
     // Request HOST_VISIBLE && HOST_COHERENT for simplicity.
     VkMemoryPropertyFlags desired = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT;
-    uint32_t memTypeIndex = FindMemoryType(physicalDevice, memReq.memoryTypeBits, desired);
+    uint32_t memTypeIndex = gVulkanContext.FindMemoryType( memReq.memoryTypeBits, desired);
     allocInfo.memoryTypeIndex = memTypeIndex;
 
     res = vkAllocateMemory(device, &allocInfo, nullptr, &outSSBO.vkDeviceMemory);

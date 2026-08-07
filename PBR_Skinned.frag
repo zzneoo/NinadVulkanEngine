@@ -3,6 +3,7 @@
 #extension GL_EXT_nonuniform_qualifier : require
 
 #define saturate(x) clamp(x, 0.0, 1.0)
+const float PI = 3.14159265359;
 
 layout(location = 0) out vec4 fragColor;
 
@@ -14,13 +15,14 @@ layout(location = 4) in vec3 vWorldPos;
 
 layout(std140, set = 0, binding = 0) uniform FrameData 
 {
-    mat4 view;        // offset 0    64 bytes
-    mat4 projection;  // offset 64   64 bytes
-    float fTime;      // offset 128
-    uint  frameID;    // offset 132
-    vec3 cameraPos;   // offset 144  needs to be aligned to 16 bytes
-    float _pad;       // offset 156  pad to 160 (multiple of 16)
-}global;
+    mat4 view;        // offset 0    (64 bytes)
+    mat4 projection;  // offset 64   (64 bytes)
+    float fTime;      // offset 128  (4 bytes)
+    uint  frameID;    // offset 132  (4 bytes)
+    vec2  _pad0;      // offset 136  (8 bytes) -> explicitly aligns cameraPos to 144
+    vec3  cameraPos;  // offset 144  (12 bytes)
+    float _pad1;      // offset 156  (4 bytes) -> rounds struct total to 160
+} global;
 
 layout(set = 1, binding = 0) uniform sampler2D tSampler_albedo;
 layout(set = 1, binding = 1) uniform sampler2D tSampler_normal;
@@ -78,7 +80,7 @@ float DistributionGGX(float NdotH, float roughness)
     float a = roughness * roughness;
     float a2 = a * a;
     float denom = (NdotH * NdotH) * (a2 - 1.0) + 1.0;
-    return a2 / max(3.14159265 * denom * denom, 1e-5);
+    return a2 / max(PI * denom * denom, 1e-5);
 }
 
 float GeometrySchlickGGX(float NdotV, float k) 
@@ -120,20 +122,21 @@ void main(void)
     vec3 orx = texture(tSampler_orx, uv).rgb;
     */
 
-    vec3 albedo = texture(textures[pc.materialIDs.x], uv).rgb;
-    vec3 normal_map = decodeNormalFromBC5_UNORM(texture(textures[pc.materialIDs.y],uv).rg);
-    vec3 orx = texture(textures[pc.materialIDs.z], uv).rgb;
+    vec3 albedo = texture(textures[nonuniformEXT(pc.materialIDs.x)], uv).rgb;
+    vec3 normal_map = decodeBC5Normal_fast_robust(
+        texture(textures[nonuniformEXT(pc.materialIDs.y)], uv).rg);
+    vec3 orx = texture(textures[nonuniformEXT(pc.materialIDs.z)], uv).rgb;
 
     float ao = orx.r;
     float roughness= clamp(orx.g, 0.045, 1.0); // avoid 0 to keep denom stable
-    float metallic = clamp(orx.b, 0.0, 1.0);
+    float metallic = saturate(orx.b);
 
 	vec3 normal = normalize(outNormal);
     vec3 tangent = normalize(outTangent.xyz);
+    // Gram-Schmidt
+    tangent = normalize(tangent - normal * dot(normal, tangent));
     vec3 bitangent = cross(normal, tangent) * outTangent.w;
 
-    //reorthogonalize tangent
-    //tangent = normalize(tangent - dot(tangent, normal) * normal);
 
     mat3 TBN = mat3(tangent, bitangent, normal);
 
@@ -150,7 +153,7 @@ void main(void)
     vec3 F0 = mix(vec3(0.04), albedo, metallic);
 
     float NdotL = max(dot(N, L), 0.0);
-    float NdotV = max(dot(N, V), 0.0);
+    float NdotV = max(dot(N, V), 0.0001);
     float NdotH = max(dot(N, H), 0.0);
     float HdotV = max(dot(H, V), 0.0);
 
@@ -162,13 +165,13 @@ void main(void)
     vec3 numerator = D * G * F;
     float denom = max(4.0 * NdotV * NdotL, 1e-4);
     vec3 specular = numerator / denom;
-    specular = min(specular, vec3(10.0));// avoid extreme highlights from very small roughness
+    //specular = min(specular, vec3(10.0));// avoid extreme highlights from very small roughness
 
 
     // Energy-conserving diffuse term (Lambert)
     vec3 kS = F; // specular amount
     vec3 kD = (vec3(1.0) - kS) * (1.0 - metallic);
-    vec3 diffuse = kD * albedo / 3.14159265;
+    vec3 diffuse = kD * albedo / PI;
 
     vec3 ambient = albedo * ao * 0.04;
     vec3 Lo = (diffuse + specular) * radiance * NdotL;
