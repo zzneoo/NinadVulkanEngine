@@ -34,6 +34,7 @@ layout(location = 4) out vec3 vWorldPos;
 void main(void)
 {
 	outTexCoord = vTexCoord;
+    outTexCoord.y = 1.0 - outTexCoord.y;
 
     mat3 normalMatrix = transpose(inverse(mat3(pc.model)));
 

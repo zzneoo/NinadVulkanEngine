@@ -159,6 +159,7 @@
     <ClInclude Include="Material_BasicPBR.h" />
     <ClInclude Include="MyWin32.h" />
     <ClInclude Include="Resource.h" />
+    <ClInclude Include="StaticModel.h" />
     <ClInclude Include="stb_image.h" />
     <ClInclude Include="SwapchainContext.h" />
     <ClInclude Include="targetver.h" />
@@ -181,6 +182,7 @@
     <ClCompile Include="imgui\imgui_widgets.cpp" />
     <ClCompile Include="Material_BasicPBR.cpp" />
     <ClCompile Include="MyWin32.cpp" />
+    <ClCompile Include="StaticModel.cpp" />
     <ClCompile Include="SwapchainContext.cpp" />
     <ClCompile Include="VulkanContext.cpp" />
     <ClCompile Include="Win32Window.cpp" />

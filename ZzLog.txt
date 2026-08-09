@@ -49,6 +49,10 @@ loadTextureData_dds_c_bc7(): Loaded 'Resources/Impostors/BlackAlder_Field_02/T_I
 loadTextureData_dds_c_bc7(): Loaded 'E:\ZzNeO_Engine_new\ZzNeO_Engine\Everything\Resources\Models\RAT\Textures\Skin_4_White\Albedo.dds' w=4096 h=4096 mips=13 layers=1 (BC7)
 loadTextureData_dds_c_bc5_normal(): Loaded 'E:\ZzNeO_Engine_new\ZzNeO_Engine\Everything\Resources\Models\RAT\Textures\Skin_4_White\Normal.dds' w=4096 h=4096 mips=13 layers=1 (BC5)
 loadTextureData_dds_c_bc7(): Loaded 'E:\ZzNeO_Engine_new\ZzNeO_Engine\Everything\Resources\Models\RAT\Textures\Skin_4_White\ORX.dds' w=4096 h=4096 mips=13 layers=1 (BC7)
+loadTextureData_dds_c_bc7(): Loaded 'C:\Users\Ninad\source\repos\BlueScreen\Resources\Models\Ganesha\Albedo.dds' w=4096 h=4096 mips=13 layers=1 (BC7)
+loadTextureData_dds_c_bc5_normal(): Loaded 'C:\Users\Ninad\source\repos\BlueScreen\Resources\Models\Ganesha\Normal.dds' w=4096 h=4096 mips=13 layers=1 (BC5)
+loadTextureData_dds_c_bc7(): Loaded 'C:\Users\Ninad\source\repos\BlueScreen\Resources\Models\Ganesha\ORX.dds' w=4096 h=4096 mips=13 layers=1 (BC7)
+StaticModel::LoadModel_Static_PBR() : Loaded static model successfully. Meshes=1 Vertices=6976 Faces=13272 Indices=39816.
 loadTextureData_dds_c_bc7(): Loaded 'Resources/PBR_Materials/T_omfr20_4K/Albedo.dds' w=4096 h=4096 mips=13 layers=1 (BC7)
 loadTextureData_dds_c_bc5_normal(): Loaded 'Resources/PBR_Materials/T_omfr20_4K/Normal.dds' w=4096 h=4096 mips=13 layers=1 (BC5)
 loadTextureData_dds_c_bc7(): Loaded 'Resources/PBR_Materials/T_omfr20_4K/ORX.dds' w=4096 h=4096 mips=13 layers=1 (BC7)

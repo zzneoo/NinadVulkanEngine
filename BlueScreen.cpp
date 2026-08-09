@@ -60,6 +60,8 @@ using namespace tinyddsloader;
 
 #include "DescriptorSetLayouts.h"
 #include "GraphicsPipelines.h"
+
+#include "StaticModel.h"
 #include "AnimatedModel.h"
 
 // macros
@@ -120,6 +122,7 @@ VulkanComboData  SphereBufferData;
 //VulkanComboData  RatBufferData;
 
 AnimatedModel* pModel_Rat = NULL;
+StaticModel* pModel_Static_Ganesha = NULL;
 
 
 const uint16_t triangle_indices[] =
@@ -1793,7 +1796,7 @@ VkResult initialize(void)
 
     //compileShaderVS_FS("Impostor");
     //compileShaderVS_FS("Phong");
-    //compileShaderVS_FS("PBR");
+    compileShaderVS_FS("PBR");
     //compileShaderVS_FS("PBR_Skinned");
     compileShaderTS_MS_FS("Meshlet");
 
@@ -2267,6 +2270,7 @@ VkResult initialize(void)
     //}
 
     pModel_Rat = new AnimatedModel("Resources/Models/Test/RatWithMat.FBX", true, gpDescriptorSetLayouts->vkDescriptorSetLayout_BasicPBR);
+    pModel_Static_Ganesha = new StaticModel("Resources/Models/Ganesha/Ganesha.fbx", true, gpDescriptorSetLayouts->vkDescriptorSetLayout_BasicPBR);
 
     //createDescriptorSet_FrameDataBoneData
 	vkResult = createDescriptorSet_FrameDataBoneData();
@@ -2521,8 +2525,6 @@ VkResult display(void)
     //    fprintf(gpFILE, "display() : vkResetFences() failed (%d).\n", vkResult);
     //    return vkResult;
     //}
-
-
 
     //--------------------------------------------------------------------------------------
         //IMGUI dynamic
@@ -2798,6 +2800,7 @@ void uninitialize(void)
     //ZzDestroyVertexAndIndexBuffer(&RatBufferData);
 
 	delete pModel_Rat;
+    delete pModel_Static_Ganesha;
 
     //uniform buffer
 
@@ -6134,7 +6137,7 @@ VkResult createDescriptorPool(void)
     vkDescriptorPoolCreateInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
     vkDescriptorPoolCreateInfo.pNext = NULL;
     vkDescriptorPoolCreateInfo.flags = 0; // no flags
-    vkDescriptorPoolCreateInfo.maxSets = (2 * MAX_FRAMES) + 2 + 2 + 1; // maximum number of descriptor sets that can be allocated from this pool
+    vkDescriptorPoolCreateInfo.maxSets = (2 * MAX_FRAMES) + 8; // maximum number of descriptor sets that can be allocated from this pool
     vkDescriptorPoolCreateInfo.poolSizeCount = _ARRAYSIZE(vkDescriptorPoolSizes); // number of descriptor pool sizes
     vkDescriptorPoolCreateInfo.pPoolSizes = vkDescriptorPoolSizes;
 
@@ -7023,6 +7026,53 @@ void RenderPBR_Sphere(uint32_t curIndex)
 
 }
 
+void RenderPBR_Static_Ganesha(uint32_t curIndex)
+{
+    static float fAngle = 0.0f;
+    fAngle += MyWin32::fDeltaTime * 20.0f; // Increment the angle for rotation
+    if (fAngle >= 360.0f)
+        fAngle = fAngle - 360.0f; // Reset the angle if it exceeds 360 degrees
+
+    PushConstants pushConstants{};
+    glm::mat4 translation = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.0f, 0.0f));
+    glm::mat4 rotation = glm::rotate(glm::mat4(1.0f), glm::radians(90.0f), glm::vec3(1.0f, 0.0f, 0.0f));
+    glm::mat4 scale = glm::scale(glm::mat4(1.0f), glm::vec3(0.2f, 0.2f, 0.2f));
+
+    pushConstants.model = translation * rotation * scale;
+    //pushConstants.model = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.0f, 0.0f));
+    //ushConstants.model = glm::mat4(1.0f); // Identity matrix for no transformation
+
+    pushConstants.materialIDs = pModel_Static_Ganesha->GetPBR_MaterialGlobalIDs();
+
+#ifdef IMGUI_ENABLE
+    pushConstants.v3Color = v3Color;
+    pushConstants.fFactor = fFactor;
+#else
+    pushConstants.v3Color = glm::vec3(1.0);
+    pushConstants.fFactor = 1.0f;
+#endif //IMGUI_ENABLE
+
+
+    // Push the model matrix
+    vkCmdPushConstants(
+        gFrames[curIndex].commandBuffer,
+        gpGraphicsPipelines->PBR.vkPipelineLayout,
+        VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, // stages where the push constant will be used
+        0,                                      // offset
+        sizeof(PushConstants),                  // size
+        &pushConstants                          // pointer to our data
+    );
+    // Bind vertex buffer
+    VkDeviceSize offset = 0;
+
+    const VulkanComboData* vulkanComboData_Ganesha = pModel_Static_Ganesha->GetVulkanComboData();
+
+    vkCmdBindVertexBuffers(gFrames[curIndex].commandBuffer, 0, 1, &vulkanComboData_Ganesha->vertexData.vkBuffer, &offset);
+    vkCmdBindIndexBuffer(gFrames[curIndex].commandBuffer, vulkanComboData_Ganesha->indexData.vkBuffer, 0, VK_INDEX_TYPE_UINT32);
+    vkCmdDrawIndexed(gFrames[curIndex].commandBuffer, vulkanComboData_Ganesha->indicesCount, 1, 0, 0, 0);
+
+}
+
 void RenderPBR_Basic(uint32_t curIndex)
 {
     // Bind the pipeline and descriptor sets
@@ -7034,6 +7084,8 @@ void RenderPBR_Basic(uint32_t curIndex)
 
 	//Render all PBR models here
     RenderPBR_Sphere(curIndex);
+
+    RenderPBR_Static_Ganesha(curIndex);
 }
 
 void RenderPBR_Skinned_RAT(uint32_t curIndex)
@@ -7096,6 +7148,16 @@ void RenderPBR_Skinned(uint32_t curIndex)
 	RenderPBR_Skinned_RAT(curIndex);
 }
 
+void Render_Meshlet(uint32_t curIndex)
+{
+    //Meshlet
+    // Bind the pipeline and descriptor sets
+    vkCmdBindPipeline(gFrames[curIndex].commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, gpGraphicsPipelines->Meshlet.vkPipeline);
+    //vkDescriptorSets
+    VkDescriptorSet vkLocalDescriptorSets[] = { gFrames[curIndex].vkDescriptor_FrameData };
+    vkCmdBindDescriptorSets(gFrames[curIndex].commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, gpGraphicsPipelines->Meshlet.vkPipelineLayout, 0, _ARRAYSIZE(vkLocalDescriptorSets), vkLocalDescriptorSets, 0, NULL);
+    vkCmdDrawMeshTasksEXT_pfn(gFrames[curIndex].commandBuffer, 1, 1, 1);
+}
 
 
 void transitionImageLayout(
@@ -7301,13 +7363,7 @@ VkResult buildCommandBuffers(uint32_t curIndex, uint32_t currentImageIndex)
 
 	RenderPBR_Skinned(curIndex); // Render the PBR skinned model
 
-    //Meshlet
-    // Bind the pipeline and descriptor sets
-    vkCmdBindPipeline(gFrames[curIndex].commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, gpGraphicsPipelines->Meshlet.vkPipeline);
-    //vkDescriptorSets
-    VkDescriptorSet vkLocalDescriptorSets[] = { gFrames[curIndex].vkDescriptor_FrameData };
-    vkCmdBindDescriptorSets(gFrames[curIndex].commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, gpGraphicsPipelines->Meshlet.vkPipelineLayout, 0, _ARRAYSIZE(vkLocalDescriptorSets), vkLocalDescriptorSets, 0, NULL);
-    vkCmdDrawMeshTasksEXT_pfn(gFrames[curIndex].commandBuffer, 1, 1, 1);
+    //Render_Meshlet(curIndex);// Render triangle with meshlet pipeline
 
 #ifdef IMGUI_ENABLE
     RenderImGui(curIndex); // Render ImGui UI

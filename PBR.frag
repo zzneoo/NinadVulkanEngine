@@ -172,6 +172,6 @@ void main(void)
     finalColor = Tonemap_ACES(finalColor);
 
 	fragColor = vec4(finalColor,1.0);
-	//fragColor = vec4(vec3(diffuse), 1.0);
+	//fragColor = vec4(vec3(ao), 1.0);
 
 }

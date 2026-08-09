@@ -96,6 +96,9 @@
     <ClInclude Include="FrameContext.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="StaticModel.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="BlueScreen.cpp">
@@ -147,6 +150,9 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="FrameContext.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="StaticModel.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
