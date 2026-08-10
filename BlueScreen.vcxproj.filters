@@ -22,6 +22,12 @@
     <Filter Include="Shaders">
       <UniqueIdentifier>{cb247caf-1131-4750-8ffe-b0b062db167f}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Header Files\MeshOptimizer">
+      <UniqueIdentifier>{3de0bea1-3650-4813-9dbc-5579fc1a1d06}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\MeshOptimizer">
+      <UniqueIdentifier>{64dc31bc-55bf-42c7-bec5-11bd80fb1a8a}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="framework.h">
@@ -99,6 +105,12 @@
     <ClInclude Include="StaticModel.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="MeshOptimizer\meshoptimizer.h">
+      <Filter>Header Files\MeshOptimizer</Filter>
+    </ClInclude>
+    <ClInclude Include="StaticMeshletModel.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="BlueScreen.cpp">
@@ -153,6 +165,72 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="StaticModel.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="MeshOptimizer\allocator.cpp">
+      <Filter>Source Files\MeshOptimizer</Filter>
+    </ClCompile>
+    <ClCompile Include="MeshOptimizer\clusterizer.cpp">
+      <Filter>Source Files\MeshOptimizer</Filter>
+    </ClCompile>
+    <ClCompile Include="MeshOptimizer\indexanalyzer.cpp">
+      <Filter>Source Files\MeshOptimizer</Filter>
+    </ClCompile>
+    <ClCompile Include="MeshOptimizer\indexcodec.cpp">
+      <Filter>Source Files\MeshOptimizer</Filter>
+    </ClCompile>
+    <ClCompile Include="MeshOptimizer\indexgenerator.cpp">
+      <Filter>Source Files\MeshOptimizer</Filter>
+    </ClCompile>
+    <ClCompile Include="MeshOptimizer\meshletcodec.cpp">
+      <Filter>Source Files\MeshOptimizer</Filter>
+    </ClCompile>
+    <ClCompile Include="MeshOptimizer\meshletutils.cpp">
+      <Filter>Source Files\MeshOptimizer</Filter>
+    </ClCompile>
+    <ClCompile Include="MeshOptimizer\opacitymap.cpp">
+      <Filter>Source Files\MeshOptimizer</Filter>
+    </ClCompile>
+    <ClCompile Include="MeshOptimizer\overdrawoptimizer.cpp">
+      <Filter>Source Files\MeshOptimizer</Filter>
+    </ClCompile>
+    <ClCompile Include="MeshOptimizer\partition.cpp">
+      <Filter>Source Files\MeshOptimizer</Filter>
+    </ClCompile>
+    <ClCompile Include="MeshOptimizer\quantization.cpp">
+      <Filter>Source Files\MeshOptimizer</Filter>
+    </ClCompile>
+    <ClCompile Include="MeshOptimizer\rasterizer.cpp">
+      <Filter>Source Files\MeshOptimizer</Filter>
+    </ClCompile>
+    <ClCompile Include="MeshOptimizer\remesher.cpp">
+      <Filter>Source Files\MeshOptimizer</Filter>
+    </ClCompile>
+    <ClCompile Include="MeshOptimizer\simplifier.cpp">
+      <Filter>Source Files\MeshOptimizer</Filter>
+    </ClCompile>
+    <ClCompile Include="MeshOptimizer\spatialorder.cpp">
+      <Filter>Source Files\MeshOptimizer</Filter>
+    </ClCompile>
+    <ClCompile Include="MeshOptimizer\stripifier.cpp">
+      <Filter>Source Files\MeshOptimizer</Filter>
+    </ClCompile>
+    <ClCompile Include="MeshOptimizer\tangentspace.cpp">
+      <Filter>Source Files\MeshOptimizer</Filter>
+    </ClCompile>
+    <ClCompile Include="MeshOptimizer\vcacheoptimizer.cpp">
+      <Filter>Source Files\MeshOptimizer</Filter>
+    </ClCompile>
+    <ClCompile Include="MeshOptimizer\vertexcodec.cpp">
+      <Filter>Source Files\MeshOptimizer</Filter>
+    </ClCompile>
+    <ClCompile Include="MeshOptimizer\vertexfilter.cpp">
+      <Filter>Source Files\MeshOptimizer</Filter>
+    </ClCompile>
+    <ClCompile Include="MeshOptimizer\vfetchoptimizer.cpp">
+      <Filter>Source Files\MeshOptimizer</Filter>
+    </ClCompile>
+    <ClCompile Include="StaticMeshletModel.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>

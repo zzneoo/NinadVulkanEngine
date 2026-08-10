@@ -1152,27 +1152,26 @@ VkResult VulkanContext::CreateVulkanDevice(void)
     dynamicRendering.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DYNAMIC_RENDERING_FEATURES;
     dynamicRendering.dynamicRendering = VK_TRUE;
 
-    VkPhysicalDeviceTimelineSemaphoreFeatures timeline{};
-    timeline.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_TIMELINE_SEMAPHORE_FEATURES;
-    timeline.timelineSemaphore = VK_TRUE;
-    timeline.pNext = &dynamicRendering;
+    VkPhysicalDeviceVulkan12Features vulkan12Features{};
+    vulkan12Features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES;
 
-    VkPhysicalDeviceDescriptorIndexingFeatures indexing{};
-    indexing.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_INDEXING_FEATURES;
-    indexing.runtimeDescriptorArray = VK_TRUE;
-    indexing.descriptorBindingPartiallyBound = VK_TRUE;
-    indexing.descriptorBindingVariableDescriptorCount = VK_TRUE;
-    indexing.shaderSampledImageArrayNonUniformIndexing = VK_TRUE;
-    indexing.descriptorBindingSampledImageUpdateAfterBind = VK_TRUE;
-    indexing.descriptorBindingUpdateUnusedWhilePending = VK_TRUE;
-    indexing.pNext = &timeline;
+    // Required for uint8_t storage-buffer elements
+    vulkan12Features.storageBuffer8BitAccess = VK_TRUE;
+    vulkan12Features.runtimeDescriptorArray = VK_TRUE;
+    vulkan12Features.descriptorBindingPartiallyBound = VK_TRUE;
+    vulkan12Features.descriptorBindingVariableDescriptorCount = VK_TRUE;
+    vulkan12Features.shaderSampledImageArrayNonUniformIndexing = VK_TRUE;
+    vulkan12Features.descriptorBindingSampledImageUpdateAfterBind = VK_TRUE;
+    vulkan12Features.descriptorBindingUpdateUnusedWhilePending = VK_TRUE;
+    vulkan12Features.timelineSemaphore = VK_TRUE;
+    vulkan12Features.pNext = &dynamicRendering;
 
     //synchronization2
 
     VkPhysicalDeviceSynchronization2Features sync2{};
     sync2.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SYNCHRONIZATION_2_FEATURES;
     sync2.synchronization2 = VK_TRUE;
-    sync2.pNext = &indexing;
+    sync2.pNext = &vulkan12Features;
 
     VkPhysicalDeviceMeshShaderFeaturesEXT meshShaderFeatures{};
     meshShaderFeatures.sType =VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MESH_SHADER_FEATURES_EXT;
@@ -1189,6 +1188,7 @@ VkResult VulkanContext::CreateVulkanDevice(void)
     features2.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2;
     features2.features.samplerAnisotropy = VK_TRUE; // enable anisotropic filtering
     features2.features.tessellationShader = VK_TRUE; // enable tessellation shader
+
     features2.pNext = &maintenance4;
 
     VkDeviceCreateInfo vkDeviceCreateInfo;

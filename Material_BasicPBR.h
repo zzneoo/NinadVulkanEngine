@@ -16,7 +16,15 @@ extern std::vector<ImageData*> global_textureArray;
 
 extern FILE* gpFILE;
 
-struct Material_BasicPBR
+struct MaterialInfo
+{
+	std::string materialName;
+	std::string path;
+
+	Material_BasicPBR* data = nullptr;
+};
+
+class Material_BasicPBR
 {
 public:
 	Material_BasicPBR(VkDescriptorSetLayout layout, const char* path);

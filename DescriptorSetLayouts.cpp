@@ -58,7 +58,7 @@ VkResult DescriptorSetLayouts::createDescriptorSetLayout_FrameData(void)
     vkDescriptorSetLayoutBinding_Array[0].binding = 0; // binding index
     vkDescriptorSetLayoutBinding_Array[0].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER; // descriptor type
     vkDescriptorSetLayoutBinding_Array[0].descriptorCount = 1; // number of descriptors
-    vkDescriptorSetLayoutBinding_Array[0].stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT; // stage flags for the descriptor set layout binding
+    vkDescriptorSetLayoutBinding_Array[0].stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT | VK_SHADER_STAGE_MESH_BIT_EXT; // stage flags for the descriptor set layout binding
     vkDescriptorSetLayoutBinding_Array[0].pImmutableSamplers = NULL; // no immutable samplers
 
     // code
@@ -268,6 +268,110 @@ VkResult DescriptorSetLayouts::createDescriptorSetLayout_GlobalTextureArray(void
 	return vkResult;
 }
 
+VkResult DescriptorSetLayouts::createDescriptorSetLayout_Meshlet(void)
+{
+    VkResult vkResult = VK_SUCCESS;
+
+    VkDescriptorSetLayoutBinding bindings[4]{};
+
+
+    // ============================================================
+    // binding 0 : MeshletData[]
+    // ============================================================
+
+    bindings[0].binding = 0;
+
+    bindings[0].descriptorType =
+        VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+
+    bindings[0].descriptorCount = 1;
+
+    bindings[0].stageFlags =
+        VK_SHADER_STAGE_TASK_BIT_EXT |
+        VK_SHADER_STAGE_MESH_BIT_EXT;
+
+
+    // ============================================================
+    // binding 1 : meshletVertices[]
+    // ============================================================
+
+    bindings[1].binding = 1;
+
+    bindings[1].descriptorType =
+        VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+
+    bindings[1].descriptorCount = 1;
+
+    bindings[1].stageFlags =
+        VK_SHADER_STAGE_MESH_BIT_EXT;
+
+
+    // ============================================================
+    // binding 2 : meshletTriangles[]
+    // ============================================================
+
+    bindings[2].binding = 2;
+
+    bindings[2].descriptorType =
+        VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+
+    bindings[2].descriptorCount = 1;
+
+    bindings[2].stageFlags =
+        VK_SHADER_STAGE_MESH_BIT_EXT;
+
+
+    // ============================================================
+    // binding 3 : VertexData[]
+    // ============================================================
+
+    bindings[3].binding = 3;
+
+    bindings[3].descriptorType =
+        VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+
+    bindings[3].descriptorCount = 1;
+
+    bindings[3].stageFlags =
+        VK_SHADER_STAGE_MESH_BIT_EXT;
+
+
+    // ============================================================
+    // Create layout
+    // ============================================================
+
+    VkDescriptorSetLayoutCreateInfo layoutInfo{};
+
+    layoutInfo.sType =
+        VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
+
+    layoutInfo.bindingCount = 4;
+
+    layoutInfo.pBindings = bindings;
+
+
+    vkResult =
+        vkCreateDescriptorSetLayout(
+            gVulkanContext.vkDevice,
+            &layoutInfo,
+            nullptr,
+            &vkDescriptorSetLayout_Meshlet);
+
+    if (vkResult != VK_SUCCESS)
+    {
+        fprintf(
+            gpFILE,
+            "createDescriptorSetLayout_Meshlet() : "
+            "vkCreateDescriptorSetLayout() failed (%d).\n",
+            vkResult);
+
+        return vkResult;
+    }
+
+
+    return VK_SUCCESS;
+}
+
 //--------------------------------------------------------------------------------------------
 
 VkResult DescriptorSetLayouts::createDescriptorSetLayouts(void)
@@ -321,6 +425,14 @@ VkResult DescriptorSetLayouts::createDescriptorSetLayouts(void)
         return vkResult;
     }
 
+    //descriptor set layout for meshlet
+    vkResult = createDescriptorSetLayout_Meshlet();
+    if (vkResult != VK_SUCCESS)
+    {
+        fprintf(gpFILE, "initialize() : createDescriptorSetLayout_Meshlet() failed (%d).\n", vkResult);
+        return vkResult;
+    }
+
     return vkResult;
 }
 
@@ -366,4 +478,11 @@ void DescriptorSetLayouts::destroyDescriptorSetLayouts(void)
         vkDestroyDescriptorSetLayout(gVulkanContext.vkDevice, vkDescriptorSetLayout_GlobalTextureArray, NULL);
         vkDescriptorSetLayout_GlobalTextureArray = VK_NULL_HANDLE;
 	}
+
+    //descriptor set layout for Meshlet
+    if (vkDescriptorSetLayout_Meshlet)
+    {
+        vkDestroyDescriptorSetLayout(gVulkanContext.vkDevice, vkDescriptorSetLayout_Meshlet, NULL);
+        vkDescriptorSetLayout_Meshlet = VK_NULL_HANDLE;
+    }
 }

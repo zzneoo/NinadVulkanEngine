@@ -53,6 +53,13 @@ loadTextureData_dds_c_bc7(): Loaded 'C:\Users\Ninad\source\repos\BlueScreen\Reso
 loadTextureData_dds_c_bc5_normal(): Loaded 'C:\Users\Ninad\source\repos\BlueScreen\Resources\Models\Ganesha\Normal.dds' w=4096 h=4096 mips=13 layers=1 (BC5)
 loadTextureData_dds_c_bc7(): Loaded 'C:\Users\Ninad\source\repos\BlueScreen\Resources\Models\Ganesha\ORX.dds' w=4096 h=4096 mips=13 layers=1 (BC7)
 StaticModel::LoadModel_Static_PBR() : Loaded static model successfully. Meshes=1 Vertices=6976 Faces=13272 Indices=39816.
+loadTextureData_dds_c_bc7(): Loaded 'C:\Users\Ninad\source\repos\BlueScreen\Resources\Models\Ganesha\Albedo.dds' w=4096 h=4096 mips=13 layers=1 (BC7)
+loadTextureData_dds_c_bc5_normal(): Loaded 'C:\Users\Ninad\source\repos\BlueScreen\Resources\Models\Ganesha\Normal.dds' w=4096 h=4096 mips=13 layers=1 (BC5)
+loadTextureData_dds_c_bc7(): Loaded 'C:\Users\Ninad\source\repos\BlueScreen\Resources\Models\Ganesha\ORX.dds' w=4096 h=4096 mips=13 layers=1 (BC7)
+StaticMeshletModel::CreateMeshlets() : Generated 141 meshlets.
+StaticMeshletModel::CreateMeshlets() : Vertices=9004, Triangles=39816.
+StaticMeshletModel::CreateMeshletSSBOs() : Created device-local meshlet buffers. Vertices=6976 Meshlets=141.
+StaticMeshletModel::CreateMeshlets() : Meshlet generation and GPU upload completed.
 loadTextureData_dds_c_bc7(): Loaded 'Resources/PBR_Materials/T_omfr20_4K/Albedo.dds' w=4096 h=4096 mips=13 layers=1 (BC7)
 loadTextureData_dds_c_bc5_normal(): Loaded 'Resources/PBR_Materials/T_omfr20_4K/Normal.dds' w=4096 h=4096 mips=13 layers=1 (BC5)
 loadTextureData_dds_c_bc7(): Loaded 'Resources/PBR_Materials/T_omfr20_4K/ORX.dds' w=4096 h=4096 mips=13 layers=1 (BC7)

@@ -21,12 +21,6 @@ extern FILE* gpFILE;
 //extern VkQueue vkQueue;
 //extern VkPhysicalDevice vkPhysicalDevice_Selected;
 
-struct MaterialInfo {
-    std::string materialName;
-    std::string path;
-    Material_BasicPBR* data;
-};
-
 
 class AnimatedModel
 {

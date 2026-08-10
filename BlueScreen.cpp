@@ -63,6 +63,7 @@ using namespace tinyddsloader;
 
 #include "StaticModel.h"
 #include "AnimatedModel.h"
+#include "StaticMeshletModel.h"
 
 // macros
 #define WIN_WIDTH  1920
@@ -106,7 +107,7 @@ uint64_t gTimelineValue = 0;
 VkClearColorValue vkClearColorValue;
 
 // For Rendering
-BOOL     bInitialized = FALSE;
+BOOL bInitialized = FALSE;
 
 
 // position
@@ -123,6 +124,7 @@ VulkanComboData  SphereBufferData;
 
 AnimatedModel* pModel_Rat = NULL;
 StaticModel* pModel_Static_Ganesha = NULL;
+StaticMeshletModel* pModel_Meshlet_Ganesha = NULL;
 
 
 const uint16_t triangle_indices[] =
@@ -2271,6 +2273,7 @@ VkResult initialize(void)
 
     pModel_Rat = new AnimatedModel("Resources/Models/Test/RatWithMat.FBX", true, gpDescriptorSetLayouts->vkDescriptorSetLayout_BasicPBR);
     pModel_Static_Ganesha = new StaticModel("Resources/Models/Ganesha/Ganesha.fbx", true, gpDescriptorSetLayouts->vkDescriptorSetLayout_BasicPBR);
+    pModel_Meshlet_Ganesha = new StaticMeshletModel("Resources/Models/Ganesha/Ganesha.fbx", gpDescriptorSetLayouts->vkDescriptorSetLayout_BasicPBR);
 
     //createDescriptorSet_FrameDataBoneData
 	vkResult = createDescriptorSet_FrameDataBoneData();
@@ -2801,6 +2804,7 @@ void uninitialize(void)
 
 	delete pModel_Rat;
     delete pModel_Static_Ganesha;
+    delete pModel_Meshlet_Ganesha;
 
     //uniform buffer
 
@@ -6127,7 +6131,7 @@ VkResult createDescriptorPool(void)
     {
         {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1 * MAX_FRAMES}, // descriptor type and descriptor count
         {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 6 + 3 +3}, // descriptor type and descriptor count for combined image sampler
-		{VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1 * MAX_FRAMES}, // descriptor type and descriptor count for storage buffer//bones
+		{VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1 * MAX_FRAMES + 4}, // descriptor type and descriptor count for storage buffer
     };
 
     // Declare and initialize VkDescriptorPoolCreateInfo structure and refer above VkDescriptorPoolSize into it.
@@ -6800,7 +6804,7 @@ void RenderColoredTriangle(uint32_t curIndex)
     PushConstants pushConstants;
     memset(&pushConstants, 0, sizeof(PushConstants));
 
-    pushConstants.model = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, -3.0f, 0.0f)) * glm::rotate(glm::mat4(1.0f), glm::radians(fAngle), glm::vec3(0.0f, 0.0f, 1.0f));
+    pushConstants.model = glm::translate(glm::mat4(1.0f), glm::vec3(15.0f, -3.0f, 0.0f)) * glm::rotate(glm::mat4(1.0f), glm::radians(fAngle), glm::vec3(0.0f, 0.0f, 1.0f));
 
 #ifdef IMGUI_ENABLE
     pushConstants.v3Color = v3Color;
@@ -6950,7 +6954,7 @@ void RenderSuzanne(uint32_t curIndex)
         fAngle = fAngle - 360.0f; // Reset the angle if it exceeds 360 degrees
 
     PushConstants pushConstants{};
-    pushConstants.model = glm::translate(glm::mat4(1.0f), glm::vec3(-3.0f, -10.0f, 2.0f)) * glm::rotate(glm::mat4(1.0f), glm::radians(fAngle), glm::vec3(0.0f, 0.0f, 1.0f));
+    pushConstants.model = glm::translate(glm::mat4(1.0f), glm::vec3(15.0f, -10.0f, 2.0f)) * glm::rotate(glm::mat4(1.0f), glm::radians(fAngle), glm::vec3(0.0f, 0.0f, 1.0f));
     //pushConstants.model = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.0f, 0.0f));
     //ushConstants.model = glm::mat4(1.0f); // Identity matrix for no transformation
 
@@ -7034,9 +7038,10 @@ void RenderPBR_Static_Ganesha(uint32_t curIndex)
         fAngle = fAngle - 360.0f; // Reset the angle if it exceeds 360 degrees
 
     PushConstants pushConstants{};
-    glm::mat4 translation = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.0f, 0.0f));
+    glm::mat4 translation = glm::translate(glm::mat4(1.0f), glm::vec3(5.0f, -5.0f, 0.0f));
     glm::mat4 rotation = glm::rotate(glm::mat4(1.0f), glm::radians(90.0f), glm::vec3(1.0f, 0.0f, 0.0f));
-    glm::mat4 scale = glm::scale(glm::mat4(1.0f), glm::vec3(0.2f, 0.2f, 0.2f));
+    rotation = glm::rotate(rotation, glm::radians(-90.0f), glm::vec3(0.0f, 1.0f, 0.0f));
+    glm::mat4 scale = glm::scale(glm::mat4(1.0f), glm::vec3(2.0f, 2.0f, 2.0f));
 
     pushConstants.model = translation * rotation * scale;
     //pushConstants.model = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.0f, 0.0f));
@@ -7148,7 +7153,7 @@ void RenderPBR_Skinned(uint32_t curIndex)
 	RenderPBR_Skinned_RAT(curIndex);
 }
 
-void Render_Meshlet(uint32_t curIndex)
+void Render_MeshletTriangle(uint32_t curIndex)
 {
     //Meshlet
     // Bind the pipeline and descriptor sets
@@ -7157,6 +7162,69 @@ void Render_Meshlet(uint32_t curIndex)
     VkDescriptorSet vkLocalDescriptorSets[] = { gFrames[curIndex].vkDescriptor_FrameData };
     vkCmdBindDescriptorSets(gFrames[curIndex].commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, gpGraphicsPipelines->Meshlet.vkPipelineLayout, 0, _ARRAYSIZE(vkLocalDescriptorSets), vkLocalDescriptorSets, 0, NULL);
     vkCmdDrawMeshTasksEXT_pfn(gFrames[curIndex].commandBuffer, 1, 1, 1);
+}
+
+void Render_Meshlet(uint32_t curIndex)
+{
+    VkCommandBuffer commandBuffer =
+        gFrames[curIndex].commandBuffer;
+
+
+    // ------------------------------------------------------------
+    // Bind meshlet pipeline
+    // ------------------------------------------------------------
+
+    vkCmdBindPipeline(
+        commandBuffer,
+        VK_PIPELINE_BIND_POINT_GRAPHICS,
+        gpGraphicsPipelines->Meshlet.vkPipeline);
+
+
+    // ------------------------------------------------------------
+    // Set 0 : FrameData
+    // ------------------------------------------------------------
+
+    VkDescriptorSet frameDescriptorSet =
+        gFrames[curIndex].vkDescriptor_FrameData;
+
+    vkCmdBindDescriptorSets(
+        commandBuffer,
+        VK_PIPELINE_BIND_POINT_GRAPHICS,
+        gpGraphicsPipelines->Meshlet.vkPipelineLayout,
+        0,
+        1,
+        &frameDescriptorSet,
+        0,
+        NULL);
+
+
+    // ------------------------------------------------------------
+    // Set 1 : Meshlet SSBOs
+    // ------------------------------------------------------------
+
+    VkDescriptorSet meshletDescriptorSet =
+        pModel_Meshlet_Ganesha->GetMeshletDescriptorSet();
+
+    vkCmdBindDescriptorSets(
+        commandBuffer,
+        VK_PIPELINE_BIND_POINT_GRAPHICS,
+        gpGraphicsPipelines->Meshlet.vkPipelineLayout,
+        1,
+        1,
+        &meshletDescriptorSet,
+        0,
+        NULL);
+
+
+    // ------------------------------------------------------------
+    // Dispatch meshlet pipeline
+    // ------------------------------------------------------------
+
+    vkCmdDrawMeshTasksEXT_pfn(
+        commandBuffer,
+        pModel_Meshlet_Ganesha->GetMeshletCount(),
+        1,
+        1);
 }
 
 
@@ -7363,7 +7431,9 @@ VkResult buildCommandBuffers(uint32_t curIndex, uint32_t currentImageIndex)
 
 	RenderPBR_Skinned(curIndex); // Render the PBR skinned model
 
-    //Render_Meshlet(curIndex);// Render triangle with meshlet pipeline
+    //Render_MeshletTriangle(curIndex);// Render triangle with meshlet pipeline
+
+    //Render_Meshlet(curIndex);// Render  meshlet pipeline
 
 #ifdef IMGUI_ENABLE
     RenderImGui(curIndex); // Render ImGui UI

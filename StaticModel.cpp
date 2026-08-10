@@ -138,7 +138,7 @@ VkResult StaticModel::LoadModel_Static_PBR(
                 0,
                 &tex))
         {
-            StaticMaterialInfo info;
+            MaterialInfo info;
 
             std::string directory =
                 std::filesystem::path(

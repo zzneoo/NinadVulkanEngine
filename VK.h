@@ -21,6 +21,7 @@
 
 //Uniform Buffer Objects------------------------------------------------
 
+class Material_BasicPBR;
 
 struct UniformBufferObject_FrameData
 {
@@ -63,6 +64,14 @@ struct VertexData_PositionTexCoordNormalTangent
 	glm::vec2 texCoord;
 	glm::vec3 normal;
 	glm::vec3 tangent;
+};
+
+struct VertexData_Meshlet
+{
+	glm::vec4 pos;
+	glm::vec4 texCoord;
+	glm::vec4 normal;
+	glm::vec4 tangent;
 };
 
 struct VertexData_Skinned
@@ -129,6 +138,26 @@ struct VulkanSSBO
 	VkDeviceSize size = 0;
 };
 
+struct MeshletData
+{
+	uint32_t vertexOffset;
+	uint32_t triangleOffset;
+
+	uint32_t vertexCount;
+	uint32_t triangleCount;
+};
+
+struct MeshletGPUData
+{
+	VulkanSSBO vertexBuffer;
+	VulkanSSBO  meshletBuffer;
+	VulkanSSBO  meshletVertexBuffer;
+	VulkanSSBO  meshletTriangleBuffer;
+
+	uint32_t vertexCount = 0;
+	uint32_t meshletCount = 0;
+};
+
 typedef struct
 {
 	VulkanData vertexData;
@@ -163,5 +192,4 @@ typedef struct PipelineData
 	VkShaderModule vkMeshShaderModule = VK_NULL_HANDLE;
 
 }PipelineData;
-
 

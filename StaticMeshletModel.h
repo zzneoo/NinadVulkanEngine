@@ -1,4 +1,5 @@
 #pragma once
+#define NOMINMAX
 
 #include <glm/glm.hpp>
 
@@ -15,29 +16,36 @@
 
 #include "Material_BasicPBR.h"
 #include "VulkanContext.h"
+#include "MeshOptimizer/meshoptimizer.h"
+#include "DescriptorSetLayouts.h"
 
 extern FILE* gpFILE;
 
-
-
-class StaticModel
+class StaticMeshletModel
 {
 public:
 
-    StaticModel(
+    StaticMeshletModel(
         const char* modelPath,
-        bool index32,
         VkDescriptorSetLayout vkDescriptorSetLayout);
 
-    ~StaticModel();
+    ~StaticMeshletModel();
 
-    // ------------------------------------------------------------
-    // Rendering
-    // ------------------------------------------------------------
+    //Meshlet
 
-    const VulkanComboData* GetVulkanComboData() const
+    //const MeshletGPUData* GetMeshletGPUData() const
+    //{
+    //    return &meshletGPUData;
+    //}
+
+    uint32_t GetMeshletCount() const
+    { 
+        return meshletGPUData.meshletCount;
+    }
+
+    VkDescriptorSet GetMeshletDescriptorSet() const
     {
-        return &vulkanComboData;
+        return vkDescriptorSet_Meshlet;
     }
 
 
@@ -51,7 +59,7 @@ public:
         {
             fprintf(
                 gpFILE,
-                "StaticModel::GetMaterialDescriptorSet: "
+                "StaticMeshletModel::GetMaterialDescriptorSet: "
                 "Invalid material index %u\n",
                 materialIndex);
 
@@ -79,7 +87,6 @@ private:
 
     VkResult LoadModel_Static_PBR(
         const char* modelPath,
-        bool index32,
         VkDescriptorSetLayout vkDescriptorSetLayout);
 
 
@@ -87,53 +94,18 @@ private:
     // Vulkan buffers
     // ------------------------------------------------------------
 
-    VkResult ZzCreateVertexBuffer(
-        const float* vertices,
-        VkDeviceSize vertexBufferSize,
-        VulkanData* vulkanData);
 
+    VkResult CreateDeviceLocalSSBO(const void* data, VkDeviceSize size, VulkanSSBO& outSSBO);
 
-    VkResult ZzCreateIndex16Buffer(
-        const uint16_t* indices,
-        VkDeviceSize indexBufferSize,
-        VulkanData* vulkanData);
+    VkResult CreateMeshletSSBOs(const std::vector<VertexData_PositionTexCoordNormalTangent>& vertices);
 
+    VkResult CreateMeshlets(
+        const std::vector<uint32_t>& indices,
+        const std::vector<VertexData_PositionTexCoordNormalTangent>& vertices);
 
-    VkResult ZzCreateIndex32Buffer(
-        const uint32_t* indices,
-        VkDeviceSize indexBufferSize,
-        VulkanData* vulkanData);
+    VkResult createDescriptorSet_Meshlet(void);
 
-
-    VkResult ZzCreateVertexAndIndex16Buffer(
-        const float* vertices,
-        VkDeviceSize vertexBufferSize,
-        const uint16_t* indices,
-        VkDeviceSize indexBufferSize,
-        VulkanComboData* vulkanComboData);
-
-
-    VkResult ZzCreateVertexAndIndex32Buffer(
-        const float* vertices,
-        VkDeviceSize vertexBufferSize,
-        const uint32_t* indices,
-        VkDeviceSize indexBufferSize,
-        VulkanComboData* vulkanComboData);
-
-
-    void ZzDestroyVertexBuffer(
-        VulkanData* vulkanData);
-
-
-    void ZzDestroyIndexBuffer(
-        VulkanData* vulkanData);
-
-
-    void ZzDestroyVertexAndIndexBuffer(
-        VulkanComboData* vulkanComboData);
-
-
-private:
+    void DestroyMeshletBuffers();
 
     // ------------------------------------------------------------
     // Assimp
@@ -147,8 +119,19 @@ private:
     // ------------------------------------------------------------
     // Vulkan
     // ------------------------------------------------------------
+    VkDescriptorSet vkDescriptorSet_Meshlet = VK_NULL_HANDLE;
 
-    VulkanComboData vulkanComboData;
+    MeshletGPUData meshletGPUData;
+
+    // ------------------------------------------------------------
+    // Meshlets
+    // ------------------------------------------------------------
+
+    std::vector<MeshletData> meshlets;
+
+    std::vector<uint32_t> meshletVertices;
+
+    std::vector<uint8_t> meshletTriangles;
 
 
     // ------------------------------------------------------------
@@ -156,4 +139,6 @@ private:
     // ------------------------------------------------------------
 
     std::vector<MaterialInfo> PBR_Materials;
+
+
 };
