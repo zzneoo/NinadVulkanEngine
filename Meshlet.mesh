@@ -2,25 +2,31 @@
 
 #extension GL_EXT_mesh_shader : require
 #extension GL_EXT_shader_8bit_storage : require
+#extension GL_EXT_buffer_reference : require
+#extension GL_EXT_shader_explicit_arithmetic_types_int64 : require
 
 layout(local_size_x = 32) in;
-
 layout(max_vertices = 64, max_primitives = 126) out;
+
+taskPayloadSharedEXT uint meshletID;
 
 struct VertexData
 {
-    vec3 pos;
-    vec2 texCoord;
-    vec3 normal;
-    vec3 tangent;
+    vec4 pos;
+    vec4 texCoord;
+    vec4 normal;
+    vec4 tangent;
 };
 
 struct MeshletData
 {
     uint vertexOffset;
     uint triangleOffset;
+
     uint vertexCount;
     uint triangleCount;
+
+    vec4 bounds;
 };
 
 
@@ -38,52 +44,91 @@ layout(set = 0, binding = 0, std140) uniform FrameData
     float pad1;
 } frameData;
 
-
-layout(set = 1, binding = 0, std430) readonly buffer MeshletBuffer
+layout(push_constant) uniform MeshletPushConstants
 {
-    MeshletData meshlets[];
+    uint64_t meshletDataAddress;
+    uint64_t meshletVerticesAddress;
+    uint64_t meshletTrianglesAddress;
+    uint64_t verticesAddress;
+} pc;
+
+
+layout(buffer_reference, std430)
+readonly buffer MeshletDataBuffer
+{
+    MeshletData data[];
 };
 
-layout(set = 1, binding = 1, std430) readonly buffer MeshletVertexBuffer
+layout(buffer_reference, std430)
+readonly buffer MeshletVertexBuffer
 {
-    uint meshletVertices[];
+    uint data[];
 };
 
-layout(set = 1, binding = 2, std430) readonly buffer MeshletTriangleBuffer
+layout(buffer_reference, std430)
+readonly buffer MeshletTriangleBuffer
 {
-    uint8_t meshletTriangles[];
+    uint8_t data[];
 };
 
-
-layout(set = 1, binding = 3, std430) readonly buffer VertexBuffer
+layout(buffer_reference, std430)
+readonly buffer VertexBuffer
 {
-    VertexData vertices[];
+    VertexData data[];
 };
 
 // Output primitive type
 layout(triangles) out;
 
 // Per-vertex outputs
-layout(location = 0) out vec3 outColor[];
+layout(location = 0) out vec4 outNormal[];
+layout(location = 1) out vec4 outColor[];
+
+vec3 MeshletColor(uint id)
+{
+    uint x = id;
+
+    x ^= x >> 17;
+    x *= 0xed5ad4bbU;
+    x ^= x >> 11;
+    x *= 0xac4c1b51U;
+    x ^= x >> 15;
+    x *= 0x31848babU;
+    x ^= x >> 14;
+
+    return vec3(
+        float(x & 255U) / 255.0,
+        float((x >> 8) & 255U) / 255.0,
+        float((x >> 16) & 255U) / 255.0);
+}
 
 void main()
 {
-    uint meshletID = gl_WorkGroupID.x;
 
-    MeshletData meshlet = meshlets[meshletID];
 
+    MeshletDataBuffer meshlets = MeshletDataBuffer(pc.meshletDataAddress);
+    MeshletVertexBuffer meshletVertices = MeshletVertexBuffer(pc.meshletVerticesAddress);
+    MeshletTriangleBuffer meshletTriangles = MeshletTriangleBuffer(pc.meshletTrianglesAddress);
+    VertexBuffer vertices = VertexBuffer(pc.verticesAddress);
+
+
+    MeshletData meshlet = meshlets.data[meshletID];
     SetMeshOutputsEXT(meshlet.vertexCount, meshlet.triangleCount);
+
+
 
     // Load meshlet vertices
     // --------------------------------------------------------
 
     for (uint i = gl_LocalInvocationID.x; i < meshlet.vertexCount; i += gl_WorkGroupSize.x)
     {
-        uint originalVertexIndex = meshletVertices[meshlet.vertexOffset + i];
+        //uint originalVertexIndex = meshletVertices[meshlet.vertexOffset + i];
+        //VertexData vertex = vertices[originalVertexIndex];
 
-        VertexData vertex = vertices[originalVertexIndex];
+        uint originalVertexIndex = meshletVertices.data[ meshlet.vertexOffset + i];
+        VertexData vertex = vertices.data[originalVertexIndex];
 
-        vec4 worldPosition = vec4(vertex.pos, 1.0);
+        vec4 worldPosition = vec4(vertex.pos.xyz, 1.0);
 
         vec4 viewPosition = frameData.view * worldPosition;
 
@@ -93,8 +138,8 @@ void main()
         // Temporary visualization.
         //
         // Later this becomes your normal/PBR pipeline.
-        outColor[i] =
-            vertex.normal * 0.5 + 0.5;
+        outNormal[i] = vertex.normal * 0.5 + 0.5;
+        outColor[i] = vec4(MeshletColor(meshletID),1.0);
     }
 
 
@@ -105,9 +150,9 @@ void main()
     {
         uint triangleBase = meshlet.triangleOffset + i * 3;
 
-        uint i0 = uint(meshletTriangles[triangleBase + 0]);
-        uint i1 = uint(meshletTriangles[triangleBase + 1]);
-        uint i2 = uint(meshletTriangles[triangleBase + 2]);
+        uint i0 = uint(meshletTriangles.data[triangleBase + 0]);
+        uint i1 = uint(meshletTriangles.data[triangleBase + 1]);
+        uint i2 = uint(meshletTriangles.data[triangleBase + 2]);
 
         gl_PrimitiveTriangleIndicesEXT[i] = uvec3(i0, i1, i2);
     }

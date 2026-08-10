@@ -6801,9 +6801,7 @@ void RenderColoredTriangle(uint32_t curIndex)
     if (fAngle >= 360.0f)
         fAngle = fAngle - 360.0f; // Reset the angle if it exceeds 360 degrees
 
-    PushConstants pushConstants;
-    memset(&pushConstants, 0, sizeof(PushConstants));
-
+    BasicPushConstants pushConstants{};
     pushConstants.model = glm::translate(glm::mat4(1.0f), glm::vec3(15.0f, -3.0f, 0.0f)) * glm::rotate(glm::mat4(1.0f), glm::radians(fAngle), glm::vec3(0.0f, 0.0f, 1.0f));
 
 #ifdef IMGUI_ENABLE
@@ -6825,7 +6823,7 @@ void RenderColoredTriangle(uint32_t curIndex)
         gpGraphicsPipelines->ColoredVertex.vkPipelineLayout,
         VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, // stages where the push constant will be used
         0,                                      // offset
-        sizeof(PushConstants),                  // size
+        sizeof(BasicPushConstants),                  // size
         &pushConstants                          // pointer to our data
     );
     // Bind vertex buffer
@@ -6838,8 +6836,7 @@ void RenderColoredTriangle(uint32_t curIndex)
 
 void RenderAxes(uint32_t curIndex)
 {
-    PushConstants pushConstants;
-    memset(&pushConstants, 0, sizeof(PushConstants));
+    BasicPushConstants pushConstants{};
 
     pushConstants.model = glm::mat4(1.0f); // Identity matrix for no transformation
 
@@ -6856,7 +6853,7 @@ void RenderAxes(uint32_t curIndex)
         gpGraphicsPipelines->ColoredVertex.vkPipelineLayout,
         VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, // stages where the push constant will be used
         0,                                      // offset
-        sizeof(PushConstants),                  // size
+        sizeof(BasicPushConstants),                  // size
         &pushConstants                          // pointer to our data
     );
     // Bind vertex buffer
@@ -6870,7 +6867,7 @@ void RenderAxes(uint32_t curIndex)
 
 void RenderImpostor(uint32_t curIndex)
 {
-    PushConstants pushConstants;
+    BasicPushConstants pushConstants{};
     pushConstants.model = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 3.0f, 0.0f));//glm::vec3(0.0f, 3.0f, 0.0f)
     //pushConstants.model = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.0f, 0.0f));
     //ushConstants.model = glm::mat4(1.0f); // Identity matrix for no transformation
@@ -6896,7 +6893,7 @@ void RenderImpostor(uint32_t curIndex)
         gpGraphicsPipelines->Impostor.vkPipelineLayout,
         VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, // stages where the push constant will be used
         0,                                      // offset
-        sizeof(PushConstants),                  // size
+        sizeof(BasicPushConstants),                  // size
         &pushConstants                          // pointer to our data
     );
     // Bind vertex buffer
@@ -6909,7 +6906,7 @@ void RenderImpostor(uint32_t curIndex)
 
 void RenderCube(uint32_t curIndex)
 {
-    PushConstants pushConstants;
+    BasicPushConstants pushConstants{};
     pushConstants.model = glm::translate(glm::mat4(1.0f), glm::vec3(-3.0f, 0.0f, 2.0f));//glm::vec3(0.0f, 3.0f, 0.0f)
     //pushConstants.model = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.0f, 0.0f));
     //ushConstants.model = glm::mat4(1.0f); // Identity matrix for no transformation
@@ -6935,7 +6932,7 @@ void RenderCube(uint32_t curIndex)
         gpGraphicsPipelines->Phong.vkPipelineLayout,
         VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, // stages where the push constant will be used
         0,                                      // offset
-        sizeof(PushConstants),                  // size
+        sizeof(BasicPushConstants),                  // size
         &pushConstants                          // pointer to our data
     );
     // Bind vertex buffer
@@ -6953,7 +6950,7 @@ void RenderSuzanne(uint32_t curIndex)
     if (fAngle >= 360.0f)
         fAngle = fAngle - 360.0f; // Reset the angle if it exceeds 360 degrees
 
-    PushConstants pushConstants{};
+    BasicPushConstants pushConstants{};
     pushConstants.model = glm::translate(glm::mat4(1.0f), glm::vec3(15.0f, -10.0f, 2.0f)) * glm::rotate(glm::mat4(1.0f), glm::radians(fAngle), glm::vec3(0.0f, 0.0f, 1.0f));
     //pushConstants.model = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.0f, 0.0f));
     //ushConstants.model = glm::mat4(1.0f); // Identity matrix for no transformation
@@ -6979,7 +6976,7 @@ void RenderSuzanne(uint32_t curIndex)
         gpGraphicsPipelines->Phong.vkPipelineLayout,
         VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, // stages where the push constant will be used
         0,                                      // offset
-        sizeof(PushConstants),                  // size
+        sizeof(BasicPushConstants),                  // size
         &pushConstants                          // pointer to our data
     );
     // Bind vertex buffer
@@ -6997,7 +6994,7 @@ void RenderPBR_Sphere(uint32_t curIndex)
     if (fAngle >= 360.0f)
         fAngle = fAngle - 360.0f; // Reset the angle if it exceeds 360 degrees
 
-    PushConstants pushConstants{};
+    BasicPushConstants pushConstants{};
     pushConstants.model = glm::translate(glm::mat4(1.0f), glm::vec3(-3.0f, 10.0f, 2.0f)) * glm::rotate(glm::mat4(1.0f), glm::radians(fAngle), glm::vec3(0.0f, 0.0f, 1.0f));
     //pushConstants.model = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.0f, 0.0f));
     //ushConstants.model = glm::mat4(1.0f); // Identity matrix for no transformation
@@ -7019,7 +7016,7 @@ void RenderPBR_Sphere(uint32_t curIndex)
         gpGraphicsPipelines->PBR.vkPipelineLayout,
         VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, // stages where the push constant will be used
         0,                                      // offset
-        sizeof(PushConstants),                  // size
+        sizeof(BasicPushConstants),                  // size
         &pushConstants                          // pointer to our data
     );
     // Bind vertex buffer
@@ -7037,7 +7034,7 @@ void RenderPBR_Static_Ganesha(uint32_t curIndex)
     if (fAngle >= 360.0f)
         fAngle = fAngle - 360.0f; // Reset the angle if it exceeds 360 degrees
 
-    PushConstants pushConstants{};
+    BasicPushConstants pushConstants{};
     glm::mat4 translation = glm::translate(glm::mat4(1.0f), glm::vec3(5.0f, -5.0f, 0.0f));
     glm::mat4 rotation = glm::rotate(glm::mat4(1.0f), glm::radians(90.0f), glm::vec3(1.0f, 0.0f, 0.0f));
     rotation = glm::rotate(rotation, glm::radians(-90.0f), glm::vec3(0.0f, 1.0f, 0.0f));
@@ -7064,7 +7061,7 @@ void RenderPBR_Static_Ganesha(uint32_t curIndex)
         gpGraphicsPipelines->PBR.vkPipelineLayout,
         VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, // stages where the push constant will be used
         0,                                      // offset
-        sizeof(PushConstants),                  // size
+        sizeof(BasicPushConstants),                  // size
         &pushConstants                          // pointer to our data
     );
     // Bind vertex buffer
@@ -7100,7 +7097,7 @@ void RenderPBR_Skinned_RAT(uint32_t curIndex)
     if (fAngle >= 360.0f)
         fAngle = fAngle - 360.0f; // Reset the angle if it exceeds 360 degrees
 
-    PushConstants pushConstants{};
+    BasicPushConstants pushConstants{};
     glm::mat4 translation = glm::translate(glm::mat4(1.0f), glm::vec3(5.0f, 5.0f, 0.0f));
     glm::mat4 rotation = glm::rotate(glm::mat4(1.0f), glm::radians(fAngle), glm::vec3(0.0f, 0.0f, 1.0f));
     glm::mat4 scale = glm::scale(glm::mat4(1.0f), glm::vec3(0.2f, 0.2f, 0.2f));
@@ -7126,7 +7123,7 @@ void RenderPBR_Skinned_RAT(uint32_t curIndex)
         gpGraphicsPipelines->PBR_Skinned.vkPipelineLayout,
         VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, // stages where the push constant will be used
         0,                                      // offset
-        sizeof(PushConstants),                  // size
+        sizeof(BasicPushConstants),                  // size
         &pushConstants                          // pointer to our data
     );
     // Bind vertex buffer
@@ -7202,18 +7199,21 @@ void Render_Meshlet(uint32_t curIndex)
     // Set 1 : Meshlet SSBOs
     // ------------------------------------------------------------
 
-    VkDescriptorSet meshletDescriptorSet =
-        pModel_Meshlet_Ganesha->GetMeshletDescriptorSet();
+    MeshletPushConstants pc{};
 
-    vkCmdBindDescriptorSets(
+    pc.meshletData = pModel_Meshlet_Ganesha->GetMeshletDataAddress();
+    pc.meshletVertices = pModel_Meshlet_Ganesha->GetMeshletVerticesAddress();
+    pc.meshletTriangles = pModel_Meshlet_Ganesha->GetMeshletTrianglesAddress();
+    pc.vertices = pModel_Meshlet_Ganesha->GetVertexDataAddress();
+
+    vkCmdPushConstants(
         commandBuffer,
-        VK_PIPELINE_BIND_POINT_GRAPHICS,
         gpGraphicsPipelines->Meshlet.vkPipelineLayout,
-        1,
-        1,
-        &meshletDescriptorSet,
+        VK_SHADER_STAGE_TASK_BIT_EXT |
+        VK_SHADER_STAGE_MESH_BIT_EXT,
         0,
-        NULL);
+        sizeof(MeshletPushConstants),
+        &pc);
 
 
     // ------------------------------------------------------------
@@ -7433,7 +7433,7 @@ VkResult buildCommandBuffers(uint32_t curIndex, uint32_t currentImageIndex)
 
     //Render_MeshletTriangle(curIndex);// Render triangle with meshlet pipeline
 
-    //Render_Meshlet(curIndex);// Render  meshlet pipeline
+    Render_Meshlet(curIndex);// Render  meshlet pipeline
 
 #ifdef IMGUI_ENABLE
     RenderImGui(curIndex); // Render ImGui UI

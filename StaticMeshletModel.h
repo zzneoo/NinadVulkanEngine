@@ -43,9 +43,25 @@ public:
         return meshletGPUData.meshletCount;
     }
 
-    VkDescriptorSet GetMeshletDescriptorSet() const
+
+    VkDeviceAddress GetMeshletDataAddress() const
     {
-        return vkDescriptorSet_Meshlet;
+        return meshletGPUData.meshletBuffer.deviceAddress;
+    }
+
+    VkDeviceAddress GetMeshletVerticesAddress() const
+    {
+        return meshletGPUData.meshletVertexBuffer.deviceAddress;
+    }
+
+    VkDeviceAddress GetMeshletTrianglesAddress() const
+    {
+        return meshletGPUData.meshletTriangleBuffer.deviceAddress;
+    }
+
+    VkDeviceAddress GetVertexDataAddress() const
+    {
+        return meshletGPUData.vertexBuffer.deviceAddress;
     }
 
 
@@ -97,13 +113,12 @@ private:
 
     VkResult CreateDeviceLocalSSBO(const void* data, VkDeviceSize size, VulkanSSBO& outSSBO);
 
-    VkResult CreateMeshletSSBOs(const std::vector<VertexData_PositionTexCoordNormalTangent>& vertices);
+    VkResult CreateMeshletSSBOs(const std::vector<VertexData_Meshlet>& vertices);
 
     VkResult CreateMeshlets(
         const std::vector<uint32_t>& indices,
-        const std::vector<VertexData_PositionTexCoordNormalTangent>& vertices);
+        const std::vector<VertexData_Meshlet>& vertices);
 
-    VkResult createDescriptorSet_Meshlet(void);
 
     void DestroyMeshletBuffers();
 
@@ -119,7 +134,6 @@ private:
     // ------------------------------------------------------------
     // Vulkan
     // ------------------------------------------------------------
-    VkDescriptorSet vkDescriptorSet_Meshlet = VK_NULL_HANDLE;
 
     MeshletGPUData meshletGPUData;
 

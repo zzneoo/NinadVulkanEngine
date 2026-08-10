@@ -45,7 +45,7 @@ private:
 
 	VkResult createShaderModule(VkShaderModule* shaderModule, const char* fileName);
 
-	VkResult createPipelineLayout(VkPipelineLayoutCreateInfo vkPipelineLayoutCreateInfo, VkPipelineLayout* vkPipelineLayout);
+	VkResult createPipelineLayout(VkPipelineLayoutCreateInfo vkPipelineLayoutCreateInfo, VkPipelineLayout* vkPipelineLayout, VkPushConstantRange vkPushConstantRange);
 	void destroyPipelineLayouts(void);
 
 	VkResult createShaderModules(void);

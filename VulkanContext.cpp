@@ -1164,6 +1164,7 @@ VkResult VulkanContext::CreateVulkanDevice(void)
     vulkan12Features.descriptorBindingSampledImageUpdateAfterBind = VK_TRUE;
     vulkan12Features.descriptorBindingUpdateUnusedWhilePending = VK_TRUE;
     vulkan12Features.timelineSemaphore = VK_TRUE;
+    vulkan12Features.bufferDeviceAddress = VK_TRUE;
     vulkan12Features.pNext = &dynamicRendering;
 
     //synchronization2
@@ -1188,6 +1189,7 @@ VkResult VulkanContext::CreateVulkanDevice(void)
     features2.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2;
     features2.features.samplerAnisotropy = VK_TRUE; // enable anisotropic filtering
     features2.features.tessellationShader = VK_TRUE; // enable tessellation shader
+    features2.features.shaderInt64 = VK_TRUE;
 
     features2.pNext = &maintenance4;
 

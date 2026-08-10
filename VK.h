@@ -89,12 +89,20 @@ struct VertexData_Position
 	glm::vec3 pos;
 };
 
-struct PushConstants
+struct BasicPushConstants
 {
 	glm::mat4 model;
 	glm::vec3 v3Color;
 	float fFactor;
 	glm::uvec4 materialIDs;
+};
+
+struct MeshletPushConstants
+{
+	VkDeviceAddress meshletData;
+	VkDeviceAddress meshletVertices;
+	VkDeviceAddress meshletTriangles;
+	VkDeviceAddress vertices;
 };
 
 //win32
@@ -129,12 +137,17 @@ typedef struct
 	VkDeviceMemory vkDeviceMemory;
 } VulkanData;
 
-struct VulkanSSBO 
+struct VulkanSSBO
 {
 	VkBuffer vkBuffer = VK_NULL_HANDLE;
 	VkDeviceMemory vkDeviceMemory = VK_NULL_HANDLE;
+
 	VkDescriptorBufferInfo descriptor{};
-	void* mapped = nullptr;           // persistently mapped pointer (or null)
+
+	VkDeviceAddress deviceAddress = 0;
+
+	void* mapped = nullptr;
+
 	VkDeviceSize size = 0;
 };
 
@@ -145,6 +158,8 @@ struct MeshletData
 
 	uint32_t vertexCount;
 	uint32_t triangleCount;
+
+	glm::vec4 bounds; // xyz = center, w = radius
 };
 
 struct MeshletGPUData

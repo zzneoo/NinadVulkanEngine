@@ -174,7 +174,7 @@ VkResult StaticMeshletModel::LoadModel_Static_PBR(
     // Vertex data
     // ============================================================
 
-    std::vector<VertexData_PositionTexCoordNormalTangent> vkVertices;
+    std::vector<VertexData_Meshlet> vkVertices;
 
     vkVertices.reserve(
         mesh->mNumVertices);
@@ -198,7 +198,7 @@ VkResult StaticMeshletModel::LoadModel_Static_PBR(
             i < mesh->mNumVertices;
             ++i)
         {
-            VertexData_PositionTexCoordNormalTangent v{};
+            VertexData_Meshlet v{};
 
             // ----------------------------------------------------
             // Position
@@ -207,10 +207,11 @@ VkResult StaticMeshletModel::LoadModel_Static_PBR(
             if (mesh->HasPositions())
             {
                 v.pos =
-                    glm::vec3(
+                    glm::vec4(
                         mesh->mVertices[i].x,
                         mesh->mVertices[i].y,
-                        mesh->mVertices[i].z);
+                        mesh->mVertices[i].z,
+                        1.0f);
             }
 
             // ----------------------------------------------------
@@ -220,18 +221,20 @@ VkResult StaticMeshletModel::LoadModel_Static_PBR(
             if (mesh->HasNormals())
             {
                 v.normal =
-                    glm::vec3(
+                    glm::vec4(
                         mesh->mNormals[i].x,
                         mesh->mNormals[i].y,
-                        mesh->mNormals[i].z);
+                        mesh->mNormals[i].z,
+                        0.0f);
             }
             else
             {
                 v.normal =
-                    glm::vec3(
+                    glm::vec4(
                         0.0f,
                         0.0f,
-                        1.0f);
+                        1.0f,
+                        0.0f);
             }
 
             // ----------------------------------------------------
@@ -241,14 +244,16 @@ VkResult StaticMeshletModel::LoadModel_Static_PBR(
             if (mesh->HasTextureCoords(0))
             {
                 v.texCoord =
-                    glm::vec2(
+                    glm::vec4(
                         mesh->mTextureCoords[0][i].x,
-                        mesh->mTextureCoords[0][i].y);
+                        mesh->mTextureCoords[0][i].y,
+                        0.0f,
+                        0.0f);
             }
             else
             {
                 v.texCoord =
-                    glm::vec2(0.0f);
+                    glm::vec4(0.0f);
             }
 
             // ----------------------------------------------------
@@ -498,7 +503,8 @@ VkResult StaticMeshletModel::CreateDeviceLocalSSBO(
 
     bufferCreateInfo.usage =
         VK_BUFFER_USAGE_STORAGE_BUFFER_BIT |
-        VK_BUFFER_USAGE_TRANSFER_DST_BIT;
+        VK_BUFFER_USAGE_TRANSFER_DST_BIT |
+        VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT;
 
     bufferCreateInfo.sharingMode =
         VK_SHARING_MODE_EXCLUSIVE;
@@ -523,13 +529,15 @@ VkResult StaticMeshletModel::CreateDeviceLocalSSBO(
         &memReq);
 
 
+    VkMemoryAllocateFlagsInfo allocFlagsInfo{};
+    allocFlagsInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_FLAGS_INFO;
+    allocFlagsInfo.flags = VK_MEMORY_ALLOCATE_DEVICE_ADDRESS_BIT;
+
+
     VkMemoryAllocateInfo allocInfo{};
-
-    allocInfo.sType =
-        VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
-
-    allocInfo.allocationSize =
-        memReq.size;
+    allocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
+    allocInfo.pNext = &allocFlagsInfo;
+    allocInfo.allocationSize = memReq.size;
 
     allocInfo.memoryTypeIndex =
         gVulkanContext.FindMemoryType(
@@ -557,6 +565,18 @@ VkResult StaticMeshletModel::CreateDeviceLocalSSBO(
 
     if (vkResult != VK_SUCCESS)
         return vkResult;
+
+
+    // ============================================================
+    // *. Get Device Address
+    // ============================================================
+
+
+    VkBufferDeviceAddressInfo addressInfo{};
+
+    addressInfo.sType = VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO;
+    addressInfo.buffer = outSSBO.vkBuffer;
+    outSSBO.deviceAddress = vkGetBufferDeviceAddress(gVulkanContext.vkDevice,&addressInfo);
 
 
     // ============================================================
@@ -704,7 +724,7 @@ VkResult StaticMeshletModel::CreateDeviceLocalSSBO(
 
 
 VkResult StaticMeshletModel::CreateMeshletSSBOs(
-    const std::vector<VertexData_PositionTexCoordNormalTangent>& vertices)
+    const std::vector<VertexData_Meshlet>& vertices)
 {
     VkResult vkResult = VK_SUCCESS;
 
@@ -717,7 +737,7 @@ VkResult StaticMeshletModel::CreateMeshletSSBOs(
         CreateDeviceLocalSSBO(
             vertices.data(),
             vertices.size() *
-            sizeof(VertexData_PositionTexCoordNormalTangent),
+            sizeof(VertexData_Meshlet),
             meshletGPUData.vertexBuffer);
 
     if (vkResult != VK_SUCCESS)
@@ -793,7 +813,7 @@ VkResult StaticMeshletModel::CreateMeshletSSBOs(
 
 VkResult StaticMeshletModel::CreateMeshlets(
     const std::vector<uint32_t>& indices,
-    const std::vector<VertexData_PositionTexCoordNormalTangent>& vertices)
+    const std::vector<VertexData_Meshlet>& vertices)
 {
     // ============================================================
     // Meshlet limits
@@ -870,9 +890,7 @@ VkResult StaticMeshletModel::CreateMeshlets(
     size_t meshletCount =
         meshopt_buildMeshlets(
             tempMeshlets.data(),
-
             tempMeshletVertices.data(),
-
             tempMeshletTriangles.data(),
 
             indices.data(),
@@ -881,8 +899,7 @@ VkResult StaticMeshletModel::CreateMeshlets(
             &vertices[0].pos.x,
             vertices.size(),
 
-            sizeof(
-                VertexData_PositionTexCoordNormalTangent),
+            sizeof(VertexData_Meshlet),
 
             MAX_MESHLET_VERTICES,
             MAX_MESHLET_TRIANGLES,
@@ -989,6 +1006,10 @@ VkResult StaticMeshletModel::CreateMeshlets(
     {
         MeshletData dst{};
 
+        // --------------------------------------------------------
+        // Meshlet topology
+        // --------------------------------------------------------
+
         dst.vertexOffset =
             static_cast<uint32_t>(
                 src.vertex_offset);
@@ -1004,6 +1025,43 @@ VkResult StaticMeshletModel::CreateMeshlets(
         dst.triangleCount =
             static_cast<uint32_t>(
                 src.triangle_count);
+
+
+        // --------------------------------------------------------
+        // Meshoptimizer meshlet bounds
+        // --------------------------------------------------------
+
+        meshopt_Bounds bounds =
+            meshopt_computeMeshletBounds(
+                tempMeshletVertices.data() +
+                src.vertex_offset,
+
+                tempMeshletTriangles.data() +
+                src.triangle_offset,
+
+                src.triangle_count,
+
+                &vertices[0].pos.x,
+
+                vertices.size(),
+
+                sizeof(VertexData_Meshlet));
+
+
+        // --------------------------------------------------------
+        // Store bounding sphere
+        //
+        // xyz = center
+        // w   = radius
+        // --------------------------------------------------------
+
+        dst.bounds =
+            glm::vec4(
+                bounds.center[0],
+                bounds.center[1],
+                bounds.center[2],
+                bounds.radius);
+
 
         meshlets.push_back(dst);
     }
@@ -1067,249 +1125,9 @@ VkResult StaticMeshletModel::CreateMeshlets(
 
 
 
-    //update descriptor
-    vkResult = createDescriptorSet_Meshlet();
-
-    if (vkResult != VK_SUCCESS)
-    {
-        fprintf(
-            gpFILE,
-            "StaticMeshletModel::LoadModel_Static_PBR() : "
-            "createDescriptorSet_Meshlet() failed.\n");
-
-        return vkResult;
-    }
-
-
     return VK_SUCCESS;
 }
 
-VkResult StaticMeshletModel::createDescriptorSet_Meshlet(void)
-{
-    // local variables
-    VkResult vkResult = VK_SUCCESS;
-
-
-    // ============================================================
-    // Allocate descriptor set
-    // ============================================================
-
-    VkDescriptorSetAllocateInfo vkDescriptorSetAllocateInfo{};
-    vkDescriptorSetAllocateInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
-    vkDescriptorSetAllocateInfo.pNext = NULL;
-    vkDescriptorSetAllocateInfo.descriptorPool =vkDescriptorPool;
-    vkDescriptorSetAllocateInfo.descriptorSetCount = 1;
-vkDescriptorSetAllocateInfo.pSetLayouts = &gpDescriptorSetLayouts->vkDescriptorSetLayout_Meshlet;
-
-
-    // Allocate descriptor set
-    vkResult =
-        vkAllocateDescriptorSets(
-            gVulkanContext.vkDevice,
-            &vkDescriptorSetAllocateInfo,
-            &vkDescriptorSet_Meshlet);
-
-    if (vkResult != VK_SUCCESS)
-    {
-        fprintf(
-            gpFILE,
-            "createDescriptorSet_Meshlet() : "
-            "vkAllocateDescriptorSets() failed.\n");
-
-        return vkResult;
-    }
-
-
-    // ============================================================
-    // Descriptor buffer information
-    // ============================================================
-
-    VkDescriptorBufferInfo vkDescriptorBufferInfo_Vertex;
-
-    memset(
-        (void*)&vkDescriptorBufferInfo_Vertex,
-        0,
-        sizeof(VkDescriptorBufferInfo));
-
-    vkDescriptorBufferInfo_Vertex =
-        meshletGPUData.vertexBuffer.descriptor;
-
-
-    VkDescriptorBufferInfo vkDescriptorBufferInfo_Meshlet;
-
-    memset(
-        (void*)&vkDescriptorBufferInfo_Meshlet,
-        0,
-        sizeof(VkDescriptorBufferInfo));
-
-    vkDescriptorBufferInfo_Meshlet =
-        meshletGPUData.meshletBuffer.descriptor;
-
-
-    VkDescriptorBufferInfo vkDescriptorBufferInfo_MeshletVertex;
-
-    memset(
-        (void*)&vkDescriptorBufferInfo_MeshletVertex,
-        0,
-        sizeof(VkDescriptorBufferInfo));
-
-    vkDescriptorBufferInfo_MeshletVertex =
-        meshletGPUData.meshletVertexBuffer.descriptor;
-
-
-    VkDescriptorBufferInfo vkDescriptorBufferInfo_MeshletTriangle;
-
-    memset(
-        (void*)&vkDescriptorBufferInfo_MeshletTriangle,
-        0,
-        sizeof(VkDescriptorBufferInfo));
-
-    vkDescriptorBufferInfo_MeshletTriangle =
-        meshletGPUData.meshletTriangleBuffer.descriptor;
-
-
-    // ============================================================
-    // Write descriptor set
-    // ============================================================
-
-    VkWriteDescriptorSet vkWriteDescriptorSet_array[4];
-
-    memset(
-        (void*)vkWriteDescriptorSet_array,
-        0,
-        sizeof(VkWriteDescriptorSet) * 4);
-
-
-    // ------------------------------------------------------------
-    // Binding 0 : MeshletData[]
-    // ------------------------------------------------------------
-
-    vkWriteDescriptorSet_array[0].sType =
-        VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-
-    vkWriteDescriptorSet_array[0].pNext =
-        NULL;
-
-    vkWriteDescriptorSet_array[0].dstSet =
-        vkDescriptorSet_Meshlet;
-
-    vkWriteDescriptorSet_array[0].dstBinding =
-        0;
-
-    vkWriteDescriptorSet_array[0].dstArrayElement =
-        0;
-
-    vkWriteDescriptorSet_array[0].descriptorCount =
-        1;
-
-    vkWriteDescriptorSet_array[0].descriptorType =
-        VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-
-    vkWriteDescriptorSet_array[0].pBufferInfo =
-        &vkDescriptorBufferInfo_Meshlet;
-
-
-    // ------------------------------------------------------------
-    // Binding 1 : meshletVertices[]
-    // ------------------------------------------------------------
-
-    vkWriteDescriptorSet_array[1].sType =
-        VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-
-    vkWriteDescriptorSet_array[1].pNext =
-        NULL;
-
-    vkWriteDescriptorSet_array[1].dstSet =
-        vkDescriptorSet_Meshlet;
-
-    vkWriteDescriptorSet_array[1].dstBinding =
-        1;
-
-    vkWriteDescriptorSet_array[1].dstArrayElement =
-        0;
-
-    vkWriteDescriptorSet_array[1].descriptorCount =
-        1;
-
-    vkWriteDescriptorSet_array[1].descriptorType =
-        VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-
-    vkWriteDescriptorSet_array[1].pBufferInfo =
-        &vkDescriptorBufferInfo_MeshletVertex;
-
-
-    // ------------------------------------------------------------
-    // Binding 2 : meshletTriangles[]
-    // ------------------------------------------------------------
-
-    vkWriteDescriptorSet_array[2].sType =
-        VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-
-    vkWriteDescriptorSet_array[2].pNext =
-        NULL;
-
-    vkWriteDescriptorSet_array[2].dstSet =
-        vkDescriptorSet_Meshlet;
-
-    vkWriteDescriptorSet_array[2].dstBinding =
-        2;
-
-    vkWriteDescriptorSet_array[2].dstArrayElement =
-        0;
-
-    vkWriteDescriptorSet_array[2].descriptorCount =
-        1;
-
-    vkWriteDescriptorSet_array[2].descriptorType =
-        VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-
-    vkWriteDescriptorSet_array[2].pBufferInfo =
-        &vkDescriptorBufferInfo_MeshletTriangle;
-
-
-    // ------------------------------------------------------------
-    // Binding 3 : VertexData[]
-    // ------------------------------------------------------------
-
-    vkWriteDescriptorSet_array[3].sType =
-        VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-
-    vkWriteDescriptorSet_array[3].pNext =
-        NULL;
-
-    vkWriteDescriptorSet_array[3].dstSet =
-        vkDescriptorSet_Meshlet;
-
-    vkWriteDescriptorSet_array[3].dstBinding =
-        3;
-
-    vkWriteDescriptorSet_array[3].dstArrayElement =
-        0;
-
-    vkWriteDescriptorSet_array[3].descriptorCount =
-        1;
-
-    vkWriteDescriptorSet_array[3].descriptorType =
-        VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-
-    vkWriteDescriptorSet_array[3].pBufferInfo =
-        &vkDescriptorBufferInfo_Vertex;
-
-
-    // ============================================================
-    // Update descriptor set
-    // ============================================================
-
-    vkUpdateDescriptorSets(
-        gVulkanContext.vkDevice,
-        4,
-        vkWriteDescriptorSet_array,
-        0,
-        NULL);
-
-
-    return vkResult;
-}
 
 
 void StaticMeshletModel::DestroyMeshletBuffers()

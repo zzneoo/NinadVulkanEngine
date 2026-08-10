@@ -1,11 +1,114 @@
 #version 460
 
 #extension GL_EXT_mesh_shader : require
+#extension GL_EXT_buffer_reference : require
+#extension GL_EXT_shader_explicit_arithmetic_types_int64 : require
 
 layout(local_size_x = 1) in;
 
+taskPayloadSharedEXT uint meshletID;
+
+
+layout(set = 0, binding = 0, std140) uniform FrameData
+{
+    mat4 view;
+    mat4 proj;
+
+    float fTime;
+    uint frameID;
+
+    vec2 pad0;
+
+    vec3 cameraPos;
+    float pad1;
+
+} frameData;
+
+struct MeshletData
+{
+    uint vertexOffset;
+    uint triangleOffset;
+
+    uint vertexCount;
+    uint triangleCount;
+
+    vec4 bounds;
+};
+
+layout(buffer_reference, std430)
+readonly buffer MeshletDataBuffer
+{
+    MeshletData data[];
+};
+
+layout(push_constant) uniform MeshletPushConstants
+{
+    uint64_t meshletDataAddress;
+    uint64_t meshletVerticesAddress;
+    uint64_t meshletTrianglesAddress;
+    uint64_t verticesAddress;
+} pc;
+
+bool SphereInsidePlane(
+    vec4 plane,
+    vec3 center,
+    float radius)
+{
+    float distance =
+        dot(plane.xyz, center) +
+        plane.w;
+
+    return distance >= -radius;
+}
+
+bool IsSphereVisible(
+    vec3 center,
+    float radius)
+{
+    vec3 centerVS =
+        (frameData.view * vec4(center, 1.0)).xyz;
+
+    return centerVS.z > 0.0;
+}
+
 void main()
 {
-    // Launch one mesh shader workgroup.
-    EmitMeshTasksEXT(1, 1, 1);
+
+
+    // Meshlet ID
+    // --------------------------------------------------------
+    uint id = gl_WorkGroupID.x;
+
+
+    // Convert device address -> buffer reference
+    // --------------------------------------------------------
+    MeshletDataBuffer meshlets = MeshletDataBuffer(pc.meshletDataAddress);
+
+    // --------------------------------------------------------
+    // Load this meshlet
+    // --------------------------------------------------------
+    MeshletData meshlet = meshlets.data[id];
+
+
+    // --------------------------------------------------------
+    // Bounding sphere
+    // --------------------------------------------------------
+    vec3 center = meshlet.bounds.xyz;
+    float radius = meshlet.bounds.w;
+
+
+    // --------------------------------------------------------
+    // Frustum culling
+    // --------------------------------------------------------
+    //if (center.y>1.0){return;}
+
+
+
+    // --------------------------------------------------------
+    // Visible meshlet
+    // --------------------------------------------------------
+    meshletID = id;
+
+    EmitMeshTasksEXT(1,1,1);
 }
+

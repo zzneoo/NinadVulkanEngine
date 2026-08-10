@@ -277,31 +277,17 @@ void GraphicsPipelines::destroyPipelineCaches(void)
 
 //----------------------------Pipeline Layouts------------------------------------------------
 
-VkResult GraphicsPipelines::createPipelineLayout(VkPipelineLayoutCreateInfo vkPipelineLayoutCreateInfo,VkPipelineLayout *vkPipelineLayout)
-
+VkResult GraphicsPipelines::createPipelineLayout(VkPipelineLayoutCreateInfo vkPipelineLayoutCreateInfo,VkPipelineLayout *vkPipelineLayout, VkPushConstantRange vkPushConstantRange)
 {
     // local variables
     VkResult vkResult = VK_SUCCESS;
-
-    //push constant
-// Declare and initialize VkPushConstantRange structure which will have information about the push constant range.
-    VkPushConstantRange vkPushConstantRange;
-    memset((void*)&vkPushConstantRange, 0, sizeof(VkPushConstantRange));
-    vkPushConstantRange.stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT; // stage flags for the push constant range
-    vkPushConstantRange.offset = 0; // offset in the push constant range
-    vkPushConstantRange.size = sizeof(PushConstants); // size of the push constant range
-
-    // Declare and initialize VkPipelineLayoutCreateInfo structure which will have information about the pipeline layout.
-    //VkPipelineLayoutCreateInfo vkPipelineLayoutCreateInfo;
-    //memset((void*)&vkPipelineLayoutCreateInfo, 0, sizeof(VkPipelineLayoutCreateInfo));
-
 
     vkPipelineLayoutCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
     vkPipelineLayoutCreateInfo.pNext = NULL;
     vkPipelineLayoutCreateInfo.flags = 0;
     //vkPipelineLayoutCreateInfo.setLayoutCount = setLayoutCount;// two descriptor set layout for imposter pipeline layout
     //vkPipelineLayoutCreateInfo.pSetLayouts = vkDescriptorSetLayouts; // pointer to the descriptor set layout
-    vkPipelineLayoutCreateInfo.pushConstantRangeCount = 1; // one push constant range for imposter pipeline layout
+    vkPipelineLayoutCreateInfo.pushConstantRangeCount = 1; 
     vkPipelineLayoutCreateInfo.pPushConstantRanges = &vkPushConstantRange; // pointer to the push constant range
 
     vkResult = vkCreatePipelineLayout(gVulkanContext.vkDevice, &vkPipelineLayoutCreateInfo, NULL, vkPipelineLayout);
@@ -340,7 +326,13 @@ VkResult GraphicsPipelines::createGraphicsPipeline_Impostor(VkPipelineLayoutCrea
     // local variables
     VkResult vkResult = VK_SUCCESS;
 
-	vkResult = createPipelineLayout(vkPipelineLayoutCreateInfo, &Impostor.vkPipelineLayout);
+    VkPushConstantRange vkPushConstantRange{};
+    vkPushConstantRange.offset = 0;
+    vkPushConstantRange.stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT;
+    vkPushConstantRange.size = sizeof(BasicPushConstants);
+
+
+	vkResult = createPipelineLayout(vkPipelineLayoutCreateInfo, &Impostor.vkPipelineLayout, vkPushConstantRange);
 	if (vkResult != VK_SUCCESS)
 	{
 		fprintf(gpFILE, "createGraphicsPipeline_Impostor() : createPipelineLayout() failed (%d).\n", vkResult);
@@ -603,7 +595,12 @@ VkResult GraphicsPipelines::createGraphicsPipeline_Phong(VkPipelineLayoutCreateI
     // local variables
     VkResult vkResult = VK_SUCCESS;
 
-	vkResult = createPipelineLayout(vkPipelineLayoutCreateInfo, &Phong.vkPipelineLayout);
+    VkPushConstantRange vkPushConstantRange{};
+    vkPushConstantRange.offset = 0;
+    vkPushConstantRange.stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT;
+    vkPushConstantRange.size = sizeof(BasicPushConstants);
+
+	vkResult = createPipelineLayout(vkPipelineLayoutCreateInfo, &Phong.vkPipelineLayout,vkPushConstantRange);
 	if (vkResult != VK_SUCCESS)
 	{
 		fprintf(gpFILE, "createGraphicsPipeline_Phong() : createPipelineLayout() failed (%d).\n", vkResult);
@@ -879,7 +876,12 @@ VkResult GraphicsPipelines::createGraphicsPipeline_PBR(VkPipelineLayoutCreateInf
     // local variables
     VkResult vkResult = VK_SUCCESS;
 
-	vkResult = createPipelineLayout(vkPipelineLayoutCreateInfo,&PBR.vkPipelineLayout);
+    VkPushConstantRange vkPushConstantRange{};
+    vkPushConstantRange.offset = 0;
+    vkPushConstantRange.stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT;
+    vkPushConstantRange.size = sizeof(BasicPushConstants);
+
+	vkResult = createPipelineLayout(vkPipelineLayoutCreateInfo,&PBR.vkPipelineLayout, vkPushConstantRange);
 	if (vkResult != VK_SUCCESS)
 	{
 		fprintf(gpFILE, "createGraphicsPipeline_PBR() : createPipelineLayout() failed: %d .\n", vkResult);
@@ -1154,8 +1156,12 @@ VkResult GraphicsPipelines::createGraphicsPipeline_PBR_Skinned(VkPipelineLayoutC
     // local variables
     VkResult vkResult = VK_SUCCESS;
 
+    VkPushConstantRange vkPushConstantRange{};
+    vkPushConstantRange.offset = 0;
+    vkPushConstantRange.stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT;
+    vkPushConstantRange.size = sizeof(BasicPushConstants);
 
-	vkResult = createPipelineLayout(vkPipelineLayoutCreateInfo, &PBR_Skinned.vkPipelineLayout);
+	vkResult = createPipelineLayout(vkPipelineLayoutCreateInfo, &PBR_Skinned.vkPipelineLayout, vkPushConstantRange);
 	if (vkResult != VK_SUCCESS)
 	{
 		fprintf(gpFILE, "createGraphicsPipeline_PBR_Skinned() : createPipelineLayout() failed: %d .\n", vkResult);
@@ -1443,7 +1449,12 @@ VkResult GraphicsPipelines::createGraphicsPipeline_PreviewImage(VkPipelineLayout
     // local variables
     VkResult vkResult = VK_SUCCESS;
 
-	vkResult = createPipelineLayout(vkPipelineLayoutCreateInfo, &PreviewImage.vkPipelineLayout);
+    VkPushConstantRange vkPushConstantRange{};
+    vkPushConstantRange.offset = 0;
+    vkPushConstantRange.stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT;
+    vkPushConstantRange.size = sizeof(BasicPushConstants);
+
+	vkResult = createPipelineLayout(vkPipelineLayoutCreateInfo, &PreviewImage.vkPipelineLayout, vkPushConstantRange);
 	if (vkResult != VK_SUCCESS)
 	{
 		fprintf(gpFILE, "createGraphicsPipeline_PreviewImage() : createPipelineLayout() failed: %d .\n", vkResult);
@@ -1665,7 +1676,12 @@ VkResult GraphicsPipelines::createGraphicsPipeline_WhiteVertex(VkPipelineLayoutC
     // local variables
     VkResult vkResult = VK_SUCCESS;
 
-	vkResult = createPipelineLayout(vkPipelineLayoutCreateInfo, &WhiteVertex.vkPipelineLayout);
+    VkPushConstantRange vkPushConstantRange{};
+    vkPushConstantRange.offset = 0;
+    vkPushConstantRange.stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT;
+    vkPushConstantRange.size = sizeof(BasicPushConstants);
+
+	vkResult = createPipelineLayout(vkPipelineLayoutCreateInfo, &WhiteVertex.vkPipelineLayout, vkPushConstantRange);
 	if (vkResult != VK_SUCCESS)
 	{
 		fprintf(gpFILE, "createGraphicsPipeline_WhiteVertex() : createPipelineLayout() failed: %d .\n", vkResult);
@@ -1936,7 +1952,12 @@ VkResult GraphicsPipelines::createGraphicsPipeline_ColoredVertex(VkPipelineLayou
     // local variables
     VkResult vkResult = VK_SUCCESS;
 
-	vkResult = createPipelineLayout(vkPipelineLayoutCreateInfo, &ColoredVertex.vkPipelineLayout);
+    VkPushConstantRange vkPushConstantRange{};
+    vkPushConstantRange.offset = 0;
+    vkPushConstantRange.stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT;
+    vkPushConstantRange.size = sizeof(BasicPushConstants);
+
+	vkResult = createPipelineLayout(vkPipelineLayoutCreateInfo, &ColoredVertex.vkPipelineLayout, vkPushConstantRange);
 	if (vkResult != VK_SUCCESS)
 	{
 		fprintf(gpFILE, "createGraphicsPipeline_ColoredVertex() : createPipelineLayout() failed: %d .\n", vkResult);
@@ -2214,7 +2235,12 @@ VkResult GraphicsPipelines::createGraphicsPipeline_Meshlet(VkPipelineLayoutCreat
     // local variables
     VkResult vkResult = VK_SUCCESS;
 
-    vkResult = createPipelineLayout(vkPipelineLayoutCreateInfo, &Meshlet.vkPipelineLayout);
+    VkPushConstantRange vkPushConstantRange{};
+    vkPushConstantRange.offset = 0;
+    vkPushConstantRange.stageFlags = VK_SHADER_STAGE_TASK_BIT_EXT | VK_SHADER_STAGE_MESH_BIT_EXT;
+    vkPushConstantRange.size = sizeof(MeshletPushConstants);
+
+    vkResult = createPipelineLayout(vkPipelineLayoutCreateInfo, &Meshlet.vkPipelineLayout, vkPushConstantRange);
     if (vkResult != VK_SUCCESS)
     {
         fprintf(gpFILE, "createGraphicsPipeline_Meshlet() : createPipelineLayout() failed: %d .\n", vkResult);
@@ -2573,7 +2599,7 @@ VkResult GraphicsPipelines::createPipelines(void)
 	//--------------------------------------------------------------------------------------------
 
 	//meshlet
-	vkDescriptorSetLayouts = { gpDescriptorSetLayouts->vkDescriptorSetLayout_frameData, gpDescriptorSetLayouts->vkDescriptorSetLayout_Meshlet };
+	vkDescriptorSetLayouts = { gpDescriptorSetLayouts->vkDescriptorSetLayout_frameData};
 	vkPipelineLayoutCreateInfo = {};
 	vkPipelineLayoutCreateInfo.setLayoutCount = static_cast<uint32_t>(vkDescriptorSetLayouts.size());
 	vkPipelineLayoutCreateInfo.pSetLayouts = vkDescriptorSetLayouts.data();
