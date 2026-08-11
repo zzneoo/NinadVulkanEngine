@@ -42,6 +42,9 @@ layout(set = 0, binding = 0, std140) uniform FrameData
 
     vec3 cameraPos;
     float pad1;
+
+    vec4 frustumPlanes[6];
+
 } frameData;
 
 layout(push_constant) uniform MeshletPushConstants
@@ -140,6 +143,7 @@ void main()
         // Later this becomes your normal/PBR pipeline.
         outNormal[i] = vertex.normal * 0.5 + 0.5;
         outColor[i] = vec4(MeshletColor(meshletID),1.0);
+
     }
 
 

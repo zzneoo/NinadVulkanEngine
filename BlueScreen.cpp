@@ -5679,15 +5679,46 @@ VkResult updateUniformBuffer_frameData(uint32_t curIndex)
 
     //----------------------------------------------------------------------------------------------------------
 
+    glm::mat4 View = camera.GetViewMatrix();
+    glm::mat4 Proj = MyWin32::gProjectionMatrix;
+
+    glm::mat4 ViewProj = Proj * View;
+
+    glm::vec4 row0 =glm::vec4(ViewProj[0][0],ViewProj[1][0],ViewProj[2][0],ViewProj[3][0]);
+    glm::vec4 row1 =glm::vec4(ViewProj[0][1],ViewProj[1][1],ViewProj[2][1],ViewProj[3][1]);
+    glm::vec4 row2 =glm::vec4(ViewProj[0][2],ViewProj[1][2],ViewProj[2][2],ViewProj[3][2]);
+    glm::vec4 row3 =glm::vec4(ViewProj[0][3],ViewProj[1][3],ViewProj[2][3],ViewProj[3][3]);
+
     //uniformTransformBufferObject_frameData
-    UniformBufferObject_FrameData uniformTransformBufferObject_frameData;
-    memset((void*)&uniformTransformBufferObject_frameData, 0, sizeof(UniformBufferObject_FrameData));
+    UniformBufferObject_FrameData uniformTransformBufferObject_frameData{};
+
     // Initialize the uniform buffer object with some data
     uniformTransformBufferObject_frameData.fTime = 0.0f; // time in seconds
     uniformTransformBufferObject_frameData.frameID = 1; // current frame index
-    uniformTransformBufferObject_frameData.view = camera.GetViewMatrix(); // view matrix
-    uniformTransformBufferObject_frameData.proj = MyWin32::gProjectionMatrix; // projection matrix
+    uniformTransformBufferObject_frameData.view = View; // view matrix
+    uniformTransformBufferObject_frameData.proj = Proj; // projection matrix
     uniformTransformBufferObject_frameData.cameraPos = camera.GetCameraPos(); // camera position
+
+    //Frustum planes
+    uniformTransformBufferObject_frameData.frustumPlanes[0] =row3 + row0; // left
+    uniformTransformBufferObject_frameData.frustumPlanes[1] =row3 - row0; // right
+    uniformTransformBufferObject_frameData.frustumPlanes[2] =row3 + row1; // bottom
+    uniformTransformBufferObject_frameData.frustumPlanes[3] =row3 - row1; // top
+
+    uniformTransformBufferObject_frameData.frustumPlanes[4] =row2;        // near
+    uniformTransformBufferObject_frameData.frustumPlanes[5] =row3 - row2; // far
+
+    for (int i = 0; i < 6; ++i)
+    {
+        glm::vec3 normal = glm::vec3(uniformTransformBufferObject_frameData.frustumPlanes[i]);
+
+        float length = glm::length(normal);
+
+        if (length > 0.0f)
+        {
+            uniformTransformBufferObject_frameData.frustumPlanes[i] /= length;
+        }
+    }
 
     // Copy the data to the uniform buffer
     memcpy(gFrames[curIndex].uniformData.pData, &uniformTransformBufferObject_frameData, sizeof(UniformBufferObject_FrameData));

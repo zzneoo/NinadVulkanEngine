@@ -22,6 +22,8 @@ layout(set = 0, binding = 0, std140) uniform FrameData
     vec3 cameraPos;
     float pad1;
 
+    vec4 frustumPlanes[6];
+
 } frameData;
 
 struct MeshletData
@@ -49,27 +51,21 @@ layout(push_constant) uniform MeshletPushConstants
     uint64_t verticesAddress;
 } pc;
 
-bool SphereInsidePlane(
-    vec4 plane,
-    vec3 center,
-    float radius)
-{
-    float distance =
-        dot(plane.xyz, center) +
-        plane.w;
 
-    return distance >= -radius;
+bool IsSphereVisible(vec3 center, float radius)
+{
+    for (int i = 0; i < 6; ++i)
+    {
+        vec4 plane = frameData.frustumPlanes[i];
+        float distance = dot(plane.xyz, center) + plane.w;
+
+        if (distance < -radius)
+            return false;
+    }
+
+    return true;
 }
 
-bool IsSphereVisible(
-    vec3 center,
-    float radius)
-{
-    vec3 centerVS =
-        (frameData.view * vec4(center, 1.0)).xyz;
-
-    return centerVS.z > 0.0;
-}
 
 void main()
 {
@@ -96,11 +92,12 @@ void main()
     vec3 center = meshlet.bounds.xyz;
     float radius = meshlet.bounds.w;
 
+    bool isNotVisible = !IsSphereVisible(center,radius);
 
     // --------------------------------------------------------
     // Frustum culling
     // --------------------------------------------------------
-    //if (center.y>1.0){return;}
+    if (isNotVisible){return;}
 
 
 

@@ -34,6 +34,8 @@ struct UniformBufferObject_FrameData
 	glm::vec3 cameraPos; // Camera position for rendering
     // pad to 16 bytes (std140 rules)
 	float pad1[1];
+
+	glm::vec4 frustumPlanes[6];
 };
 
 //----------------------------------------------------------------------
@@ -151,15 +153,13 @@ struct VulkanSSBO
 	VkDeviceSize size = 0;
 };
 
-struct MeshletData
+struct MeshletData 
 {
 	uint32_t vertexOffset;
 	uint32_t triangleOffset;
-
 	uint32_t vertexCount;
 	uint32_t triangleCount;
-
-	glm::vec4 bounds; // xyz = center, w = radius
+    glm::vec4 bounds;
 };
 
 struct MeshletGPUData
