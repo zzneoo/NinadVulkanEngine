@@ -157,6 +157,7 @@
     <ClInclude Include="imgui\imstb_textedit.h" />
     <ClInclude Include="imgui\imstb_truetype.h" />
     <ClInclude Include="Material_BasicPBR.h" />
+    <ClInclude Include="MeshletScene.h" />
     <ClInclude Include="MeshOptimizer\meshoptimizer.h" />
     <ClInclude Include="MyWin32.h" />
     <ClInclude Include="Resource.h" />
@@ -183,6 +184,7 @@
     <ClCompile Include="imgui\imgui_tables.cpp" />
     <ClCompile Include="imgui\imgui_widgets.cpp" />
     <ClCompile Include="Material_BasicPBR.cpp" />
+    <ClCompile Include="MeshletScene.cpp" />
     <ClCompile Include="MeshOptimizer\allocator.cpp" />
     <ClCompile Include="MeshOptimizer\clusterizer.cpp" />
     <ClCompile Include="MeshOptimizer\indexanalyzer.cpp" />

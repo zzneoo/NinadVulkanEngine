@@ -58,8 +58,20 @@ loadTextureData_dds_c_bc5_normal(): Loaded 'C:\Users\Ninad\source\repos\BlueScre
 loadTextureData_dds_c_bc7(): Loaded 'C:\Users\Ninad\source\repos\BlueScreen\Resources\Models\Ganesha\ORX.dds' w=4096 h=4096 mips=13 layers=1 (BC7)
 StaticMeshletModel::CreateMeshlets() : Generated 141 meshlets.
 StaticMeshletModel::CreateMeshlets() : Vertices=9004, Triangles=39816.
-StaticMeshletModel::CreateMeshletSSBOs() : Created device-local meshlet buffers. Vertices=6976 Meshlets=141.
-StaticMeshletModel::CreateMeshlets() : Meshlet generation and GPU upload completed.
+loadTextureData_dds_c_bc7(): tinyddsloader failed to load 'Albedo.dds' (res=1)
+Failed to load albedo texture
+loadTextureData_dds_c_bc5_normal(): tinyddsloader failed to load 'Normal.dds' (res=1)
+loadTextureData_dds_c_bc7(): tinyddsloader failed to load 'ORX.dds' (res=1)
+NDT_Validation: Validation 0 = vkUpdateDescriptorSets(): pDescriptorWrites[0].pImageInfo[0].imageView is VK_NULL_HANDLE, and descriptorType is VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER.
+The Vulkan spec states: If descriptorType is VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, or VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, and the nullDescriptor feature is not enabled, the imageView member of each element of pImageInfo must not be VK_NULL_HANDLE (https://docs.vulkan.org/spec/latest/chapters/descriptorsets.html#VUID-VkWriteDescriptorSet-descriptorType-02997) 
+NDT_Validation: Validation 0 = vkUpdateDescriptorSets(): pDescriptorWrites[1].pImageInfo[0].imageView is VK_NULL_HANDLE, and descriptorType is VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER.
+The Vulkan spec states: If descriptorType is VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, or VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, and the nullDescriptor feature is not enabled, the imageView member of each element of pImageInfo must not be VK_NULL_HANDLE (https://docs.vulkan.org/spec/latest/chapters/descriptorsets.html#VUID-VkWriteDescriptorSet-descriptorType-02997) 
+NDT_Validation: Validation 0 = vkUpdateDescriptorSets(): pDescriptorWrites[2].pImageInfo[0].imageView is VK_NULL_HANDLE, and descriptorType is VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER.
+The Vulkan spec states: If descriptorType is VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, or VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, and the nullDescriptor feature is not enabled, the imageView member of each element of pImageInfo must not be VK_NULL_HANDLE (https://docs.vulkan.org/spec/latest/chapters/descriptorsets.html#VUID-VkWriteDescriptorSet-descriptorType-02997) 
+StaticMeshletModel::CreateMeshlets() : Generated 140 meshlets.
+StaticMeshletModel::CreateMeshlets() : Vertices=8952, Triangles=39816.
+MeshletScene::Build() : Models=2 Meshlets=281 Vertices=13952 MeshletVertices=17956 Triangles=79632
+StaticMeshletModel::CreateMeshletSSBOs() : Created device-local meshlet buffers. Vertices=13952 Meshlets=281.
 loadTextureData_dds_c_bc7(): Loaded 'Resources/PBR_Materials/T_omfr20_4K/Albedo.dds' w=4096 h=4096 mips=13 layers=1 (BC7)
 loadTextureData_dds_c_bc5_normal(): Loaded 'Resources/PBR_Materials/T_omfr20_4K/Normal.dds' w=4096 h=4096 mips=13 layers=1 (BC5)
 loadTextureData_dds_c_bc7(): Loaded 'Resources/PBR_Materials/T_omfr20_4K/ORX.dds' w=4096 h=4096 mips=13 layers=1 (BC7)

@@ -31,37 +31,30 @@ public:
 
     ~StaticMeshletModel();
 
-    //Meshlet
 
-    //const MeshletGPUData* GetMeshletGPUData() const
-    //{
-    //    return &meshletGPUData;
-    //}
 
-    uint32_t GetMeshletCount() const
-    { 
-        return meshletGPUData.meshletCount;
+    const std::vector<VertexData_Meshlet>&
+        GetVertices() const
+    {
+        return vkVertices;
     }
 
-
-    VkDeviceAddress GetMeshletDataAddress() const
+    const std::vector<MeshletData>&
+        GetMeshlets() const
     {
-        return meshletGPUData.meshletBuffer.deviceAddress;
+        return meshlets;
     }
 
-    VkDeviceAddress GetMeshletVerticesAddress() const
+    const std::vector<uint32_t>&
+        GetMeshletVertices() const
     {
-        return meshletGPUData.meshletVertexBuffer.deviceAddress;
+        return meshletVertices;
     }
 
-    VkDeviceAddress GetMeshletTrianglesAddress() const
+    const std::vector<uint8_t>&
+        GetMeshletTriangles() const
     {
-        return meshletGPUData.meshletTriangleBuffer.deviceAddress;
-    }
-
-    VkDeviceAddress GetVertexDataAddress() const
-    {
-        return meshletGPUData.vertexBuffer.deviceAddress;
+        return meshletTriangles;
     }
 
 
@@ -111,16 +104,11 @@ private:
     // ------------------------------------------------------------
 
 
-    VkResult CreateDeviceLocalSSBO(const void* data, VkDeviceSize size, VulkanSSBO& outSSBO);
-
-    VkResult CreateMeshletSSBOs(const std::vector<VertexData_Meshlet>& vertices);
 
     VkResult CreateMeshlets(
         const std::vector<uint32_t>& indices,
         const std::vector<VertexData_Meshlet>& vertices);
 
-
-    void DestroyMeshletBuffers();
 
     // ------------------------------------------------------------
     // Assimp
@@ -135,11 +123,10 @@ private:
     // Vulkan
     // ------------------------------------------------------------
 
-    MeshletGPUData meshletGPUData;
-
     // ------------------------------------------------------------
     // Meshlets
     // ------------------------------------------------------------
+    std::vector<VertexData_Meshlet> vkVertices;
 
     std::vector<MeshletData> meshlets;
 

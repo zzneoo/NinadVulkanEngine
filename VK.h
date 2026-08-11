@@ -160,7 +160,14 @@ struct MeshletData
 	uint32_t vertexCount;
 	uint32_t triangleCount;
     glm::vec4 bounds;
+
 };
+
+struct ModelData
+{
+	glm::mat4 model;
+};
+
 
 struct MeshletGPUData
 {

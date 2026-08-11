@@ -64,6 +64,7 @@ using namespace tinyddsloader;
 #include "StaticModel.h"
 #include "AnimatedModel.h"
 #include "StaticMeshletModel.h"
+#include "MeshletScene.h"
 
 // macros
 #define WIN_WIDTH  1920
@@ -125,6 +126,8 @@ VulkanComboData  SphereBufferData;
 AnimatedModel* pModel_Rat = NULL;
 StaticModel* pModel_Static_Ganesha = NULL;
 StaticMeshletModel* pModel_Meshlet_Ganesha = NULL;
+StaticMeshletModel* pModel_Meshlet_Ganesha2 = NULL;
+MeshletScene gMeshletScene;
 
 
 const uint16_t triangle_indices[] =
@@ -2274,6 +2277,21 @@ VkResult initialize(void)
     pModel_Rat = new AnimatedModel("Resources/Models/Test/RatWithMat.FBX", true, gpDescriptorSetLayouts->vkDescriptorSetLayout_BasicPBR);
     pModel_Static_Ganesha = new StaticModel("Resources/Models/Ganesha/Ganesha.fbx", true, gpDescriptorSetLayouts->vkDescriptorSetLayout_BasicPBR);
     pModel_Meshlet_Ganesha = new StaticMeshletModel("Resources/Models/Ganesha/Ganesha.fbx", gpDescriptorSetLayouts->vkDescriptorSetLayout_BasicPBR);
+    pModel_Meshlet_Ganesha2 = new StaticMeshletModel("Resources/Models/Ganesha/Ganesha2.fbx", gpDescriptorSetLayouts->vkDescriptorSetLayout_BasicPBR);
+
+
+    gMeshletScene.AddModel(pModel_Meshlet_Ganesha);
+    gMeshletScene.AddModel(pModel_Meshlet_Ganesha2);
+
+    VkResult result = gMeshletScene.Build();
+
+    if (result != VK_SUCCESS)
+    {
+        fprintf(gpFILE,"MeshletScene::Build FAILED: %d\n",result);
+        return result;
+    }
+
+
 
     //createDescriptorSet_FrameDataBoneData
 	vkResult = createDescriptorSet_FrameDataBoneData();
@@ -2805,6 +2823,8 @@ void uninitialize(void)
 	delete pModel_Rat;
     delete pModel_Static_Ganesha;
     delete pModel_Meshlet_Ganesha;
+
+    gMeshletScene.ShutDown();
 
     //uniform buffer
 
@@ -7192,7 +7212,7 @@ void Render_MeshletTriangle(uint32_t curIndex)
     vkCmdDrawMeshTasksEXT_pfn(gFrames[curIndex].commandBuffer, 1, 1, 1);
 }
 
-void Render_Meshlet(uint32_t curIndex)
+void Render_MeshletScene(uint32_t curIndex)
 {
     VkCommandBuffer commandBuffer =
         gFrames[curIndex].commandBuffer;
@@ -7223,19 +7243,20 @@ void Render_Meshlet(uint32_t curIndex)
         1,
         &frameDescriptorSet,
         0,
-        NULL);
+        nullptr);
 
 
     // ------------------------------------------------------------
-    // Set 1 : Meshlet SSBOs
+    // Global meshlet buffers
     // ------------------------------------------------------------
 
     MeshletPushConstants pc{};
 
-    pc.meshletData = pModel_Meshlet_Ganesha->GetMeshletDataAddress();
-    pc.meshletVertices = pModel_Meshlet_Ganesha->GetMeshletVerticesAddress();
-    pc.meshletTriangles = pModel_Meshlet_Ganesha->GetMeshletTrianglesAddress();
-    pc.vertices = pModel_Meshlet_Ganesha->GetVertexDataAddress();
+    pc.meshletData = gMeshletScene.GetMeshletDataAddress();
+    pc.meshletVertices = gMeshletScene.GetMeshletVerticesAddress();
+    pc.meshletTriangles = gMeshletScene.GetMeshletTrianglesAddress();
+    pc.vertices = gMeshletScene.GetVertexDataAddress();
+
 
     vkCmdPushConstants(
         commandBuffer,
@@ -7248,12 +7269,12 @@ void Render_Meshlet(uint32_t curIndex)
 
 
     // ------------------------------------------------------------
-    // Dispatch meshlet pipeline
+    // Dispatch ALL global meshlets
     // ------------------------------------------------------------
 
     vkCmdDrawMeshTasksEXT_pfn(
         commandBuffer,
-        pModel_Meshlet_Ganesha->GetMeshletCount(),
+        gMeshletScene.GetMeshletCount(),
         1,
         1);
 }
@@ -7464,7 +7485,9 @@ VkResult buildCommandBuffers(uint32_t curIndex, uint32_t currentImageIndex)
 
     //Render_MeshletTriangle(curIndex);// Render triangle with meshlet pipeline
 
-    Render_Meshlet(curIndex);// Render  meshlet pipeline
+    //Render_Meshlet(curIndex);// Render  meshlet pipeline
+
+    Render_MeshletScene(curIndex);// Render MeshletScene
 
 #ifdef IMGUI_ENABLE
     RenderImGui(curIndex); // Render ImGui UI
