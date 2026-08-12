@@ -107,7 +107,7 @@ struct MeshletPushConstants
 	VkDeviceAddress meshletVertices;
 	VkDeviceAddress meshletTriangles;
 	VkDeviceAddress vertices;
-	VkDeviceAddress modelMatrices;
+	VkDeviceAddress modelData;
 
 };
 
@@ -174,7 +174,11 @@ struct MeshletData
 struct ModelData
 {
 	glm::mat4 model;
+	float maxScale;
+	float pad[3];
 };
+
+static_assert(sizeof(ModelData) == 80);
 
 
 struct MeshletGPUData
@@ -183,7 +187,7 @@ struct MeshletGPUData
 	VulkanSSBO meshletBuffer;
 	VulkanSSBO meshletVertexBuffer;
 	VulkanSSBO meshletTriangleBuffer;
-	VulkanSSBO modelMatricesBuffer;
+	VulkanSSBO modelDataBuffer;
 
 	uint32_t vertexCount = 0;
 	uint32_t meshletCount = 0;

@@ -1799,7 +1799,7 @@ VkResult initialize(void)
     // variable declarations
     VkResult vkResult = VK_SUCCESS;
 
-    //compileShaderVS_FS("Impostor");
+    compileShaderVS_FS("Impostor");
     //compileShaderVS_FS("Phong");
     compileShaderVS_FS("PBR");
     //compileShaderVS_FS("PBR_Skinned");
@@ -7272,7 +7272,7 @@ void Render_MeshletScene(uint32_t curIndex)
     pc.meshletVertices = gMeshletScene.GetMeshletVerticesAddress();
     pc.meshletTriangles = gMeshletScene.GetMeshletTrianglesAddress();
     pc.vertices = gMeshletScene.GetVertexDataAddress();
-    pc.modelMatrices = gMeshletScene.GetModelMatricesAddress();
+    pc.modelData = gMeshletScene.GetModelDataAddress();
         
 
 

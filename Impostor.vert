@@ -147,7 +147,7 @@ void main(void)
     vec2 directionUV = clamp(semiOct(viewVector),0.0,1.0);
 
     // Floating-point tile index
-    vec2 tileCoordF = directionUV * atlasDims;
+    vec2 tileCoordF = directionUV * (atlasDims - 1.0);
 
     // Integer base tile index (bottom-left corner)
     ivec2 baseTile = ivec2(floor(tileCoordF));

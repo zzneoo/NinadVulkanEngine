@@ -105,7 +105,7 @@ VkResult MeshletScene::Build()
     meshlets.clear();
     meshletVertices.clear();
     meshletTriangles.clear();
-    modelMatrices.clear();
+    gModelData.clear();
 
     uint32_t modelIndex = 0;
 
@@ -117,7 +117,21 @@ VkResult MeshletScene::Build()
         // ----------------------------------------------------
         // One matrix per model
         // ----------------------------------------------------
-        modelMatrices.push_back(model->GetModelMatrix());
+        ModelData mData{};
+        mData.model = model->GetModelMatrix();
+        
+        // Calculate maximum scale from model matrix.
+        float scaleX = glm::length(glm::vec3(mData.model[0]));
+        float scaleY = glm::length(glm::vec3(mData.model[1]));
+        float scaleZ = glm::length(glm::vec3(mData.model[2]));
+
+        mData.maxScale = glm::max(scaleX, glm::max(scaleY, scaleZ));
+
+        mData.pad[0] = 0.0f;
+        mData.pad[1] = 0.0f;
+        mData.pad[2] = 0.0f;
+
+        gModelData.push_back(mData);
 
         // ----------------------------------------------------
         // Every meshlet from this model gets this index
@@ -586,9 +600,9 @@ VkResult MeshletScene::CreateGlobalSSBOs(void)
 
     vkResult =
         CreateDeviceLocalSSBO(
-            modelMatrices.data(),
-            modelMatrices.size() * sizeof(glm::mat4),
-            meshletGPUData.modelMatricesBuffer);
+            gModelData.data(),
+            gModelData.size() * sizeof(ModelData),
+            meshletGPUData.modelDataBuffer);
 
     if (vkResult != VK_SUCCESS)
         return vkResult;
@@ -642,6 +656,6 @@ void MeshletScene::DestroyGlobalSSBOs()
     DestroySSBO(meshletGPUData.meshletBuffer);
     DestroySSBO(meshletGPUData.meshletTriangleBuffer);
     DestroySSBO(meshletGPUData.meshletVertexBuffer);
-    DestroySSBO(meshletGPUData.modelMatricesBuffer);
+    DestroySSBO(meshletGPUData.modelDataBuffer);
 }
 

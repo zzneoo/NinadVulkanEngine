@@ -18,6 +18,13 @@ struct VertexData
     vec4 tangent;
 };
 
+struct ModelData
+{
+    mat4 modelMatrix;
+    float maxScale;
+    float pad[3];
+};
+
 struct MeshletData
 {
     uint vertexOffset;
@@ -58,7 +65,7 @@ layout(push_constant) uniform MeshletPushConstants
     uint64_t meshletVerticesAddress;
     uint64_t meshletTrianglesAddress;
     uint64_t verticesAddress;
-    uint64_t modelMatricesAddress;
+    uint64_t modelDataAddress;
 } pc;
 
 
@@ -87,9 +94,9 @@ readonly buffer VertexBuffer
 };
 
 layout(buffer_reference, std430)
-readonly buffer ModelMatrixBuffer
+readonly buffer ModelDataBuffer
 {
-    mat4 data[];
+    ModelData data[];
 };
 
 
@@ -126,16 +133,13 @@ void main()
     MeshletVertexBuffer meshletVertices = MeshletVertexBuffer(pc.meshletVerticesAddress);
     MeshletTriangleBuffer meshletTriangles = MeshletTriangleBuffer(pc.meshletTrianglesAddress);
     VertexBuffer vertices = VertexBuffer(pc.verticesAddress);
-    ModelMatrixBuffer modelMatrices = ModelMatrixBuffer(pc.modelMatricesAddress);
+    ModelDataBuffer models = ModelDataBuffer(pc.modelDataAddress);
 
 
     MeshletData meshlet = meshlets.data[meshletID];
+    mat4 ModelMatrix = models.data[meshlet.modelIndex].modelMatrix;
 
     SetMeshOutputsEXT(meshlet.vertexCount, meshlet.triangleCount);
-
-    mat4 ModelMatrix = modelMatrices.data[meshlet.modelIndex];
-
-
     // Load meshlet vertices
     // --------------------------------------------------------
 

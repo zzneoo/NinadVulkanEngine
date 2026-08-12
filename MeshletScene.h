@@ -67,9 +67,9 @@ public:
         return meshletGPUData.vertexBuffer.deviceAddress;
     }
 
-    VkDeviceAddress GetModelMatricesAddress() const
+    VkDeviceAddress GetModelDataAddress() const
     {
-        return meshletGPUData.modelMatricesBuffer.deviceAddress;
+        return meshletGPUData.modelDataBuffer.deviceAddress;
     }
 
 
@@ -92,7 +92,7 @@ private:
         meshletTriangles;
 
     //Global Model Matrices
-    std::vector<glm::mat4> modelMatrices;
+    std::vector<ModelData> gModelData;
 
 
     // ------------------------------------------------------------
