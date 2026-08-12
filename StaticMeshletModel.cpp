@@ -424,6 +424,7 @@ VkResult StaticMeshletModel::CreateMeshlets(
     // ============================================================
     // Build meshlets
     // ============================================================
+    float coneWeight = 0.5f;
 
     size_t meshletCount =
         meshopt_buildMeshlets(
@@ -442,7 +443,7 @@ VkResult StaticMeshletModel::CreateMeshlets(
             MAX_MESHLET_VERTICES,
             MAX_MESHLET_TRIANGLES,
 
-            0.0f);
+            coneWeight);
 
 
     if (meshletCount == 0)
@@ -599,6 +600,21 @@ VkResult StaticMeshletModel::CreateMeshlets(
                 bounds.center[1],
                 bounds.center[2],
                 bounds.radius);
+
+        // Backface cone
+        dst.coneAxis =
+            glm::vec4(
+                bounds.cone_axis[0],
+                bounds.cone_axis[1],
+                bounds.cone_axis[2],
+                bounds.cone_cutoff);
+
+        dst.coneApex =
+            glm::vec4(
+                bounds.cone_apex[0],
+                bounds.cone_apex[1],
+                bounds.cone_apex[2],
+                1.0f);
 
 
         meshlets.push_back(dst);

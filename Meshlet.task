@@ -34,7 +34,9 @@ struct MeshletData
     uint vertexCount;
     uint triangleCount;
 
-    vec4 bounds;
+    vec4 bounds;    // xyz = center, w = radius
+    vec4 coneAxis;   // xyz = axis, w = cutoff
+    vec4 coneApex;     // xyz apex
 
     uint modelIndex;    // 32
     uint pad0;          // 36
@@ -122,15 +124,27 @@ void main()
     float localRadius = meshlet.bounds.w;
 
     vec3 worldCenter = (modelMatrix * vec4(localCenter, 1.0)).xyz;
-    float worldRadius = localRadius * maxScale -1.0;
-
-    bool isNotVisible = !IsSphereVisible(worldCenter,worldRadius);
+    float worldRadius = localRadius * maxScale;
 
     // --------------------------------------------------------
     // Frustum culling
     // --------------------------------------------------------
+    bool isNotVisible = !IsSphereVisible(worldCenter,worldRadius);
     if (isNotVisible){return;}
 
+    // --------------------------------------------------------
+    // Cone culling
+    // --------------------------------------------------------
+    vec3 worldConeAxis = normalize( mat3(modelMatrix) * meshlet.coneAxis.xyz);
+    vec3 worldConeApex = (modelMatrix *vec4(meshlet.coneApex.xyz, 1.0)).xyz;
+
+    vec3 toCamera = normalize(frameData.cameraPos - worldConeApex);
+    float coneCutoff = meshlet.coneAxis.w;
+
+    bool coneBackface = dot(worldConeAxis, toCamera) >= coneCutoff * 0.9;// remove *0.9 if meshlets pop. 1.0 is 100% backkfacing meshlet
+
+    if (coneBackface) 
+    return;
 
 
     // --------------------------------------------------------

@@ -138,7 +138,7 @@ void main(void)
     vec3 finalColor = vec3(albedo) * max(dot(normal,vec3(0.0,1.0,0.0)),0.1) ;
     //finalColor = 1.0 - exp(-finalColor * 5.0);
 
-	FragColor.rgb = Tonemap_ACES(finalColor *2.0);
+	FragColor.rgb = Tonemap_ACES(finalColor *1.5);
 	//FragColor.rgb = normal;
 	//FragColor.rgb = vec3(depth00);
 	FragColor.a = 1.0;

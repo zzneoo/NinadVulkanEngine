@@ -33,7 +33,7 @@ fillDeviceExtensionNames() : Enabled Vulkan device extension name = VK_KHR_swapc
 fillDeviceExtensionNames() : Enabled Vulkan device extension name = VK_EXT_mesh_shader
 -------------------------------------------------------------------------------------
 createSwapchain() : minImageCount = 2, maxImageCount = 8
-createSwapchain() : (1) Swapchain Image width x height = 1888 x 992
+createSwapchain() : (1) Swapchain Image width x height = 1892 x 1001
 createImagesAndImageViews() : gives swapchain image count = 2
 createSamplers() : Samplers created successfully.
 
@@ -56,14 +56,14 @@ StaticModel::LoadModel_Static_PBR() : Loaded static model successfully. Meshes=1
 loadTextureData_dds_c_bc7(): Loaded 'C:\Users\Ninad\source\repos\BlueScreen\Resources\Models\Ganesha\Albedo.dds' w=4096 h=4096 mips=13 layers=1 (BC7)
 loadTextureData_dds_c_bc5_normal(): Loaded 'C:\Users\Ninad\source\repos\BlueScreen\Resources\Models\Ganesha\Normal.dds' w=4096 h=4096 mips=13 layers=1 (BC5)
 loadTextureData_dds_c_bc7(): Loaded 'C:\Users\Ninad\source\repos\BlueScreen\Resources\Models\Ganesha\ORX.dds' w=4096 h=4096 mips=13 layers=1 (BC7)
-StaticMeshletModel::CreateMeshlets() : Generated 141 meshlets.
-StaticMeshletModel::CreateMeshlets() : Vertices=9004, Triangles=39816.
+StaticMeshletModel::CreateMeshlets() : Generated 142 meshlets.
+StaticMeshletModel::CreateMeshlets() : Vertices=9054, Triangles=39816.
 loadTextureData_dds_c_bc7(): Loaded 'C:\Users\Ninad\source\repos\BlueScreen\Resources\Models\Ganesha\Albedo.dds' w=4096 h=4096 mips=13 layers=1 (BC7)
 loadTextureData_dds_c_bc5_normal(): Loaded 'C:\Users\Ninad\source\repos\BlueScreen\Resources\Models\Ganesha\Normal.dds' w=4096 h=4096 mips=13 layers=1 (BC5)
 loadTextureData_dds_c_bc7(): Loaded 'C:\Users\Ninad\source\repos\BlueScreen\Resources\Models\Ganesha\ORX.dds' w=4096 h=4096 mips=13 layers=1 (BC7)
-StaticMeshletModel::CreateMeshlets() : Generated 141 meshlets.
-StaticMeshletModel::CreateMeshlets() : Vertices=9004, Triangles=39816.
-StaticMeshletModel::CreateMeshletSSBOs() : Created device-local meshlet buffers. Vertices=13952 Meshlets=282.
+StaticMeshletModel::CreateMeshlets() : Generated 142 meshlets.
+StaticMeshletModel::CreateMeshlets() : Vertices=9054, Triangles=39816.
+StaticMeshletModel::CreateMeshletSSBOs() : Created device-local meshlet buffers. Vertices=13952 Meshlets=284.
 loadTextureData_dds_c_bc7(): Loaded 'Resources/PBR_Materials/T_omfr20_4K/Albedo.dds' w=4096 h=4096 mips=13 layers=1 (BC7)
 loadTextureData_dds_c_bc5_normal(): Loaded 'Resources/PBR_Materials/T_omfr20_4K/Normal.dds' w=4096 h=4096 mips=13 layers=1 (BC5)
 loadTextureData_dds_c_bc7(): Loaded 'Resources/PBR_Materials/T_omfr20_4K/ORX.dds' w=4096 h=4096 mips=13 layers=1 (BC7)

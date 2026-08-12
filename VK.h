@@ -163,7 +163,9 @@ struct MeshletData
 	uint32_t triangleOffset;
 	uint32_t vertexCount;
 	uint32_t triangleCount;
-    glm::vec4 bounds;
+    glm::vec4 bounds;	  //xyz = center, w = radius
+	glm::vec4 coneAxis;   // xyz = axis, w = cutoff
+	glm::vec4 coneApex;     // xyz apex
 
 	uint32_t modelIndex;
 	uint32_t pad0;
