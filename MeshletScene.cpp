@@ -21,8 +21,7 @@ void MeshletScene::AddModel(StaticMeshletModel* model)
 }
 
 
-void MeshletScene::MergeModel(
-    const StaticMeshletModel& model)
+void MeshletScene::MergeModel(const StaticMeshletModel& model, uint32_t modelIndex)
 {
     const uint32_t vertexBase =
         static_cast<uint32_t>(
@@ -90,11 +89,9 @@ void MeshletScene::MergeModel(
     {
         MeshletData dst = src;
 
-        dst.vertexOffset +=
-            meshletVertexBase;
-
-        dst.triangleOffset +=
-            triangleBase;
+        dst.vertexOffset += meshletVertexBase;
+        dst.triangleOffset += triangleBase;
+        dst.modelIndex = modelIndex;
 
         meshlets.push_back(dst);
     }
@@ -104,46 +101,33 @@ void MeshletScene::MergeModel(
 
 VkResult MeshletScene::Build()
 {
-    // ------------------------------------------------------------
-    // Clear previous global data
-    // ------------------------------------------------------------
-
     vertices.clear();
     meshlets.clear();
     meshletVertices.clear();
     meshletTriangles.clear();
+    modelMatrices.clear();
 
+    uint32_t modelIndex = 0;
 
-    // ------------------------------------------------------------
-    // Merge every model
-    // ------------------------------------------------------------
-
-    for (const StaticMeshletModel* model :
-        models)
+    for (const StaticMeshletModel* model : models)
     {
         if (!model)
             continue;
 
-        MergeModel(*model);
+        // ----------------------------------------------------
+        // One matrix per model
+        // ----------------------------------------------------
+        modelMatrices.push_back(model->GetModelMatrix());
+
+        // ----------------------------------------------------
+        // Every meshlet from this model gets this index
+        // ----------------------------------------------------
+        MergeModel(
+            *model,
+            modelIndex);
+
+        ++modelIndex;
     }
-
-
-    fprintf(
-        gpFILE,
-        "MeshletScene::Build() : "
-        "Models=%zu Meshlets=%zu Vertices=%zu "
-        "MeshletVertices=%zu Triangles=%zu\n",
-
-        models.size(),
-        meshlets.size(),
-        vertices.size(),
-        meshletVertices.size(),
-        meshletTriangles.size());
-
-
-    // ------------------------------------------------------------
-    // Upload global GPU buffers
-    // ------------------------------------------------------------
 
     return CreateGlobalSSBOs();
 }
@@ -596,6 +580,20 @@ VkResult MeshletScene::CreateGlobalSSBOs(void)
             meshlets.size());
 
 
+    // ============================================================
+    // Global Model Matrices
+    // ============================================================
+
+    vkResult =
+        CreateDeviceLocalSSBO(
+            modelMatrices.data(),
+            modelMatrices.size() * sizeof(glm::mat4),
+            meshletGPUData.modelMatricesBuffer);
+
+    if (vkResult != VK_SUCCESS)
+        return vkResult;
+
+
     fprintf(
         gpFILE,
         "StaticMeshletModel::CreateMeshletSSBOs() : "
@@ -644,5 +642,6 @@ void MeshletScene::DestroyGlobalSSBOs()
     DestroySSBO(meshletGPUData.meshletBuffer);
     DestroySSBO(meshletGPUData.meshletTriangleBuffer);
     DestroySSBO(meshletGPUData.meshletVertexBuffer);
+    DestroySSBO(meshletGPUData.modelMatricesBuffer);
 }
 

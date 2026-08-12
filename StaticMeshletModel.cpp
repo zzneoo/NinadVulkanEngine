@@ -3,9 +3,9 @@
 #include <iostream>
 
 
-StaticMeshletModel::StaticMeshletModel(const char* modelPath, VkDescriptorSetLayout vkDescriptorSetLayout)
+StaticMeshletModel::StaticMeshletModel(const char* modelPath, VkDescriptorSetLayout vkDescriptorSetLayout, glm::mat4 inModelMatrix)
 {
-
+    this->ModelMatrix = inModelMatrix;
 
     VkResult vkResult = LoadModel_Static_PBR(modelPath, vkDescriptorSetLayout);
 

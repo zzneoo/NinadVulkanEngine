@@ -67,6 +67,11 @@ public:
         return meshletGPUData.vertexBuffer.deviceAddress;
     }
 
+    VkDeviceAddress GetModelMatricesAddress() const
+    {
+        return meshletGPUData.modelMatricesBuffer.deviceAddress;
+    }
+
 
 private:
 
@@ -85,6 +90,9 @@ private:
 
     std::vector<uint8_t>
         meshletTriangles;
+
+    //Global Model Matrices
+    std::vector<glm::mat4> modelMatrices;
 
 
     // ------------------------------------------------------------
@@ -105,7 +113,7 @@ private:
     // Internal functions
     // ------------------------------------------------------------
 
-    void MergeModel(const StaticMeshletModel& model);
+    void MergeModel(const StaticMeshletModel& model, uint32_t modelIndex);
 
     VkResult CreateGlobalSSBOs();
     void DestroyGlobalSSBOs();

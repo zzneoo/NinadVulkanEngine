@@ -2276,12 +2276,27 @@ VkResult initialize(void)
 
     pModel_Rat = new AnimatedModel("Resources/Models/Test/RatWithMat.FBX", true, gpDescriptorSetLayouts->vkDescriptorSetLayout_BasicPBR);
     pModel_Static_Ganesha = new StaticModel("Resources/Models/Ganesha/Ganesha.fbx", true, gpDescriptorSetLayouts->vkDescriptorSetLayout_BasicPBR);
-    pModel_Meshlet_Ganesha = new StaticMeshletModel("Resources/Models/Ganesha/Ganesha.fbx", gpDescriptorSetLayouts->vkDescriptorSetLayout_BasicPBR);
-    pModel_Meshlet_Ganesha2 = new StaticMeshletModel("Resources/Models/Ganesha/Ganesha2.fbx", gpDescriptorSetLayouts->vkDescriptorSetLayout_BasicPBR);
+
+    glm::mat4 modelMatrixGanesha = 
+        glm::translate(glm::mat4(1.0f),glm::vec3(-17.0f, -10.0f, 0.0f)) *
+        glm::rotate(glm::mat4(1.0f), glm::radians(90.0f), glm::vec3(1.0f, 0.0f, 0.0f)) *
+        glm::rotate(glm::mat4(1.0f), glm::radians(-120.0f), glm::vec3(0.0f, 1.0f, 0.0f)) *
+        glm::scale(glm::mat4(1.0f), glm::vec3(2.0f, 2.0f, 2.0f));
+
+    glm::mat4 modelMatrixGanesha2 =
+        glm::translate(glm::mat4(1.0f), glm::vec3(17.0f, -10.0f, 0.0f)) *
+        glm::rotate(glm::mat4(1.0f), glm::radians(90.0f), glm::vec3(1.0f, 0.0f, 0.0f)) *
+        glm::rotate(glm::mat4(1.0f), glm::radians(-60.0f), glm::vec3(0.0f, 1.0f, 0.0f)) *
+        glm::scale(glm::mat4(1.0f), glm::vec3(2.0f, 2.0f, 2.0f));
+
+    pModel_Meshlet_Ganesha = new StaticMeshletModel("Resources/Models/Ganesha/Ganesha.fbx", gpDescriptorSetLayouts->vkDescriptorSetLayout_BasicPBR, modelMatrixGanesha);
+    pModel_Meshlet_Ganesha2 = new StaticMeshletModel("Resources/Models/Ganesha/Ganesha.fbx", gpDescriptorSetLayouts->vkDescriptorSetLayout_BasicPBR, modelMatrixGanesha2);
 
 
     gMeshletScene.AddModel(pModel_Meshlet_Ganesha);
     gMeshletScene.AddModel(pModel_Meshlet_Ganesha2);
+
+
 
     VkResult result = gMeshletScene.Build();
 
@@ -2823,6 +2838,7 @@ void uninitialize(void)
 	delete pModel_Rat;
     delete pModel_Static_Ganesha;
     delete pModel_Meshlet_Ganesha;
+    delete pModel_Meshlet_Ganesha2;
 
     gMeshletScene.ShutDown();
 
@@ -7002,7 +7018,7 @@ void RenderSuzanne(uint32_t curIndex)
         fAngle = fAngle - 360.0f; // Reset the angle if it exceeds 360 degrees
 
     BasicPushConstants pushConstants{};
-    pushConstants.model = glm::translate(glm::mat4(1.0f), glm::vec3(15.0f, -10.0f, 2.0f)) * glm::rotate(glm::mat4(1.0f), glm::radians(fAngle), glm::vec3(0.0f, 0.0f, 1.0f));
+    pushConstants.model = glm::translate(glm::mat4(1.0f), glm::vec3(15.0f, 10.0f, 2.0f)) * glm::rotate(glm::mat4(1.0f), glm::radians(fAngle), glm::vec3(0.0f, 0.0f, 1.0f));
     //pushConstants.model = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.0f, 0.0f));
     //ushConstants.model = glm::mat4(1.0f); // Identity matrix for no transformation
 
@@ -7086,7 +7102,7 @@ void RenderPBR_Static_Ganesha(uint32_t curIndex)
         fAngle = fAngle - 360.0f; // Reset the angle if it exceeds 360 degrees
 
     BasicPushConstants pushConstants{};
-    glm::mat4 translation = glm::translate(glm::mat4(1.0f), glm::vec3(5.0f, -5.0f, 0.0f));
+    glm::mat4 translation = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, -5.0f, 0.0f));
     glm::mat4 rotation = glm::rotate(glm::mat4(1.0f), glm::radians(90.0f), glm::vec3(1.0f, 0.0f, 0.0f));
     rotation = glm::rotate(rotation, glm::radians(-90.0f), glm::vec3(0.0f, 1.0f, 0.0f));
     glm::mat4 scale = glm::scale(glm::mat4(1.0f), glm::vec3(2.0f, 2.0f, 2.0f));
@@ -7256,6 +7272,8 @@ void Render_MeshletScene(uint32_t curIndex)
     pc.meshletVertices = gMeshletScene.GetMeshletVerticesAddress();
     pc.meshletTriangles = gMeshletScene.GetMeshletTrianglesAddress();
     pc.vertices = gMeshletScene.GetVertexDataAddress();
+    pc.modelMatrices = gMeshletScene.GetModelMatricesAddress();
+        
 
 
     vkCmdPushConstants(

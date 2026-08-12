@@ -25,9 +25,7 @@ class StaticMeshletModel
 {
 public:
 
-    StaticMeshletModel(
-        const char* modelPath,
-        VkDescriptorSetLayout vkDescriptorSetLayout);
+    StaticMeshletModel(const char* modelPath,VkDescriptorSetLayout vkDescriptorSetLayout,glm::mat4 modelMatrix);
 
     ~StaticMeshletModel();
 
@@ -55,6 +53,11 @@ public:
         GetMeshletTriangles() const
     {
         return meshletTriangles;
+    }
+
+    const glm::mat4&GetModelMatrix() const
+    {
+        return ModelMatrix;
     }
 
 
@@ -133,6 +136,8 @@ private:
     std::vector<uint32_t> meshletVertices;
 
     std::vector<uint8_t> meshletTriangles;
+
+    glm::mat4 ModelMatrix;
 
 
     // ------------------------------------------------------------

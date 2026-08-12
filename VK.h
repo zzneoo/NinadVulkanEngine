@@ -99,12 +99,16 @@ struct BasicPushConstants
 	glm::uvec4 materialIDs;
 };
 
+
 struct MeshletPushConstants
 {
+	//Device Addresses
 	VkDeviceAddress meshletData;
 	VkDeviceAddress meshletVertices;
 	VkDeviceAddress meshletTriangles;
 	VkDeviceAddress vertices;
+	VkDeviceAddress modelMatrices;
+
 };
 
 //win32
@@ -161,6 +165,10 @@ struct MeshletData
 	uint32_t triangleCount;
     glm::vec4 bounds;
 
+	uint32_t modelIndex;
+	uint32_t pad0;
+	uint32_t pad1;
+	uint32_t pad2;
 };
 
 struct ModelData
@@ -172,9 +180,10 @@ struct ModelData
 struct MeshletGPUData
 {
 	VulkanSSBO vertexBuffer;
-	VulkanSSBO  meshletBuffer;
-	VulkanSSBO  meshletVertexBuffer;
-	VulkanSSBO  meshletTriangleBuffer;
+	VulkanSSBO meshletBuffer;
+	VulkanSSBO meshletVertexBuffer;
+	VulkanSSBO meshletTriangleBuffer;
+	VulkanSSBO modelMatricesBuffer;
 
 	uint32_t vertexCount = 0;
 	uint32_t meshletCount = 0;

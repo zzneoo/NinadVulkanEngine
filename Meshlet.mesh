@@ -27,6 +27,11 @@ struct MeshletData
     uint triangleCount;
 
     vec4 bounds;
+
+    uint modelIndex;
+	uint pad0;
+	uint pad1;
+	uint pad2;
 };
 
 
@@ -53,6 +58,7 @@ layout(push_constant) uniform MeshletPushConstants
     uint64_t meshletVerticesAddress;
     uint64_t meshletTrianglesAddress;
     uint64_t verticesAddress;
+    uint64_t modelMatricesAddress;
 } pc;
 
 
@@ -79,6 +85,13 @@ readonly buffer VertexBuffer
 {
     VertexData data[];
 };
+
+layout(buffer_reference, std430)
+readonly buffer ModelMatrixBuffer
+{
+    mat4 data[];
+};
+
 
 // Output primitive type
 layout(triangles) out;
@@ -113,11 +126,14 @@ void main()
     MeshletVertexBuffer meshletVertices = MeshletVertexBuffer(pc.meshletVerticesAddress);
     MeshletTriangleBuffer meshletTriangles = MeshletTriangleBuffer(pc.meshletTrianglesAddress);
     VertexBuffer vertices = VertexBuffer(pc.verticesAddress);
+    ModelMatrixBuffer modelMatrices = ModelMatrixBuffer(pc.modelMatricesAddress);
 
 
     MeshletData meshlet = meshlets.data[meshletID];
+
     SetMeshOutputsEXT(meshlet.vertexCount, meshlet.triangleCount);
 
+    mat4 ModelMatrix = modelMatrices.data[meshlet.modelIndex];
 
 
     // Load meshlet vertices
@@ -131,9 +147,7 @@ void main()
         uint originalVertexIndex = meshletVertices.data[ meshlet.vertexOffset + i];
         VertexData vertex = vertices.data[originalVertexIndex];
 
-        vec4 worldPosition = vec4(vertex.pos.xyz, 1.0);
-
-        vec4 viewPosition = frameData.view * worldPosition;
+        vec4 worldPosition = ModelMatrix * vec4(vertex.pos.xyz, 1.0);
 
         gl_MeshVerticesEXT[i].gl_Position =frameData.proj * frameData.view * worldPosition;
 

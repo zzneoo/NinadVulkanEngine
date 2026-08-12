@@ -35,6 +35,12 @@ struct MeshletData
     uint triangleCount;
 
     vec4 bounds;
+
+    uint modelIndex;    // 32
+    uint pad0;          // 36
+    uint pad1;          // 40
+    uint pad2;          // 44
+
 };
 
 layout(buffer_reference, std430)
@@ -97,7 +103,7 @@ void main()
     // --------------------------------------------------------
     // Frustum culling
     // --------------------------------------------------------
-    if (isNotVisible){return;}
+    //if (isNotVisible){return;}
 
 
 
