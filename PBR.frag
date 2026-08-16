@@ -1,6 +1,9 @@
 #version 460
 
 #extension GL_EXT_nonuniform_qualifier : require
+#extension GL_GOOGLE_include_directive : require
+
+#include "common.glsl"
 
 #define saturate(x) clamp(x, 0.0, 1.0)
 
@@ -20,16 +23,6 @@ layout(location = 4) in vec3 vWorldPos;
 
 layout(set = 1, binding = 0) uniform sampler2D textures[];
 
-layout(std140, set = 0, binding = 0) uniform FrameData 
-{
-    mat4 view;        // offset 0    (64 bytes)
-    mat4 projection;  // offset 64   (64 bytes)
-    float fTime;      // offset 128  (4 bytes)
-    uint  frameID;    // offset 132  (4 bytes)
-    vec2  _pad0;      // offset 136  (8 bytes) -> explicitly aligns cameraPos to 144
-    vec3  cameraPos;  // offset 144  (12 bytes)
-    float _pad1;      // offset 156  (4 bytes) -> rounds struct total to 160
-} global;
 
 vec3 decodeNormalFromBC5_UNORM(vec2 enc) {
     // enc = texture(sampler, uv).rg  -> in [0,1]
@@ -137,7 +130,7 @@ void main(void)
     vec3 N = normalize(TBN * normal_map);
     //vec3 N = normalize(normal);
     vec3 V = normalize(global.cameraPos - vWorldPos);
-    vec3 L = normalize(vec3(0.0, 1.0, 0.0));
+    vec3 L = normalize(global.sunDir);
     vec3 H = normalize(V + L);
 
     vec3 radiance = vec3(1.0) * mix(1.0,10.0,0.5);//pc.v3Color

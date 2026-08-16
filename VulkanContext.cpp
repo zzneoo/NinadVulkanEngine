@@ -1148,9 +1148,7 @@ VkResult VulkanContext::CreateVulkanDevice(void)
     //enabledFeatures.geometryShader = VK_TRUE; // enable geometry shader
 
         //------------------------------//
-    VkPhysicalDeviceDynamicRenderingFeatures dynamicRendering{};
-    dynamicRendering.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DYNAMIC_RENDERING_FEATURES;
-    dynamicRendering.dynamicRendering = VK_TRUE;
+
 
     VkPhysicalDeviceVulkan12Features vulkan12Features{};
     vulkan12Features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES;
@@ -1165,25 +1163,22 @@ VkResult VulkanContext::CreateVulkanDevice(void)
     vulkan12Features.descriptorBindingUpdateUnusedWhilePending = VK_TRUE;
     vulkan12Features.timelineSemaphore = VK_TRUE;
     vulkan12Features.bufferDeviceAddress = VK_TRUE;
-    vulkan12Features.pNext = &dynamicRendering;
+    vulkan12Features.pNext = nullptr;
 
-    //synchronization2
-
-    VkPhysicalDeviceSynchronization2Features sync2{};
-    sync2.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SYNCHRONIZATION_2_FEATURES;
-    sync2.synchronization2 = VK_TRUE;
-    sync2.pNext = &vulkan12Features;
+    //Features vulkan13
+    VkPhysicalDeviceVulkan13Features vkPhysicalDeviceVulkan13Features{};
+    vkPhysicalDeviceVulkan13Features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_3_FEATURES;
+    vkPhysicalDeviceVulkan13Features.dynamicRendering = VK_TRUE;
+    vkPhysicalDeviceVulkan13Features.synchronization2 = VK_TRUE;
+    vkPhysicalDeviceVulkan13Features.shaderDemoteToHelperInvocation = VK_TRUE;
+    vkPhysicalDeviceVulkan13Features.maintenance4 = VK_TRUE;
+    vkPhysicalDeviceVulkan13Features.pNext = &vulkan12Features;
 
     VkPhysicalDeviceMeshShaderFeaturesEXT meshShaderFeatures{};
     meshShaderFeatures.sType =VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MESH_SHADER_FEATURES_EXT;
     meshShaderFeatures.taskShader = VK_TRUE;
     meshShaderFeatures.meshShader = VK_TRUE;
-    meshShaderFeatures.pNext = &sync2;
-
-    VkPhysicalDeviceMaintenance4Features maintenance4{};
-    maintenance4.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MAINTENANCE_4_FEATURES;
-    maintenance4.maintenance4 = VK_TRUE;
-    maintenance4.pNext = &meshShaderFeatures;
+    meshShaderFeatures.pNext = &vkPhysicalDeviceVulkan13Features;
 
     VkPhysicalDeviceFeatures2 features2{};
     features2.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2;
@@ -1191,7 +1186,7 @@ VkResult VulkanContext::CreateVulkanDevice(void)
     features2.features.tessellationShader = VK_TRUE; // enable tessellation shader
     features2.features.shaderInt64 = VK_TRUE;
 
-    features2.pNext = &maintenance4;
+    features2.pNext = &meshShaderFeatures;
 
     VkDeviceCreateInfo vkDeviceCreateInfo;
     memset((void*)&vkDeviceCreateInfo, 0, sizeof(VkDeviceCreateInfo));

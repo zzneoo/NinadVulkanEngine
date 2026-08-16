@@ -83,6 +83,8 @@ VkDescriptorPool gImguiDescriptorPool;
 ImGuiIO* g_io = nullptr;
 
 static float fFactor = 0.0f;
+static float fSunAzimuth = 90.0f;
+static float fSunElevation = 20.0f;
 static glm::vec3 v3Color = glm::vec3(0.0f);
 #endif // IMGUI_ENABLE
 
@@ -93,7 +95,6 @@ const char* gpszAppName = "ARTR";
 FILE* gpFILE = NULL;
 
 Camera camera; // camera object
-
 
 // Semaphores
 VkSemaphore vkSemaphore_Timeline = VK_NULL_HANDLE;
@@ -620,7 +621,7 @@ int file_exists(const char* path) {
 }
 
 // compile shader using build.bat
-void compileShaderVS_FS(const char* shaderName)
+static void compileShaderVS_FS(const char* shaderName)
 {
     STARTUPINFOA si = { sizeof(si) };
     PROCESS_INFORMATION pi{};
@@ -1801,9 +1802,9 @@ VkResult initialize(void)
     // variable declarations
     VkResult vkResult = VK_SUCCESS;
 
-    compileShaderVS_FS("Impostor");
+    //compileShaderVS_FS("Impostor");
     //compileShaderVS_FS("Phong");
-    compileShaderVS_FS("PBR");
+    //compileShaderVS_FS("PBR");
     //compileShaderVS_FS("PBR_Skinned");
     compileShaderTS_MS_FS("Meshlet");
 
@@ -5765,6 +5766,17 @@ VkResult updateUniformBuffer_frameData(uint32_t curIndex)
     glm::vec4 row2 =glm::vec4(ViewProj[0][2],ViewProj[1][2],ViewProj[2][2],ViewProj[3][2]);
     glm::vec4 row3 =glm::vec4(ViewProj[0][3],ViewProj[1][3],ViewProj[2][3],ViewProj[3][3]);
 
+    //sunDirection
+    float azimuth = glm::radians(fSunAzimuth);
+    float elevation = glm::radians(fSunElevation);
+
+    glm::vec3 sunDirection{};
+    sunDirection.x = cos(elevation) * cos(azimuth);
+    sunDirection.y = cos(elevation) * sin(azimuth);
+    sunDirection.z = sin(elevation);
+
+    sunDirection = glm::normalize(sunDirection);
+
     //uniformTransformBufferObject_frameData
     UniformBufferObject_FrameData uniformTransformBufferObject_frameData{};
 
@@ -5774,6 +5786,7 @@ VkResult updateUniformBuffer_frameData(uint32_t curIndex)
     uniformTransformBufferObject_frameData.view = View; // view matrix
     uniformTransformBufferObject_frameData.proj = Proj; // projection matrix
     uniformTransformBufferObject_frameData.cameraPos = camera.GetCameraPos(); // camera position
+    uniformTransformBufferObject_frameData.sunDir = sunDirection;
 
     //Frustum planes
     uniformTransformBufferObject_frameData.frustumPlanes[0] =row3 + row0; // left
@@ -6848,7 +6861,7 @@ VkResult createSemaphores(void)
 
 #ifdef IMGUI_ENABLE
 
-VkResult RenderImGui(uint32_t curIndex)
+VkResult Render_ImGui(uint32_t curIndex)
 {
     // local variables
     VkResult vkResult = VK_SUCCESS;
@@ -6872,6 +6885,8 @@ VkResult RenderImGui(uint32_t curIndex)
         //ImGui::Checkbox("Another Window", &enableSecond);
 
         ImGui::SliderFloat("fFactor", &fFactor, 0.0f, 1.0f);            // Edit 1 float using a slider from 0.0f to 1.0f
+        ImGui::SliderFloat("sunAzimuth", &fSunAzimuth, 0.0f, 360.0f);            // Edit 1 float using a slider from 0.0f to 1.0f
+        ImGui::SliderFloat("sunElevation", &fSunElevation, 0.0f, 90.0f);            // Edit 1 float using a slider from 0.0f to 1.0f
         ImGui::ColorEdit3("v3Color", (float*)&v3Color); // Edit 3 floats representing a color
 
         //if (ImGui::Button("Button"))                            // Buttons return true when clicked (most widgets return true when edited/activated)
@@ -7244,7 +7259,7 @@ void RenderPBR_Skinned_RAT(uint32_t curIndex)
 
 }
 
-void RenderPBR_Skinned(uint32_t curIndex)
+static void RenderPBR_Skinned(uint32_t curIndex)
 {
     
     // Bind the pipeline and descriptor sets
@@ -7257,7 +7272,7 @@ void RenderPBR_Skinned(uint32_t curIndex)
 	RenderPBR_Skinned_RAT(curIndex);
 }
 
-void Render_MeshletTriangle(uint32_t curIndex)
+static void Render_MeshletTriangle(uint32_t curIndex)
 {
     //Meshlet
     // Bind the pipeline and descriptor sets
@@ -7268,7 +7283,7 @@ void Render_MeshletTriangle(uint32_t curIndex)
     vkCmdDrawMeshTasksEXT_pfn(gFrames[curIndex].commandBuffer, 1, 1, 1);
 }
 
-void Render_MeshletScene(uint32_t curIndex)
+static void Render_MeshletScene(uint32_t curIndex)
 {
     VkCommandBuffer commandBuffer =
         gFrames[curIndex].commandBuffer;
@@ -7285,21 +7300,12 @@ void Render_MeshletScene(uint32_t curIndex)
 
 
     // ------------------------------------------------------------
-    // Set 0 : FrameData
+    // Set 0 : FrameData //Set 1 : global_textureArray
     // ------------------------------------------------------------
 
-    VkDescriptorSet frameDescriptorSet =
-        gFrames[curIndex].vkDescriptor_FrameData;
-
-    vkCmdBindDescriptorSets(
-        commandBuffer,
-        VK_PIPELINE_BIND_POINT_GRAPHICS,
-        gpGraphicsPipelines->Meshlet.vkPipelineLayout,
-        0,
-        1,
-        &frameDescriptorSet,
-        0,
-        nullptr);
+    //vkDescriptorSets
+    VkDescriptorSet vkLocalDescriptorSets[] = { gFrames[curIndex].vkDescriptor_FrameData,global_textureArray_vkDescriptorSet };
+    vkCmdBindDescriptorSets(gFrames[curIndex].commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, gpGraphicsPipelines->Meshlet.vkPipelineLayout, 0, _ARRAYSIZE(vkLocalDescriptorSets), vkLocalDescriptorSets, 0, NULL);
 
 
     // ------------------------------------------------------------
@@ -7548,7 +7554,7 @@ VkResult buildCommandBuffers(uint32_t curIndex, uint32_t currentImageIndex)
     Render_MeshletScene(curIndex);// Render MeshletScene
 
 #ifdef IMGUI_ENABLE
-    RenderImGui(curIndex); // Render ImGui UI
+    Render_ImGui(curIndex); // Render ImGui UI
 #endif //IMGUI_ENABLE
 
    // vkCmdEndRenderPass(vkCommandBuffer_Array[curIndex]);

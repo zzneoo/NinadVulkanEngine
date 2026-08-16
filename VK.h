@@ -27,13 +27,12 @@ struct UniformBufferObject_FrameData
 {
 	glm::mat4 view;
 	glm::mat4 proj;
+
+	glm::vec3 sunDir;
     float fTime;
-    uint32_t frameID;
-	float pad0[2];
 
 	glm::vec3 cameraPos; // Camera position for rendering
-    // pad to 16 bytes (std140 rules)
-	float pad1[1];
+    uint32_t frameID;
 
 	glm::vec4 frustumPlanes[6];
 };

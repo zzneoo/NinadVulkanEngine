@@ -111,6 +111,9 @@
     <ClInclude Include="StaticMeshletModel.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="MeshletScene.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="BlueScreen.cpp">
@@ -233,6 +236,9 @@
     <ClCompile Include="StaticMeshletModel.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="MeshletScene.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="BlueScreen.rc">
@@ -303,6 +309,9 @@
       <Filter>Shaders</Filter>
     </None>
     <None Include="Meshlet.task">
+      <Filter>Shaders</Filter>
+    </None>
+    <None Include="Shaders\Code\common.glsl">
       <Filter>Shaders</Filter>
     </None>
   </ItemGroup>

@@ -238,6 +238,12 @@
     <None Include="PreviewImage.vert" />
     <None Include="shader.frag" />
     <None Include="shader.vert" />
+    <None Include="Shaders\Code\common.glsl">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+      </ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+      </ExcludedFromBuild>
+    </None>
     <None Include="WhiteVertex.frag" />
     <None Include="WhiteVertex.vert" />
   </ItemGroup>

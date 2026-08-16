@@ -8,8 +8,10 @@ set taskShader=%~dp0%1.task
 set meshShader=%~dp0%1.mesh
 set fragmentShader=%~dp0%1.frag
 
-set shaderCompiler=C:\VulkanSDK\Vulkan\Bin\glslangValidator.exe
 
-%shaderCompiler% --target-env vulkan1.3 -S task -o %taskShader%.spv %taskShader% > taskCompileLog.txt
-%shaderCompiler% --target-env vulkan1.3 -S mesh -o %meshShader%.spv %meshShader% > meshCompileLog.txt
-%shaderCompiler% --target-env vulkan1.3 -S frag -o %fragmentShader%.spv %fragmentShader% > fragCompileLog.txt
+set "shaderIncludePath=%~dp0Shaders\Code"
+set "shaderCompiler=C:\VulkanSDK\Vulkan\Bin\glslangValidator.exe"
+
+%shaderCompiler% -V --target-env vulkan1.4 -I"%shaderIncludePath%" -S task -o "%taskShader%.spv" "%taskShader%" > "%~dp0taskCompileLog.txt"
+%shaderCompiler% -V --target-env vulkan1.4 -I"%shaderIncludePath%" -S mesh -o "%meshShader%.spv" "%meshShader%" > "%~dp0meshCompileLog.txt"
+%shaderCompiler% -V --target-env vulkan1.4 -I"%shaderIncludePath%" -S frag -o "%fragmentShader%.spv" "%fragmentShader%" > "%~dp0fragCompileLog.txt"
