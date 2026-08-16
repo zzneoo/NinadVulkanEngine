@@ -38,10 +38,10 @@ struct MeshletData
     vec4 coneAxis;   // xyz = axis, w = cutoff
     vec4 coneApex;     // xyz apex
 
-    uint modelIndex;    // 32
-    uint pad0;          // 36
-    uint pad1;          // 40
-    uint pad2;          // 44
+    uint modelIndex;    
+    uint materialID;          
+    uint pad1;         
+    uint pad2;         
 
 };
 
@@ -124,7 +124,7 @@ void main()
     float localRadius = meshlet.bounds.w;
 
     vec3 worldCenter = (modelMatrix * vec4(localCenter, 1.0)).xyz;
-    float worldRadius = localRadius * maxScale;
+    float worldRadius = localRadius * maxScale-4.0;
 
     // --------------------------------------------------------
     // Frustum culling

@@ -281,8 +281,8 @@ VkResult StaticMeshletModel::LoadModel_Static_PBR(
                             tangent,
                             normal),
                         bitangent) < 0.0f)
-                    ? -1.0f
-                    : 1.0f;
+                    ? 1.0f
+                    : -1.0f;
 
                 v.tangent =
                     glm::vec4(
@@ -616,6 +616,7 @@ VkResult StaticMeshletModel::CreateMeshlets(
                 bounds.cone_apex[2],
                 1.0f);
 
+        dst.materialID_PBR = GetPBR_MaterialGlobalIDs()[0];
 
         meshlets.push_back(dst);
     }

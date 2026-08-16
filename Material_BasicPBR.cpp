@@ -10,7 +10,7 @@ Material_BasicPBR::Material_BasicPBR(VkDescriptorSetLayout layout,const char* pa
 
     char albedoPath[512]; // make sure it's big enough
     std::snprintf(albedoPath, sizeof(albedoPath), "%s%s", path, "Albedo.dds");
-	res = loadTextureData_dds_c_bc7(&Albedo, albedoPath, vkSampler_LinearClampAniso, VK_FORMAT_BC7_SRGB_BLOCK);
+	res = loadTextureData_dds_c_bc7(&Albedo, albedoPath, vkSampler_LinearRepeatAniso, VK_FORMAT_BC7_SRGB_BLOCK);
     if (res != VK_SUCCESS && vkResult == VK_SUCCESS)
     {
         fprintf(gpFILE, "Failed to load albedo texture\n");
@@ -20,7 +20,7 @@ Material_BasicPBR::Material_BasicPBR(VkDescriptorSetLayout layout,const char* pa
 
     char normalPath[512]; // make sure it's big enough
     std::snprintf(normalPath, sizeof(normalPath), "%s%s", path, "Normal.dds");
-    res = loadTextureData_dds_c_bc5_normal(&Normal, normalPath, vkSampler_LinearClampAniso, VK_FORMAT_BC5_UNORM_BLOCK);
+    res = loadTextureData_dds_c_bc5_normal(&Normal, normalPath, vkSampler_LinearRepeatAniso, VK_FORMAT_BC5_UNORM_BLOCK);
     if (res != VK_SUCCESS && vkResult == VK_SUCCESS)
     {
         fprintf(gpFILE, "Failed to load normal texture\n");
@@ -30,7 +30,7 @@ Material_BasicPBR::Material_BasicPBR(VkDescriptorSetLayout layout,const char* pa
 
     char PathORX[512]; // make sure it's big enough
     std::snprintf(PathORX, sizeof(PathORX), "%s%s", path, "ORX.dds");
-    res = loadTextureData_dds_c_bc7(&ORX, PathORX, vkSampler_LinearClampAniso, VK_FORMAT_BC7_UNORM_BLOCK);
+    res = loadTextureData_dds_c_bc7(&ORX, PathORX, vkSampler_LinearRepeatAniso, VK_FORMAT_BC7_UNORM_BLOCK);
     if (res != VK_SUCCESS && vkResult == VK_SUCCESS)
     {
         fprintf(gpFILE, "Failed to load ORM texture\n");
@@ -136,19 +136,19 @@ VkResult Material_BasicPBR::createDescriptorSet(void)
     // Declare and initialize VkDescriptorImageInfo structure which will have information about the albedo image.
     VkDescriptorImageInfo vkDescriptorImageInfo_Albedo;
     memset((void*)&vkDescriptorImageInfo_Albedo, 0, sizeof(VkDescriptorImageInfo));
-    vkDescriptorImageInfo_Albedo.sampler = vkSampler_LinearClampAniso; // sampler for the albedo image
+    vkDescriptorImageInfo_Albedo.sampler = Albedo.vkSampler; // sampler for the albedo image
     vkDescriptorImageInfo_Albedo.imageView = Albedo.vkImageView; // image view for the albedo image
     vkDescriptorImageInfo_Albedo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL; // image layout for the albedo image
     // Declare and initialize VkDescriptorImageInfo structure which will have information about the normal image.
     VkDescriptorImageInfo vkDescriptorImageInfo_Normal;
     memset((void*)&vkDescriptorImageInfo_Normal, 0, sizeof(VkDescriptorImageInfo));
-    vkDescriptorImageInfo_Normal.sampler = vkSampler_LinearClampAniso; // sampler for the normal image
+    vkDescriptorImageInfo_Normal.sampler = Normal.vkSampler; // sampler for the normal image
     vkDescriptorImageInfo_Normal.imageView = Normal.vkImageView; // image view for the normal image
     vkDescriptorImageInfo_Normal.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL; // image layout for the normal image
 
     VkDescriptorImageInfo vkDescriptorImageInfo_ORX;
     memset((void*)&vkDescriptorImageInfo_ORX, 0, sizeof(VkDescriptorImageInfo));
-    vkDescriptorImageInfo_ORX.sampler = vkSampler_LinearClampAniso; // sampler for the normal image
+    vkDescriptorImageInfo_ORX.sampler = ORX.vkSampler; // sampler for the normal image
     vkDescriptorImageInfo_ORX.imageView = ORX.vkImageView; // image view for the normal image
     vkDescriptorImageInfo_ORX.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL; // image layout for the normal image
 

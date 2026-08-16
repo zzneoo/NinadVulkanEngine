@@ -168,7 +168,7 @@ struct MeshletData
 	glm::vec4 coneApex;     // xyz apex
 
 	uint32_t modelIndex;
-	uint32_t pad0;
+	uint32_t materialID_PBR;
 	uint32_t pad1;
 	uint32_t pad2;
 };

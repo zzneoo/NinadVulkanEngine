@@ -127,6 +127,7 @@ AnimatedModel* pModel_Rat = NULL;
 StaticModel* pModel_Static_Ganesha = NULL;
 StaticMeshletModel* pModel_Meshlet_Ganesha = NULL;
 StaticMeshletModel* pModel_Meshlet_Ganesha2 = NULL;
+StaticMeshletModel* pModel_Meshlet_Ground = NULL;
 MeshletScene gMeshletScene;
 
 
@@ -153,6 +154,7 @@ ImageData imposterTextureData_blackAlder_Field_02_Normal;
 VkSampler vkSampler_LinearClampAniso = VK_NULL_HANDLE;//need mipmaps to be generated for aniso 
 VkSampler vkSampler_LinearClamp = VK_NULL_HANDLE;
 VkSampler vkSampler_LinearMipmapClamp = VK_NULL_HANDLE;
+VkSampler vkSampler_LinearRepeatAniso = VK_NULL_HANDLE;
 
 VkDescriptorPool vkDescriptorPool = VK_NULL_HANDLE;
 VkDescriptorSet  vkDescriptorSet_SingleImage;
@@ -1885,7 +1887,7 @@ VkResult initialize(void)
     vkResult = loadTextureData_dds_c_bc7(&imposterTextureData_blackAlder_Field_02_Albedo, "Resources/Impostors/BlackAlder_Field_02/T_Impostor_BaseColor_Field_02_Summer.dds", VK_FORMAT_BC7_SRGB_BLOCK);
     if (vkResult != VK_SUCCESS)
     {
-        fprintf(gpFILE, "initialize() : loadTextureData_dds() imposterTextureData_blackAlder_Field_02_Normal failed (%d).\n", vkResult);
+        fprintf(gpFILE, "initialize() : loadTextureData_dds() T_Impostor_BaseColor_Field_02_Summer failed (%d).\n", vkResult);
         return(vkResult);
     }
 
@@ -2289,12 +2291,19 @@ VkResult initialize(void)
         glm::rotate(glm::mat4(1.0f), glm::radians(-60.0f), glm::vec3(0.0f, 1.0f, 0.0f)) *
         glm::scale(glm::mat4(1.0f), glm::vec3(2.0f, 2.0f, 2.0f));
 
+    glm::mat4 modelMatrixGround =
+        glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.0f, -6.0f)) *
+        glm::rotate(glm::mat4(1.0f), glm::radians(-90.0f), glm::vec3(1.0f, 0.0f, 0.0f)) *
+        glm::rotate(glm::mat4(1.0f), glm::radians(0.0f), glm::vec3(0.0f, 1.0f, 0.0f)) *
+        glm::scale(glm::mat4(1.0f), glm::vec3(1.0f, 1.0f, 1.0f));
+
     pModel_Meshlet_Ganesha = new StaticMeshletModel("Resources/Models/Ganesha/Ganesha.fbx", gpDescriptorSetLayouts->vkDescriptorSetLayout_BasicPBR, modelMatrixGanesha);
     pModel_Meshlet_Ganesha2 = new StaticMeshletModel("Resources/Models/Ganesha/Ganesha.fbx", gpDescriptorSetLayouts->vkDescriptorSetLayout_BasicPBR, modelMatrixGanesha2);
-
+    pModel_Meshlet_Ground= new StaticMeshletModel("Resources/Models/GroundTest/Ground.fbx", gpDescriptorSetLayouts->vkDescriptorSetLayout_BasicPBR, modelMatrixGround);
 
     gMeshletScene.AddModel(pModel_Meshlet_Ganesha);
     gMeshletScene.AddModel(pModel_Meshlet_Ganesha2);
+    gMeshletScene.AddModel(pModel_Meshlet_Ground);
 
 
 
@@ -2839,6 +2848,7 @@ void uninitialize(void)
     delete pModel_Static_Ganesha;
     delete pModel_Meshlet_Ganesha;
     delete pModel_Meshlet_Ganesha2;
+    delete pModel_Meshlet_Ground;
 
     gMeshletScene.ShutDown();
 
@@ -4050,8 +4060,7 @@ VkResult createSamplers(void)
     VkResult vkResult = VK_SUCCESS;
 
     //vkSampler_LinearClampAniso
-    VkSamplerCreateInfo samplerCreateInfo;
-    memset(&samplerCreateInfo, 0, sizeof(VkSamplerCreateInfo));
+    VkSamplerCreateInfo samplerCreateInfo{};
     samplerCreateInfo.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
     samplerCreateInfo.magFilter = VK_FILTER_LINEAR; // Magnification filter
     samplerCreateInfo.minFilter = VK_FILTER_LINEAR; // Minification filter
@@ -4076,7 +4085,7 @@ VkResult createSamplers(void)
     }
 
     //vkSampler_LinearClamp
-    memset(&samplerCreateInfo, 0, sizeof(VkSamplerCreateInfo));
+    samplerCreateInfo = {};
     samplerCreateInfo.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
     samplerCreateInfo.magFilter = VK_FILTER_LINEAR; // Magnification filter
     samplerCreateInfo.minFilter = VK_FILTER_LINEAR; // Minification filter
@@ -4101,7 +4110,7 @@ VkResult createSamplers(void)
     }
 
     //vkSampler_LinearMipmapClamp
-    memset(&samplerCreateInfo, 0, sizeof(VkSamplerCreateInfo));
+    samplerCreateInfo = {};
     samplerCreateInfo.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
     samplerCreateInfo.magFilter = VK_FILTER_LINEAR; // Magnification filter
     samplerCreateInfo.minFilter = VK_FILTER_LINEAR; // Minification filter
@@ -4122,6 +4131,31 @@ VkResult createSamplers(void)
     if (vkResult != VK_SUCCESS)
     {
         fprintf(gpFILE, "createSamplers() : vkCreateSampler() for vkSampler_LinearMipmapClamp failed (%d).\n", vkResult);
+        return vkResult;
+    }
+
+    //vkSampler_LinearRepeatAniso
+    samplerCreateInfo = {};
+    samplerCreateInfo.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
+    samplerCreateInfo.magFilter = VK_FILTER_LINEAR; // Magnification filter
+    samplerCreateInfo.minFilter = VK_FILTER_LINEAR; // Minification filter
+    samplerCreateInfo.addressModeU = VK_SAMPLER_ADDRESS_MODE_REPEAT; // U coordinate addressing mode
+    samplerCreateInfo.addressModeV = VK_SAMPLER_ADDRESS_MODE_REPEAT; // V coordinate addressing mode
+    samplerCreateInfo.addressModeW = VK_SAMPLER_ADDRESS_MODE_REPEAT; // W coordinate addressing mode
+    samplerCreateInfo.anisotropyEnable = VK_TRUE; // Enable anisotropic filtering
+    samplerCreateInfo.maxAnisotropy = 16.0f; // Maximum anisotropy level
+    samplerCreateInfo.borderColor = VK_BORDER_COLOR_INT_OPAQUE_BLACK; // Border color
+    samplerCreateInfo.unnormalizedCoordinates = VK_FALSE; // Use normalized coordinates
+    samplerCreateInfo.compareEnable = VK_FALSE; // No comparison
+    samplerCreateInfo.compareOp = VK_COMPARE_OP_ALWAYS; // Comparison operation (not used here)
+    samplerCreateInfo.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR; // Mipmap mode
+    samplerCreateInfo.mipLodBias = 0.0f; // Mipmap level of detail bias
+    samplerCreateInfo.minLod = 0.0f; // Minimum LOD
+    samplerCreateInfo.maxLod = 14.0f; // Maximum LOD (0 means no mipmaps)
+    vkResult = vkCreateSampler(gVulkanContext.vkDevice, &samplerCreateInfo, NULL, &vkSampler_LinearRepeatAniso);
+    if (vkResult != VK_SUCCESS)
+    {
+        fprintf(gpFILE, "createSamplers() : vkCreateSampler() for vkSampler_LinearRepeatAniso failed (%d).\n", vkResult);
         return vkResult;
     }
 
@@ -4148,6 +4182,12 @@ void destroySamplers(void)
     {
         vkDestroySampler(gVulkanContext.vkDevice, vkSampler_LinearMipmapClamp, NULL);
         vkSampler_LinearMipmapClamp = VK_NULL_HANDLE;
+    }
+
+    if (vkSampler_LinearRepeatAniso)
+    {
+        vkDestroySampler(gVulkanContext.vkDevice, vkSampler_LinearRepeatAniso, NULL);
+        vkSampler_LinearRepeatAniso = VK_NULL_HANDLE;
     }
 
 }
@@ -6197,7 +6237,7 @@ VkResult createDescriptorPool(void)
     VkDescriptorPoolSize vkDescriptorPoolSizes[] =
     {
         {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1 * MAX_FRAMES}, // descriptor type and descriptor count
-        {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 6 + 3 +3}, // descriptor type and descriptor count for combined image sampler
+        {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 6 + 3 +3 +3}, // descriptor type and descriptor count for combined image sampler
 		{VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1 * MAX_FRAMES + 4}, // descriptor type and descriptor count for storage buffer
     };
 
@@ -6208,7 +6248,7 @@ VkResult createDescriptorPool(void)
     vkDescriptorPoolCreateInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
     vkDescriptorPoolCreateInfo.pNext = NULL;
     vkDescriptorPoolCreateInfo.flags = 0; // no flags
-    vkDescriptorPoolCreateInfo.maxSets = (2 * MAX_FRAMES) + 8; // maximum number of descriptor sets that can be allocated from this pool
+    vkDescriptorPoolCreateInfo.maxSets = (2 * MAX_FRAMES) + 9; // maximum number of descriptor sets that can be allocated from this pool
     vkDescriptorPoolCreateInfo.poolSizeCount = _ARRAYSIZE(vkDescriptorPoolSizes); // number of descriptor pool sizes
     vkDescriptorPoolCreateInfo.pPoolSizes = vkDescriptorPoolSizes;
 

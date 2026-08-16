@@ -11,6 +11,7 @@
 extern VkDescriptorPool vkDescriptorPool;
 extern VkSampler vkSampler_LinearClamp;
 extern VkSampler vkSampler_LinearClampAniso;
+extern VkSampler vkSampler_LinearRepeatAniso;
 
 extern std::vector<ImageData*> global_textureArray;
 
