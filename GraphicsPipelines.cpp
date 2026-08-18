@@ -2265,8 +2265,7 @@ VkResult GraphicsPipelines::createGraphicsPipeline_Meshlet(VkPipelineLayoutCreat
     vkPipelineInputAssemblyStateCreateInfo.primitiveRestartEnable = VK_FALSE;
 
     //  Declare and initialize VkPipelineRasterizationStateCreateInfo structure.
-    VkPipelineRasterizationStateCreateInfo vkPipelineRasterizationStateCreateInfo;
-    memset((void*)&vkPipelineRasterizationStateCreateInfo, 0, sizeof(VkPipelineRasterizationStateCreateInfo));
+    VkPipelineRasterizationStateCreateInfo vkPipelineRasterizationStateCreateInfo{};
     vkPipelineRasterizationStateCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO;
     vkPipelineRasterizationStateCreateInfo.pNext = NULL;
     vkPipelineRasterizationStateCreateInfo.flags = 0;
@@ -2282,8 +2281,7 @@ VkResult GraphicsPipelines::createGraphicsPipeline_Meshlet(VkPipelineLayoutCreat
     vkPipelineRasterizationStateCreateInfo.lineWidth = 1.0f; // line width
 
     // Color blend state
-    VkPipelineColorBlendAttachmentState vkPipelineColorBlendAttachmentState_array[1];
-    memset((void*)vkPipelineColorBlendAttachmentState_array, 0, sizeof(VkPipelineColorBlendAttachmentState) * _ARRAYSIZE(vkPipelineColorBlendAttachmentState_array));
+    VkPipelineColorBlendAttachmentState vkPipelineColorBlendAttachmentState_array[3]{};
     vkPipelineColorBlendAttachmentState_array[0].blendEnable = VK_FALSE; // enable blending
     vkPipelineColorBlendAttachmentState_array[0].colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT; // all color components
     vkPipelineColorBlendAttachmentState_array[0].srcColorBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA; // source color blend factor
@@ -2293,9 +2291,11 @@ VkResult GraphicsPipelines::createGraphicsPipeline_Meshlet(VkPipelineLayoutCreat
     vkPipelineColorBlendAttachmentState_array[0].dstAlphaBlendFactor = VK_BLEND_FACTOR_ZERO; // destination alpha blend factor
     vkPipelineColorBlendAttachmentState_array[0].alphaBlendOp = VK_BLEND_OP_ADD; // alpha blend operation
 
+    vkPipelineColorBlendAttachmentState_array[1] = vkPipelineColorBlendAttachmentState_array[0];
+    vkPipelineColorBlendAttachmentState_array[2] = vkPipelineColorBlendAttachmentState_array[0];
+
     //ColorBlendStateCreateInfo
-    VkPipelineColorBlendStateCreateInfo vkPipelineColorBlendStateCreateInfo;
-    memset((void*)&vkPipelineColorBlendStateCreateInfo, 0, sizeof(VkPipelineColorBlendStateCreateInfo));
+    VkPipelineColorBlendStateCreateInfo vkPipelineColorBlendStateCreateInfo{};
     vkPipelineColorBlendStateCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;
     vkPipelineColorBlendStateCreateInfo.pNext = NULL;
     vkPipelineColorBlendStateCreateInfo.flags = 0;
@@ -2304,22 +2304,21 @@ VkResult GraphicsPipelines::createGraphicsPipeline_Meshlet(VkPipelineLayoutCreat
     vkPipelineColorBlendStateCreateInfo.logicOpEnable = VK_FALSE; // no logic op
 
     //viewport sciccor state
-    memset((void*)&vkViewport, 0, sizeof(VkViewport));
+    vkViewport = {};
     vkViewport.x = 0.0f;
     vkViewport.y = 0.0f;
-    vkViewport.width = (float)gSwapchain.vkExtent2D.width;
-    vkViewport.height = (float)gSwapchain.vkExtent2D.height;
+    vkViewport.width = (float)WIN_WIDTH;
+    vkViewport.height = (float)WIN_HEIGHT;
     vkViewport.minDepth = 0.0f;
     vkViewport.maxDepth = 1.0f;
 
-    memset((void*)&vkRect2D_Scissor, 0, sizeof(VkRect2D));
+    vkRect2D_Scissor = {};
     vkRect2D_Scissor.offset.x = 0;
     vkRect2D_Scissor.offset.y = 0;
-    vkRect2D_Scissor.extent.width = gSwapchain.vkExtent2D.width;
-    vkRect2D_Scissor.extent.height = gSwapchain.vkExtent2D.height;
+    vkRect2D_Scissor.extent.width = WIN_WIDTH;
+    vkRect2D_Scissor.extent.height = WIN_HEIGHT;
 
-    VkPipelineViewportStateCreateInfo vkPipelineViewportStateCreateInfo;
-    memset((void*)&vkPipelineViewportStateCreateInfo, 0, sizeof(VkPipelineViewportStateCreateInfo));
+    VkPipelineViewportStateCreateInfo vkPipelineViewportStateCreateInfo{};
     vkPipelineViewportStateCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO;
     vkPipelineViewportStateCreateInfo.pNext = NULL;
     vkPipelineViewportStateCreateInfo.flags = 0;
@@ -2330,8 +2329,7 @@ VkResult GraphicsPipelines::createGraphicsPipeline_Meshlet(VkPipelineLayoutCreat
 
 
     //depth stencil state
-    VkPipelineDepthStencilStateCreateInfo vkPipelineDepthStencilStateCreateInfo;
-    memset((void*)&vkPipelineDepthStencilStateCreateInfo, 0, sizeof(VkPipelineDepthStencilStateCreateInfo));
+    VkPipelineDepthStencilStateCreateInfo vkPipelineDepthStencilStateCreateInfo{};
     vkPipelineDepthStencilStateCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
     vkPipelineDepthStencilStateCreateInfo.pNext = NULL;
     vkPipelineDepthStencilStateCreateInfo.flags = 0;
@@ -2357,8 +2355,7 @@ VkResult GraphicsPipelines::createGraphicsPipeline_Meshlet(VkPipelineLayoutCreat
     //no dynamic state right now
 
     //multisample state
-    VkPipelineMultisampleStateCreateInfo vkPipelineMultisampleStateCreateInfo;
-    memset((void*)&vkPipelineMultisampleStateCreateInfo, 0, sizeof(VkPipelineMultisampleStateCreateInfo));
+    VkPipelineMultisampleStateCreateInfo vkPipelineMultisampleStateCreateInfo{};
     vkPipelineMultisampleStateCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO;
     vkPipelineMultisampleStateCreateInfo.pNext = NULL;
     vkPipelineMultisampleStateCreateInfo.flags = 0;
@@ -2402,8 +2399,7 @@ VkResult GraphicsPipelines::createGraphicsPipeline_Meshlet(VkPipelineLayoutCreat
     if (Meshlet.vkPipelineCache == VK_NULL_HANDLE)
     {
         //create pipeline cache
-        VkPipelineCacheCreateInfo vkPipelineCacheCreateInfo;
-        memset((void*)&vkPipelineCacheCreateInfo, 0, sizeof(VkPipelineCacheCreateInfo));
+        VkPipelineCacheCreateInfo vkPipelineCacheCreateInfo{};
         vkPipelineCacheCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_CACHE_CREATE_INFO;
         vkPipelineCacheCreateInfo.pNext = NULL;
         vkPipelineCacheCreateInfo.flags = 0;
@@ -2423,16 +2419,28 @@ VkResult GraphicsPipelines::createGraphicsPipeline_Meshlet(VkPipelineLayoutCreat
     VkPipelineRenderingCreateInfo renderingInfo{};
     renderingInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO;
 
-    VkFormat colorFormat = VK_FORMAT_B8G8R8A8_SRGB;
+    /*VkFormat colorFormat = VK_FORMAT_B8G8R8A8_SRGB;
     renderingInfo.colorAttachmentCount = 1;
     renderingInfo.pColorAttachmentFormats = &colorFormat;
 
     renderingInfo.depthAttachmentFormat = VK_FORMAT_D32_SFLOAT;
     renderingInfo.stencilAttachmentFormat = VK_FORMAT_UNDEFINED;
+    */
+    VkFormat colorFormats[] =
+    {
+        VK_FORMAT_R8G8B8A8_SRGB,
+        VK_FORMAT_R16G16B16A16_SFLOAT,
+        VK_FORMAT_R8G8B8A8_UNORM
+    };
+
+    renderingInfo.colorAttachmentCount = 3;
+    renderingInfo.pColorAttachmentFormats = colorFormats;
+    renderingInfo.depthAttachmentFormat = VK_FORMAT_D32_SFLOAT;
+    renderingInfo.stencilAttachmentFormat = VK_FORMAT_UNDEFINED;
+
 
     //  Declare and initialize VkGraphicsPipelineCreateInfo structure.
-    VkGraphicsPipelineCreateInfo vkGraphicsPipelineCreateInfo;
-    memset((void*)&vkGraphicsPipelineCreateInfo, 0, sizeof(VkGraphicsPipelineCreateInfo));
+    VkGraphicsPipelineCreateInfo vkGraphicsPipelineCreateInfo{};
     vkGraphicsPipelineCreateInfo.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
     vkGraphicsPipelineCreateInfo.pNext = &renderingInfo; // pointer to the rendering info structure for dynamic rendering
     vkGraphicsPipelineCreateInfo.flags = 0;

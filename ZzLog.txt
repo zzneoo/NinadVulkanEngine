@@ -33,7 +33,7 @@ fillDeviceExtensionNames() : Enabled Vulkan device extension name = VK_KHR_swapc
 fillDeviceExtensionNames() : Enabled Vulkan device extension name = VK_EXT_mesh_shader
 -------------------------------------------------------------------------------------
 createSwapchain() : minImageCount = 2, maxImageCount = 8
-createSwapchain() : (1) Swapchain Image width x height = 1888 x 992
+createSwapchain() : (1) Swapchain Image width x height = 2528 x 1352
 createImagesAndImageViews() : gives swapchain image count = 2
 createSamplers() : Samplers created successfully.
 

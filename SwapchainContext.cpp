@@ -245,13 +245,13 @@ VkResult SwapchainContext::CreateSwapchainResources(void)
         return vkResult;
     }
 
-    //depth resources
-    vkResult = CreateDepthResources();
-    if (vkResult != VK_SUCCESS)
-    {
-        fprintf(gpFILE, "createSwapchainResources() -> CreateDepthResources() failed.\n");
-        return vkResult;
-    }
+    ////depth resources
+    //vkResult = CreateDepthResources();
+    //if (vkResult != VK_SUCCESS)
+    //{
+    //    fprintf(gpFILE, "createSwapchainResources() -> CreateDepthResources() failed.\n");
+    //    return vkResult;
+    //}
 
     return vkResult;
 }
@@ -284,6 +284,7 @@ void SwapchainContext::DestroySwapchainResources(void)
         resourceData.swapchainImage_Array = NULL;
     }
 
+    /*
     //destroy depth resources
     for (uint32_t i = 0; i < MAX_FRAMES; i++)
     {
@@ -312,6 +313,7 @@ void SwapchainContext::DestroySwapchainResources(void)
         free(resourceData.imageData_depthBuffer);
         resourceData.imageData_depthBuffer = NULL;
     }
+    */
 
     //---------------------------------------------------------------------
 }
@@ -456,8 +458,8 @@ VkResult SwapchainContext::CreateDepthResources(void)
     imageInfo.pNext = NULL;
     imageInfo.flags = 0;
     imageInfo.imageType = VK_IMAGE_TYPE_2D;
-    imageInfo.extent.width = vkExtent2D.width;
-    imageInfo.extent.height = vkExtent2D.height;
+    imageInfo.extent.width = WIN_WIDTH;
+    imageInfo.extent.height = WIN_HEIGHT;
     imageInfo.extent.depth = 1;
     imageInfo.mipLevels = 1;
     imageInfo.arrayLayers = 1;

@@ -66,12 +66,6 @@ using namespace tinyddsloader;
 #include "StaticMeshletModel.h"
 #include "MeshletScene.h"
 
-// macros
-#define WIN_WIDTH  1920
-#define WIN_HEIGHT 1080
-#define WIN_TITLE  TEXT("NDT:Vulkan AstroMediComp")
-#define LINE_END     "-------------------------------------------------------------------------------------\n"
-
 // global function declarations
 LRESULT CALLBACK WndProc(HWND, UINT, WPARAM, LPARAM);
 PFN_vkCmdDrawMeshTasksEXT vkCmdDrawMeshTasksEXT_pfn = nullptr;
@@ -111,6 +105,8 @@ VkClearColorValue vkClearColorValue;
 // For Rendering
 BOOL bInitialized = FALSE;
 
+//G-Buffer
+GBuffer gGBuffer;
 
 // position
 VulkanData vertexData_coloredTriangle;
@@ -766,6 +762,367 @@ void compileShaderTS_MS_FS(const char* shaderName)
         }
         exit(EXIT_FAILURE);
     }
+}
+
+static VkResult CreateGBufferImage(
+    uint32_t width,
+    uint32_t height,
+    VkFormat format,
+    ImageData& imageData)
+{
+    imageData = {};
+
+    VkImageCreateInfo imageInfo{};
+    imageInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
+    imageInfo.imageType = VK_IMAGE_TYPE_2D;
+    imageInfo.format = format;
+
+    imageInfo.extent = {
+        width,
+        height,
+        1
+    };
+
+    imageInfo.mipLevels = 1;
+    imageInfo.arrayLayers = 1;
+    imageInfo.samples = VK_SAMPLE_COUNT_1_BIT;
+    imageInfo.tiling = VK_IMAGE_TILING_OPTIMAL;
+
+    imageInfo.usage =
+        VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT |
+        VK_IMAGE_USAGE_SAMPLED_BIT;
+
+    imageInfo.sharingMode =
+        VK_SHARING_MODE_EXCLUSIVE;
+
+    imageInfo.initialLayout =
+        VK_IMAGE_LAYOUT_UNDEFINED;
+
+    VkResult result =
+        vkCreateImage(
+            gVulkanContext.vkDevice,
+            &imageInfo,
+            nullptr,
+            &imageData.vkImage);
+
+    if (result != VK_SUCCESS)
+        return result;
+
+    VkMemoryRequirements memReq{};
+    vkGetImageMemoryRequirements(
+        gVulkanContext.vkDevice,
+        imageData.vkImage,
+        &memReq);
+
+    VkMemoryAllocateInfo allocInfo{};
+    allocInfo.sType =
+        VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
+
+    allocInfo.allocationSize =
+        memReq.size;
+
+    allocInfo.memoryTypeIndex =
+        gVulkanContext.FindMemoryType(
+            memReq.memoryTypeBits,
+            VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+
+    result =
+        vkAllocateMemory(
+            gVulkanContext.vkDevice,
+            &allocInfo,
+            nullptr,
+            &imageData.vkDeviceMemory);
+
+    if (result != VK_SUCCESS)
+        return result;
+
+    result =
+        vkBindImageMemory(
+            gVulkanContext.vkDevice,
+            imageData.vkImage,
+            imageData.vkDeviceMemory,
+            0);
+
+    if (result != VK_SUCCESS)
+        return result;
+
+    VkImageViewCreateInfo viewInfo{};
+    viewInfo.sType =
+        VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+
+    viewInfo.image =
+        imageData.vkImage;
+
+    viewInfo.viewType =
+        VK_IMAGE_VIEW_TYPE_2D;
+
+    viewInfo.format =
+        format;
+
+    viewInfo.subresourceRange.aspectMask =
+        VK_IMAGE_ASPECT_COLOR_BIT;
+
+    viewInfo.subresourceRange.baseMipLevel = 0;
+    viewInfo.subresourceRange.levelCount = 1;
+    viewInfo.subresourceRange.baseArrayLayer = 0;
+    viewInfo.subresourceRange.layerCount = 1;
+
+    result =
+        vkCreateImageView(
+            gVulkanContext.vkDevice,
+            &viewInfo,
+            nullptr,
+            &imageData.vkImageView);
+
+    if (result != VK_SUCCESS)
+        return result;
+
+    return VK_SUCCESS;
+}
+
+static VkResult CreateGBufferDepthImage(
+    uint32_t width,
+    uint32_t height,
+    VkFormat format,
+    ImageData& imageData)
+{
+    imageData = {};
+
+    VkImageCreateInfo imageInfo{};
+    imageInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
+    imageInfo.imageType = VK_IMAGE_TYPE_2D;
+    imageInfo.format = format;
+
+    imageInfo.extent = {
+        width,
+        height,
+        1
+    };
+
+    imageInfo.mipLevels = 1;
+    imageInfo.arrayLayers = 1;
+    imageInfo.samples = VK_SAMPLE_COUNT_1_BIT;
+    imageInfo.tiling = VK_IMAGE_TILING_OPTIMAL;
+
+    imageInfo.usage =
+        VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT |
+        VK_IMAGE_USAGE_SAMPLED_BIT;
+
+    imageInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+    imageInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+
+    VkResult result = vkCreateImage(
+        gVulkanContext.vkDevice,
+        &imageInfo,
+        nullptr,
+        &imageData.vkImage);
+
+    if (result != VK_SUCCESS)
+        return result;
+
+    VkMemoryRequirements memReq{};
+    vkGetImageMemoryRequirements(
+        gVulkanContext.vkDevice,
+        imageData.vkImage,
+        &memReq);
+
+    VkMemoryAllocateInfo allocInfo{};
+    allocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
+    allocInfo.allocationSize = memReq.size;
+
+    allocInfo.memoryTypeIndex =
+        gVulkanContext.FindMemoryType(
+            memReq.memoryTypeBits,
+            VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+
+    result = vkAllocateMemory(
+        gVulkanContext.vkDevice,
+        &allocInfo,
+        nullptr,
+        &imageData.vkDeviceMemory);
+
+    if (result != VK_SUCCESS)
+        return result;
+
+    result = vkBindImageMemory(
+        gVulkanContext.vkDevice,
+        imageData.vkImage,
+        imageData.vkDeviceMemory,
+        0);
+
+    if (result != VK_SUCCESS)
+        return result;
+
+    VkImageViewCreateInfo viewInfo{};
+    viewInfo.sType =
+        VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+
+    viewInfo.image = imageData.vkImage;
+    viewInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
+    viewInfo.format = format;
+
+    viewInfo.subresourceRange.aspectMask =
+        VK_IMAGE_ASPECT_DEPTH_BIT;
+
+    viewInfo.subresourceRange.baseMipLevel = 0;
+    viewInfo.subresourceRange.levelCount = 1;
+    viewInfo.subresourceRange.baseArrayLayer = 0;
+    viewInfo.subresourceRange.layerCount = 1;
+
+    result = vkCreateImageView(
+        gVulkanContext.vkDevice,
+        &viewInfo,
+        nullptr,
+        &imageData.vkImageView);
+
+    if (result != VK_SUCCESS)
+        return result;
+
+    return VK_SUCCESS;
+}
+
+static VkResult CreateGBuffer()
+{
+    gGBuffer.width  = WIN_WIDTH;
+    gGBuffer.height = WIN_HEIGHT;
+
+    const uint32_t imageCount =
+        gSwapchain.imageCount; // use your actual swapchain image-count member
+
+    gGBuffer.albedo.resize(imageCount);
+    gGBuffer.normal.resize(imageCount);
+    gGBuffer.ORM.resize(imageCount);
+    gGBuffer.depth.resize(imageCount);
+
+    for (uint32_t i = 0; i < imageCount; ++i)
+    {
+        VkResult result;
+
+        result = CreateGBufferImage( gGBuffer.width, gGBuffer.height, VK_FORMAT_R8G8B8A8_SRGB, gGBuffer.albedo[i]);
+
+        if (result != VK_SUCCESS)
+            return result;
+
+        result = CreateGBufferImage( gGBuffer.width, gGBuffer.height, VK_FORMAT_R16G16B16A16_SFLOAT, gGBuffer.normal[i]);
+
+        if (result != VK_SUCCESS)
+            return result;
+
+        result = CreateGBufferImage( gGBuffer.width, gGBuffer.height, VK_FORMAT_R8G8B8A8_UNORM, gGBuffer.ORM[i]);
+
+        if (result != VK_SUCCESS)
+            return result;
+
+        //depth
+        result = CreateGBufferDepthImage(gGBuffer.width, gGBuffer.height, VK_FORMAT_D32_SFLOAT, gGBuffer.depth[i]);
+
+        if (result != VK_SUCCESS)
+            return result;
+    }
+
+    return VK_SUCCESS;
+}
+
+static void DestroyGBuffer()
+{
+    for (uint32_t i = 0; i < gGBuffer.albedo.size(); ++i)
+    {
+        // Albedo
+        if (gGBuffer.albedo[i].vkImageView != VK_NULL_HANDLE)
+            vkDestroyImageView(
+                gVulkanContext.vkDevice,
+                gGBuffer.albedo[i].vkImageView,
+                nullptr);
+
+        if (gGBuffer.albedo[i].vkImage != VK_NULL_HANDLE)
+            vkDestroyImage(
+                gVulkanContext.vkDevice,
+                gGBuffer.albedo[i].vkImage,
+                nullptr);
+
+        if (gGBuffer.albedo[i].vkDeviceMemory != VK_NULL_HANDLE)
+            vkFreeMemory(
+                gVulkanContext.vkDevice,
+                gGBuffer.albedo[i].vkDeviceMemory,
+                nullptr);
+
+
+        // Normal
+        if (gGBuffer.normal[i].vkImageView != VK_NULL_HANDLE)
+            vkDestroyImageView(
+                gVulkanContext.vkDevice,
+                gGBuffer.normal[i].vkImageView,
+                nullptr);
+
+        if (gGBuffer.normal[i].vkImage != VK_NULL_HANDLE)
+            vkDestroyImage(
+                gVulkanContext.vkDevice,
+                gGBuffer.normal[i].vkImage,
+                nullptr);
+
+        if (gGBuffer.normal[i].vkDeviceMemory != VK_NULL_HANDLE)
+            vkFreeMemory(
+                gVulkanContext.vkDevice,
+                gGBuffer.normal[i].vkDeviceMemory,
+                nullptr);
+
+
+        // ORM
+        if (gGBuffer.ORM[i].vkImageView != VK_NULL_HANDLE)
+            vkDestroyImageView(
+                gVulkanContext.vkDevice,
+                gGBuffer.ORM[i].vkImageView,
+                nullptr);
+
+        if (gGBuffer.ORM[i].vkImage != VK_NULL_HANDLE)
+            vkDestroyImage(
+                gVulkanContext.vkDevice,
+                gGBuffer.ORM[i].vkImage,
+                nullptr);
+
+        if (gGBuffer.ORM[i].vkDeviceMemory != VK_NULL_HANDLE)
+            vkFreeMemory(
+                gVulkanContext.vkDevice,
+                gGBuffer.ORM[i].vkDeviceMemory,
+                nullptr);
+
+        //Depth
+
+        if (gGBuffer.depth[i].vkImageView != VK_NULL_HANDLE)
+        {
+            vkDestroyImageView(
+                gVulkanContext.vkDevice,
+                gGBuffer.depth[i].vkImageView,
+                nullptr);
+            gGBuffer.depth[i].vkImageView = VK_NULL_HANDLE;
+        }
+
+        if (gGBuffer.depth[i].vkImage != VK_NULL_HANDLE)
+        {
+            vkDestroyImage(
+                gVulkanContext.vkDevice,
+                gGBuffer.depth[i].vkImage,
+                nullptr);
+            gGBuffer.depth[i].vkImage = VK_NULL_HANDLE;
+        }
+
+        if (gGBuffer.depth[i].vkDeviceMemory != VK_NULL_HANDLE)
+        {
+            vkFreeMemory(
+                gVulkanContext.vkDevice,
+                gGBuffer.depth[i].vkDeviceMemory,
+                nullptr);
+            gGBuffer.depth[i].vkDeviceMemory = VK_NULL_HANDLE;
+        }
+    }
+
+    gGBuffer.albedo.clear();
+    gGBuffer.normal.clear();
+    gGBuffer.ORM.clear();
+    gGBuffer.depth.clear();
+
+    gGBuffer.width = 0;
+    gGBuffer.height = 0;
 }
 
 VkResult LoadModel_Phong(const char* modelPath, VulkanComboData* vulkanComboData, bool index32)
@@ -1683,6 +2040,7 @@ VkResult LoadModel_PBR(const char* modelPath, VulkanComboData* vulkanComboData, 
 static VkResult initialLayoutTransitions(void)
 {
     void transitionDepthLayout(VkCommandBuffer commandBuffer, VkImage image, VkImageLayout oldLayout, VkImageLayout newLayout);
+    void transitionImageLayout(VkCommandBuffer commandBuffer, VkImage image, VkImageLayout oldLayout, VkImageLayout newLayout);
 
     VkResult vkResult = VK_SUCCESS;
 
@@ -1691,8 +2049,7 @@ static VkResult initialLayoutTransitions(void)
 // Transition the depth image layout to be optimal for depth attachment
     // Transition the image layout to VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL
     VkCommandBuffer commandBuffer;
-    VkCommandBufferAllocateInfo commandBufferAllocateInfo;
-    memset(&commandBufferAllocateInfo, 0, sizeof(VkCommandBufferAllocateInfo));
+    VkCommandBufferAllocateInfo commandBufferAllocateInfo{};
     commandBufferAllocateInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
     commandBufferAllocateInfo.commandPool = gVulkanContext.vkCommandPool; // Command pool for allocation
     commandBufferAllocateInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY; // Primary command buffer
@@ -1703,8 +2060,7 @@ static VkResult initialLayoutTransitions(void)
         return vkResult;
     }
     // Begin command buffer recording
-    VkCommandBufferBeginInfo commandBufferBeginInfo;
-    memset(&commandBufferBeginInfo, 0, sizeof(VkCommandBufferBeginInfo));
+    VkCommandBufferBeginInfo commandBufferBeginInfo{};
     commandBufferBeginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
     commandBufferBeginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT; // One-time use command buffer
     vkResult = vkBeginCommandBuffer(commandBuffer, &commandBufferBeginInfo);
@@ -1713,18 +2069,45 @@ static VkResult initialLayoutTransitions(void)
         return vkResult;
     }
 
-    transitionDepthLayout(
-        commandBuffer,
-		gSwapchain.resourceData.imageData_depthBuffer[0].vkImage,
-        VK_IMAGE_LAYOUT_UNDEFINED,
-        VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL
-    );
-    transitionDepthLayout(
-        commandBuffer,
-        gSwapchain.resourceData.imageData_depthBuffer[1].vkImage,
-        VK_IMAGE_LAYOUT_UNDEFINED,
-        VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL
-    );
+    for (uint32_t i = 0; i < gSwapchain.imageCount; i++)
+    {
+        transitionImageLayout(
+            commandBuffer,
+            gGBuffer.albedo[i].vkImage,
+            VK_IMAGE_LAYOUT_UNDEFINED,
+            VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
+        );
+
+        transitionImageLayout(
+            commandBuffer,
+            gGBuffer.normal[i].vkImage,
+            VK_IMAGE_LAYOUT_UNDEFINED,
+            VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
+        );
+
+        transitionImageLayout(
+            commandBuffer,
+            gGBuffer.ORM[i].vkImage,
+            VK_IMAGE_LAYOUT_UNDEFINED,
+            VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
+        );
+
+        transitionDepthLayout(
+            commandBuffer,
+            gGBuffer.depth[i].vkImage,
+            VK_IMAGE_LAYOUT_UNDEFINED,
+            VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
+        );
+
+        //swapchain
+        transitionImageLayout(
+            commandBuffer,
+            gSwapchain.resourceData.swapchainImage_Array[i],
+            VK_IMAGE_LAYOUT_UNDEFINED,
+            VK_IMAGE_LAYOUT_PRESENT_SRC_KHR
+        );
+
+    }
 
     // End command buffer recording
     vkResult = vkEndCommandBuffer(commandBuffer);
@@ -1733,8 +2116,7 @@ static VkResult initialLayoutTransitions(void)
         return vkResult;
     }
     // Submit the command buffer and wait for it to finish
-    VkSubmitInfo submitInfo;
-    memset(&submitInfo, 0, sizeof(VkSubmitInfo));
+    VkSubmitInfo submitInfo{};
     submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
     submitInfo.commandBufferCount = 1;
     submitInfo.pCommandBuffers = &commandBuffer;
@@ -1806,6 +2188,7 @@ VkResult initialize(void)
     //compileShaderVS_FS("Phong");
     //compileShaderVS_FS("PBR");
     //compileShaderVS_FS("PBR_Skinned");
+    compileShaderVS_FS("PreviewImage");
     compileShaderTS_MS_FS("Meshlet");
 
 
@@ -1822,6 +2205,13 @@ VkResult initialize(void)
         fprintf(gpFILE, "initialize() : gSwapchain.Initialize() failed (%d).\n", vkResult);
 		return(vkResult);
 	}
+
+    vkResult = CreateGBuffer();
+    if (vkResult != VK_SUCCESS)
+    {
+        fprintf(gpFILE, "initialize() : CreateGBuffer() failed (%d).\n", vkResult);
+        return vkResult;
+    }
 
     vkCmdDrawMeshTasksEXT_pfn = (PFN_vkCmdDrawMeshTasksEXT)vkGetDeviceProcAddr(gVulkanContext.vkDevice,"vkCmdDrawMeshTasksEXT");
     assert(vkCmdDrawMeshTasksEXT_pfn);
@@ -2456,6 +2846,8 @@ VkResult resize(int width, int height)
     // pipeline
     destroyGraphicsPipelines();
 
+    //DestroyGBuffer();
+
 	gSwapchain.Shutdown(); // destroy old swapchain and its resources
 
     //-----------------------------------------------------------------------------
@@ -2467,6 +2859,8 @@ VkResult resize(int width, int height)
         fprintf(gpFILE, "resize() : gSwapchain.Initialize() failed (%d).\n", vkResult);
         return(vkResult);
 	}
+
+    //CreateGBuffer();
 
     //create graphics pipeline
     vkResult = createGraphicsPipelines();
@@ -2918,6 +3312,9 @@ void uninitialize(void)
 
     //global texture descriptor array
     destroyGlobalTextureDescriptorArray();
+
+    //G-Buffer
+    DestroyGBuffer();
 
     // Destroy swapchain
 	gSwapchain.Shutdown();
@@ -6498,7 +6895,7 @@ VkResult createDescriptorSet_SingleImage(void)
         VkDescriptorImageInfo vkDescriptorImageInfo;
         memset((void*)&vkDescriptorImageInfo, 0, sizeof(VkDescriptorImageInfo));
         vkDescriptorImageInfo.sampler = vkSampler_LinearClamp; // sampler for the image
-        vkDescriptorImageInfo.imageView = grassTextureData.vkImageView; // image view for the image
+        vkDescriptorImageInfo.imageView = gGBuffer.albedo[0].vkImageView; // image view for the image
         vkDescriptorImageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL; // image layout for the image
 
         //write or copy the descriptor set with the uniform buffer information
@@ -7344,7 +7741,7 @@ static void Render_MeshletScene(uint32_t curIndex)
 }
 
 
-void transitionImageLayout(
+void transitionImageLayout_Old(
     VkCommandBuffer cmd,
     VkImage image,
     VkImageLayout oldLayout,
@@ -7404,6 +7801,191 @@ void transitionImageLayout(
     vkCmdPipelineBarrier2(cmd, &dep);
 }
 
+void transitionImageLayout(
+    VkCommandBuffer cmd,
+    VkImage image,
+    VkImageLayout oldLayout,
+    VkImageLayout newLayout)
+{
+    VkImageMemoryBarrier2 barrier{
+        VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2
+    };
+
+    barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+    barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+
+    barrier.oldLayout = oldLayout;
+    barrier.newLayout = newLayout;
+    barrier.image = image;
+
+    barrier.subresourceRange.aspectMask =
+        VK_IMAGE_ASPECT_COLOR_BIT;
+
+    barrier.subresourceRange.baseMipLevel = 0;
+    barrier.subresourceRange.levelCount =
+        VK_REMAINING_MIP_LEVELS;
+
+    barrier.subresourceRange.baseArrayLayer = 0;
+    barrier.subresourceRange.layerCount =
+        VK_REMAINING_ARRAY_LAYERS;
+
+
+    // --------------------------------------------------------
+    // UNDEFINED -> COLOR_ATTACHMENT_OPTIMAL
+    // --------------------------------------------------------
+    if (oldLayout == VK_IMAGE_LAYOUT_UNDEFINED &&
+        newLayout == VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL)
+    {
+        barrier.srcStageMask =
+            VK_PIPELINE_STAGE_2_NONE;
+
+        barrier.srcAccessMask =
+            VK_ACCESS_2_NONE;
+
+        barrier.dstStageMask =
+            VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT;
+
+        barrier.dstAccessMask =
+            VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT;
+    }
+
+    // --------------------------------------------------------
+    // UNDEFINED -> SHADER_READ_ONLY_OPTIMAL
+    // --------------------------------------------------------
+    else if (oldLayout ==
+        VK_IMAGE_LAYOUT_UNDEFINED &&
+        newLayout ==
+        VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL)
+    {
+        barrier.srcStageMask =
+            VK_PIPELINE_STAGE_2_NONE;
+
+        barrier.srcAccessMask =
+            VK_ACCESS_2_NONE;
+
+        barrier.dstStageMask =
+            VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT;
+
+        barrier.dstAccessMask =
+            VK_ACCESS_2_SHADER_SAMPLED_READ_BIT;
+    }
+
+    // --------------------------------------------------------
+    // UNDEFINED -> PRESENT_SRC_KHR
+    // --------------------------------------------------------
+    else if (oldLayout == VK_IMAGE_LAYOUT_UNDEFINED &&
+        newLayout == VK_IMAGE_LAYOUT_PRESENT_SRC_KHR)
+    {
+        barrier.srcStageMask =
+            VK_PIPELINE_STAGE_2_NONE;
+
+        barrier.srcAccessMask =
+            VK_ACCESS_2_NONE;
+
+        barrier.dstStageMask =
+            VK_PIPELINE_STAGE_2_NONE;
+
+        barrier.dstAccessMask =
+            VK_ACCESS_2_NONE;
+    }
+
+    // --------------------------------------------------------
+    // PRESENT_SRC_KHR -> COLOR_ATTACHMENT_OPTIMAL
+    // --------------------------------------------------------
+    else if (oldLayout == VK_IMAGE_LAYOUT_PRESENT_SRC_KHR &&
+        newLayout == VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL)
+    {
+        barrier.srcStageMask =
+            VK_PIPELINE_STAGE_2_NONE;
+
+        barrier.srcAccessMask =
+            VK_ACCESS_2_NONE;
+
+        barrier.dstStageMask =
+            VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT;
+
+        barrier.dstAccessMask =
+            VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT;
+    }
+    // --------------------------------------------------------
+    // SHADER_READ_ONLY_OPTIMAL -> COLOR_ATTACHMENT_OPTIMAL
+    // --------------------------------------------------------
+    else if (oldLayout ==
+        VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL &&
+        newLayout ==
+        VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL)
+    {
+        barrier.srcStageMask =
+            VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT;
+
+        barrier.srcAccessMask =
+            VK_ACCESS_2_SHADER_SAMPLED_READ_BIT;
+
+        barrier.dstStageMask =
+            VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT;
+
+        barrier.dstAccessMask =
+            VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT;
+    }
+
+    // --------------------------------------------------------
+    // COLOR_ATTACHMENT_OPTIMAL -> SHADER_READ_ONLY_OPTIMAL
+    // --------------------------------------------------------
+    else if (oldLayout ==
+        VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL &&
+        newLayout ==
+        VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL)
+    {
+        barrier.srcStageMask =
+            VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT;
+
+        barrier.srcAccessMask =
+            VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT;
+
+        barrier.dstStageMask =
+            VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT;
+
+        barrier.dstAccessMask =
+            VK_ACCESS_2_SHADER_SAMPLED_READ_BIT;
+    }
+
+    // --------------------------------------------------------
+    // COLOR_ATTACHMENT_OPTIMAL -> PRESENT_SRC_KHR
+    // --------------------------------------------------------
+    else if (oldLayout ==
+        VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL &&
+        newLayout ==
+        VK_IMAGE_LAYOUT_PRESENT_SRC_KHR)
+    {
+        barrier.srcStageMask =
+            VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT;
+
+        barrier.srcAccessMask =
+            VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT;
+
+        barrier.dstStageMask =
+            VK_PIPELINE_STAGE_2_NONE;
+
+        barrier.dstAccessMask =
+            VK_ACCESS_2_NONE;
+    }
+
+    else
+    {
+        throw std::runtime_error(
+            "Unsupported layout transition");
+    }
+
+    VkDependencyInfo dep{
+        VK_STRUCTURE_TYPE_DEPENDENCY_INFO
+    };
+
+    dep.imageMemoryBarrierCount = 1;
+    dep.pImageMemoryBarriers = &barrier;
+
+    vkCmdPipelineBarrier2(cmd, &dep);
+}
+
 void transitionDepthLayout(
     VkCommandBuffer cmd,
     VkImage image,
@@ -7442,7 +8024,7 @@ void transitionDepthLayout(
 }
 
 
-VkResult buildCommandBuffers(uint32_t curIndex, uint32_t currentImageIndex)
+VkResult buildCommandBuffersOld(uint32_t curIndex, uint32_t currentImageIndex)
 {
     VkResult vkResult = VK_SUCCESS;
 
@@ -7510,6 +8092,8 @@ VkResult buildCommandBuffers(uint32_t curIndex, uint32_t currentImageIndex)
     VkClearValue clearColor = { {{0.01f, 0.01f, 0.02f, 1.0f}} };
     colorAttachment.clearValue = clearColor;
 
+    //Forward Rendering
+    /*
     VkRenderingAttachmentInfo depthAttachment{};
     depthAttachment.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO;
 	depthAttachment.imageView = gSwapchain.resourceData.imageData_depthBuffer[currentImageIndex].vkImageView;
@@ -7517,6 +8101,7 @@ VkResult buildCommandBuffers(uint32_t curIndex, uint32_t currentImageIndex)
     depthAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
     depthAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
     depthAttachment.clearValue.depthStencil = { 1.0f, 0 };
+    */
 
 	VkRenderingInfo renderingInfo{};
 	renderingInfo.sType = VK_STRUCTURE_TYPE_RENDERING_INFO;
@@ -7525,11 +8110,12 @@ VkResult buildCommandBuffers(uint32_t curIndex, uint32_t currentImageIndex)
 	renderingInfo.layerCount = 1;
 	renderingInfo.colorAttachmentCount = 1;
 	renderingInfo.pColorAttachments = &colorAttachment;
-	renderingInfo.pDepthAttachment = &depthAttachment;
+	//renderingInfo.pDepthAttachment = &depthAttachment;
+	renderingInfo.pDepthAttachment = nullptr;
 	vkCmdBeginRendering(gFrames[curIndex].commandBuffer, &renderingInfo);
 
 
-    // RenderFullscreenQuad(curIndex); // Render the fullscreen quad
+    RenderFullscreenQuad(curIndex); // Render the fullscreen quad
 
     RenderAxes(curIndex); // Render the axes
 
@@ -7570,8 +8156,230 @@ VkResult buildCommandBuffers(uint32_t curIndex, uint32_t currentImageIndex)
         VK_IMAGE_LAYOUT_PRESENT_SRC_KHR
 	);
 
+    vkResult = vkEndCommandBuffer(gFrames[curIndex].commandBuffer);
+    if (vkResult != VK_SUCCESS)
+    {
+        fprintf(gpFILE, "buildCommandBuffers() : vkEndCommandBuffer() failed for command buffer %d.\n", curIndex);
+        return vkResult;
+    }
+
+    return vkResult;
+}
+
+VkResult buildCommandBuffers(uint32_t curIndex, uint32_t currentImageIndex)
+{
+    VkResult vkResult = VK_SUCCESS;
+
+    // === Only operate on curIndex ===
+
+    // Reset the command buffer
+    vkResult = vkResetCommandBuffer(gFrames[curIndex].commandBuffer, 0);
+    if (vkResult != VK_SUCCESS)
+    {
+        fprintf(gpFILE, "buildCommandBuffers() : vkResetCommandBuffer() failed for command buffer %d.\n", curIndex);
+        return vkResult;
+    }
+
+    // Begin recording
+    VkCommandBufferBeginInfo beginInfo = {};
+    beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+    beginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
+
+    vkResult = vkBeginCommandBuffer(gFrames[curIndex].commandBuffer, &beginInfo);
+    if (vkResult != VK_SUCCESS)
+    {
+        fprintf(gpFILE, "buildCommandBuffers() : vkBeginCommandBuffer() failed for command buffer %d.\n", curIndex);
+        return vkResult;
+    }
+
+    //Dynamic Rendering + G-Buffer
+
+    VkRenderingAttachmentInfo gbufferAttachments[3]{};
+
+    gbufferAttachments[0].sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO;
+    gbufferAttachments[0].imageView = gGBuffer.albedo[currentImageIndex].vkImageView;
+    gbufferAttachments[0].imageLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+    gbufferAttachments[0].loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+    gbufferAttachments[0].storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+    gbufferAttachments[0].clearValue.color = { {0.0f, 0.0f, 0.0f, 0.0f} };
+
+    gbufferAttachments[1].sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO;
+    gbufferAttachments[1].imageView = gGBuffer.normal[currentImageIndex].vkImageView;
+    gbufferAttachments[1].imageLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+    gbufferAttachments[1].loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+    gbufferAttachments[1].storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+    gbufferAttachments[1].clearValue.color = { {0.0f, 0.0f, 0.0f, 0.0f} };
+
+    gbufferAttachments[2].sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO;
+    gbufferAttachments[2].imageView = gGBuffer.ORM[currentImageIndex].vkImageView;
+    gbufferAttachments[2].imageLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+    gbufferAttachments[2].loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+    gbufferAttachments[2].storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+    gbufferAttachments[2].clearValue.color = { {0.0f, 0.0f, 0.0f, 0.0f} };
+
+    VkRenderingAttachmentInfo depthAttachment{};
+    depthAttachment.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO;
+
+    depthAttachment.imageView = gGBuffer.depth[currentImageIndex].vkImageView;
+    depthAttachment.imageLayout = VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL;
+    depthAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+    depthAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+    depthAttachment.clearValue.depthStencil = { 1.0f, 0 };
+
+    VkRenderingInfo renderingInfo{};
+    renderingInfo.sType = VK_STRUCTURE_TYPE_RENDERING_INFO;
+    renderingInfo.renderArea.offset = { 0, 0 };
+    renderingInfo.renderArea.extent = { WIN_WIDTH, WIN_HEIGHT };
+    renderingInfo.layerCount = 1;
+    renderingInfo.colorAttachmentCount = 3;
+    renderingInfo.pColorAttachments = gbufferAttachments;
+    renderingInfo.pDepthAttachment = &depthAttachment;
 
 
+    transitionImageLayout(
+        gFrames[curIndex].commandBuffer,
+        gGBuffer.albedo[currentImageIndex].vkImage,
+        VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+        VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL
+    );
+
+    transitionImageLayout(
+        gFrames[curIndex].commandBuffer,
+        gGBuffer.normal[currentImageIndex].vkImage,
+        VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+        VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL
+    );
+
+    transitionImageLayout(
+        gFrames[curIndex].commandBuffer,
+        gGBuffer.ORM[currentImageIndex].vkImage,
+        VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+        VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL
+    );
+
+    transitionDepthLayout(
+        gFrames[curIndex].commandBuffer,
+        gGBuffer.depth[currentImageIndex].vkImage,
+        VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+        VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL
+    );
+
+
+
+    
+    vkCmdBeginRendering(gFrames[curIndex].commandBuffer, &renderingInfo);
+
+
+    //-------------------------------------------------------------------------
+    // Start G-Buffer Render//-------------------------------------------------
+    //-------------------------------------------------------------------------
+
+    /*
+
+    RenderFullscreenQuad(curIndex); // Render the fullscreen quad
+
+    RenderAxes(curIndex); // Render the axes
+
+    RenderColoredTriangle(curIndex); // Render the colored triangle
+
+    RenderImpostor(curIndex); // Render the UV quad
+
+    RenderCube(curIndex); // Render the cube
+    RenderSuzanne(curIndex); // Render the suzanne
+
+    RenderPBR_Basic(curIndex); // Render the PBR basic model
+
+    RenderPBR_Skinned(curIndex); // Render the PBR skinned model
+
+    */
+
+    Render_MeshletScene(curIndex);// Render MeshletScene
+
+    /*
+#ifdef IMGUI_ENABLE
+    Render_ImGui(curIndex); // Render ImGui UI
+#endif //IMGUI_ENABLE
+    */
+    // vkCmdEndRenderPass(vkCommandBuffer_Array[curIndex]);
+
+     // If we are using dynamic rendering, then we need to call vkCmdEndRendering() API to end the dynamic rendering.
+    vkCmdEndRendering(gFrames[curIndex].commandBuffer);
+
+    //G-Buffer
+    transitionImageLayout(
+        gFrames[curIndex].commandBuffer,
+        gGBuffer.albedo[currentImageIndex].vkImage,
+        VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+        VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
+    );
+
+    transitionImageLayout(
+        gFrames[curIndex].commandBuffer,
+        gGBuffer.normal[currentImageIndex].vkImage,
+        VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+        VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
+    );
+
+    transitionImageLayout(
+        gFrames[curIndex].commandBuffer,
+        gGBuffer.ORM[currentImageIndex].vkImage,
+        VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+        VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
+    );
+
+    transitionDepthLayout(
+        gFrames[curIndex].commandBuffer,
+        gGBuffer.depth[currentImageIndex].vkImage,
+        VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL,
+         VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
+    );
+
+
+    //Second Dynamic Rendering Pass
+
+    //swapchain
+    transitionImageLayout(
+        gFrames[curIndex].commandBuffer,
+        gSwapchain.resourceData.swapchainImage_Array[currentImageIndex],
+        VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
+        VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL
+    );
+
+
+    VkRenderingAttachmentInfo deferredColor{};
+    deferredColor.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO;
+    deferredColor.imageView = gSwapchain.resourceData.swapchainImageView_Array[currentImageIndex];
+    deferredColor.imageLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+    deferredColor.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+    deferredColor.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+    deferredColor.clearValue.color = { {0.0f, 0.0f, 0.0f, 1.0f} };
+
+    VkRenderingInfo deferredRenderingInfo{};
+    deferredRenderingInfo.sType = VK_STRUCTURE_TYPE_RENDERING_INFO;
+    deferredRenderingInfo.renderArea.offset = { 0, 0 };
+    deferredRenderingInfo.renderArea.extent = gSwapchain.vkExtent2D;
+    deferredRenderingInfo.layerCount = 1;
+    deferredRenderingInfo.colorAttachmentCount = 1;
+    deferredRenderingInfo.pColorAttachments = &deferredColor;
+    deferredRenderingInfo.pDepthAttachment = nullptr;
+
+    vkCmdBeginRendering(gFrames[curIndex].commandBuffer,&deferredRenderingInfo);
+
+    RenderFullscreenQuad(curIndex); // Render the fullscreen quad
+
+#ifdef IMGUI_ENABLE
+    Render_ImGui(curIndex); // Render ImGui UI
+#endif //IMGUI_ENABLE
+
+    vkCmdEndRendering(gFrames[curIndex].commandBuffer);
+
+    //Swapchain
+    transitionImageLayout(
+        gFrames[curIndex].commandBuffer,
+        gSwapchain.resourceData.swapchainImage_Array[currentImageIndex],
+        VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+        VK_IMAGE_LAYOUT_PRESENT_SRC_KHR
+    );
 
 
     vkResult = vkEndCommandBuffer(gFrames[curIndex].commandBuffer);

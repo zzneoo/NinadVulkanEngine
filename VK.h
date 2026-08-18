@@ -7,22 +7,13 @@
 #define MYICON 101
 #define MAX_FRAMES 2 // for double buffering
 
-// VulkanContext
-// Owns Vulkan instance/device lifetime.
-
-// Win32Window
-// Owns Win32 window and Vulkan surface.
-
-// SwapchainContext
-// Owns swapchain-dependent resources.
-
-// FrameContext
-// Owns per-frame resources (MAX_FRAMES).
-
-//Uniform Buffer Objects------------------------------------------------
+// macros
+#define WIN_WIDTH  2560
+#define WIN_HEIGHT 1440
+#define WIN_TITLE  TEXT("NDT:Vulkan AstroMediComp")
+#define LINE_END     "-------------------------------------------------------------------------------------\n"
 
 class Material_BasicPBR;
-
 struct UniformBufferObject_FrameData
 {
 	glm::mat4 view;
@@ -209,6 +200,17 @@ typedef struct
 	uint32_t       globalTextureArrayIndex; // index in the global texture array, used for descriptor sets
 	VkSampler	   vkSampler; // sampler for this image (if needed)
 }ImageData;
+
+struct GBuffer
+{
+	std::vector<ImageData> albedo;
+	std::vector<ImageData> normal;
+	std::vector<ImageData> ORM;
+	std::vector<ImageData> depth;
+
+	uint32_t width = 0;
+	uint32_t height = 0;
+};
 
 typedef struct
 {

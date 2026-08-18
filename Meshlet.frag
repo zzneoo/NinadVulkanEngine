@@ -19,7 +19,13 @@ layout(location = 5) in vec3 inWorldPos;
 
 
 layout(set = 1, binding = 0) uniform sampler2D textures[];
-layout(location = 0) out vec4 FragColor;
+
+//layout(location = 0) out vec4 FragColor;
+
+// G-buffer outputs
+layout(location = 0) out vec4 outAlbedo;
+layout(location = 1) out vec4 outNormal;
+layout(location = 2) out vec4 outORM;
 
 
 
@@ -137,6 +143,10 @@ void main()
     vec3 finalColor = Lo + ambient;
     finalColor = Tonemap_ACES(finalColor);
 
-    FragColor = vec4(vec3(finalColor),1.0);
+    //FragColor = vec4(vec3(finalColor),1.0);
+
+    outAlbedo = vec4(albedo,1.0);
+    outNormal = vec4(normal_map * 0.5 + 0.5,1.0);
+    outORM = vec4(orx,1.0);
 }
 
