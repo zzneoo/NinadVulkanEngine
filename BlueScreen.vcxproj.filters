@@ -114,6 +114,9 @@
     <ClInclude Include="MeshletScene.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="Renderer.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="BlueScreen.cpp">
@@ -239,6 +242,9 @@
     <ClCompile Include="MeshletScene.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="Renderer.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="BlueScreen.rc">
@@ -314,5 +320,7 @@
     <None Include="Shaders\Code\common.glsl">
       <Filter>Shaders</Filter>
     </None>
+    <None Include=".github\upgrades\scenarios\cppbuildtoolsupgrade\scenario-instructions.md" />
+    <None Include=".github\upgrades\scenarios\cppbuildtoolsupgrade\assessment.md" />
   </ItemGroup>
 </Project>

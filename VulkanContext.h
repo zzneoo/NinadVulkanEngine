@@ -43,6 +43,10 @@ public:
     // Command infrastructure
     VkCommandPool vkCommandPool = VK_NULL_HANDLE;
 
+    // Semaphores
+    VkSemaphore vkSemaphore_Timeline = VK_NULL_HANDLE;
+    uint64_t gTimelineValue = 0;
+
     // Validation
     bool vkValidationEnabled = true;
     uint32_t enabledValidationLayerCount = 0;
@@ -68,6 +72,7 @@ public:
 		VkResult GetSupportedSurface(void);
 		VkResult GetPhysicalDevice(void);
 		VkResult CreateVulkanDevice(void);
+		VkResult CreateTimelineSemaphore(void);
 
         VkResult GetDeviceQueue(void);
 		VkResult CreateCommandPool(void);

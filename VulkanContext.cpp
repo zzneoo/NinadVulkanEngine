@@ -66,12 +66,25 @@ VkResult VulkanContext::Initialize()
         return(vkResult);
 	}
 
+    vkResult = CreateTimelineSemaphore();
+    if (vkResult != VK_SUCCESS)
+    {
+        fprintf(gpFILE, "VulkanContext::Initialize() : CreateTimelineSemaphore() failed.\n");
+        return(vkResult);
+    }
+
 	return VK_SUCCESS;
 }
 
 void VulkanContext::Shutdown()
 {
 	// Clean up Vulkan resources here.
+    if (vkSemaphore_Timeline)
+    {
+        vkDestroySemaphore(gVulkanContext.vkDevice, vkSemaphore_Timeline, NULL);
+        vkSemaphore_Timeline = VK_NULL_HANDLE;
+    }
+
 
 	// Destroy Vulkan command pool
 	if (vkCommandPool)
@@ -1220,6 +1233,38 @@ VkResult VulkanContext::CreateVulkanDevice(void)
         fprintf(gpFILE, "createVulkanDevice() : vkCreateDevice() failed.\n");
         return(vkResult);
     }
+
+    return(vkResult);
+}
+VkResult VulkanContext::CreateTimelineSemaphore(void)
+{
+    // local variables
+    VkResult vkResult = VK_SUCCESS;
+
+    //timeline semophores
+
+    VkSemaphoreTypeCreateInfo timelineSemaphoreCreateInfo;
+    memset(&timelineSemaphoreCreateInfo, 0, sizeof(VkSemaphoreTypeCreateInfo));
+
+    timelineSemaphoreCreateInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_TYPE_CREATE_INFO;
+    timelineSemaphoreCreateInfo.pNext = NULL;
+    timelineSemaphoreCreateInfo.semaphoreType = VK_SEMAPHORE_TYPE_TIMELINE;
+    timelineSemaphoreCreateInfo.initialValue = 0;
+
+
+    //vkSemaphore_timeline
+    VkSemaphoreCreateInfo vkSemaphoreCreateInfo_Timeline;
+    memset(&vkSemaphoreCreateInfo_Timeline, 0, sizeof(VkSemaphoreCreateInfo));
+    vkSemaphoreCreateInfo_Timeline.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
+    vkSemaphoreCreateInfo_Timeline.pNext = &timelineSemaphoreCreateInfo;
+    vkSemaphoreCreateInfo_Timeline.flags = 0;
+    vkResult = vkCreateSemaphore(gVulkanContext.vkDevice, &vkSemaphoreCreateInfo_Timeline, NULL, &vkSemaphore_Timeline);
+    if (vkResult != VK_SUCCESS)
+    {
+        fprintf(gpFILE, "createSemaphores() : vkCreateSemaphore() failed for timeline semaphore.\n");
+        return(vkResult);
+    }
+
 
     return(vkResult);
 }

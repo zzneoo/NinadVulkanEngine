@@ -48,6 +48,8 @@ using namespace tinyddsloader;
 #include "SwapchainContext.h"
 #include "FrameContext.h"
 
+#include "Renderer.h"
+
 // Vulkan related libraries
 #pragma comment(lib, "vulkan-1.lib")
 #pragma comment(lib, "assimp-vc143-mt.lib")
@@ -89,15 +91,6 @@ const char* gpszAppName = "ARTR";
 FILE* gpFILE = NULL;
 
 Camera camera; // camera object
-
-// Semaphores
-VkSemaphore vkSemaphore_Timeline = VK_NULL_HANDLE;
-//VkSemaphore* vkSemaphore_BackBuffer = VK_NULL_HANDLE;
-//VkSemaphore* vkSemaphore_RenderComplete = VK_NULL_HANDLE;
-
-uint64_t gTimelineValue = 0;
-//uint64_t gFrameTimelineValues[MAX_FRAMES] = {};
-
 
 // Clear Color
 VkClearColorValue vkClearColorValue;
@@ -174,6 +167,9 @@ VkRect2D vkRect2D_Scissor;
 //All pipelines
 
 GraphicsPipelines* gpGraphicsPipelines = NULL;
+
+//Renderer
+Renderer* gpRenderer = nullptr;
 
 // entry-point function
 int WINAPI WinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, _In_ LPSTR lpszCmdLine, _In_ int iCmdShow)
@@ -2139,7 +2135,7 @@ VkResult initialize(void)
     //VkResult createSwapchain(VkBool32);
     //VkResult createSwapchainResources(void);
     //VkResult createCommandPool(void);
-    VkResult createCommandBuffers(void);
+    //VkResult createCommandBuffers(void);
     VkResult ZzCreateVertexBuffer(const float* vertices, VkDeviceSize vertexBufferSize, VulkanData * vulkanData);
     VkResult ZzCreateVertexAndIndex16Buffer(
         const float* vertices, VkDeviceSize vertexBufferSize,
@@ -2154,7 +2150,6 @@ VkResult initialize(void)
 
     //VkResult createVertexBuffer_uvQuad(void);
     VkResult createUniformBuffer(void);
-    VkResult createShaders(void);
 
     VkResult createDescriptorSetLayouts(void);
 
@@ -2170,7 +2165,7 @@ VkResult initialize(void)
     VkResult createGraphicsPipelines(void);
     VkResult createDepthResources(void);
     //VkResult createFramebuffers(void);
-    VkResult createSemaphores(void);
+    //VkResult createSemaphores(void);
     //VkResult createFences(void);
 
     VkResult loadTextureData(ImageData * imageData, const char* filePath, VkFormat format);
@@ -2199,12 +2194,18 @@ VkResult initialize(void)
         return(vkResult);
 	}
 
+    //Renderer
+    //gpRenderer = new Renderer(&gVulkanContext);
+
 	vkResult = gSwapchain.Initialize();
     if (vkResult != VK_SUCCESS)
     {
         fprintf(gpFILE, "initialize() : gSwapchain.Initialize() failed (%d).\n", vkResult);
 		return(vkResult);
 	}
+
+    gFrames[0].Initialize(&gVulkanContext);
+    gFrames[1].Initialize(&gVulkanContext);
 
     vkResult = CreateGBuffer();
     if (vkResult != VK_SUCCESS)
@@ -2302,12 +2303,6 @@ VkResult initialize(void)
 
 
     // STEP 15 : Create command buffers
-    vkResult = createCommandBuffers();
-    if (vkResult != VK_SUCCESS)
-    {
-        fprintf(gpFILE, "initialize() : createCommandBuffers() failed (%d).\n", vkResult);
-        return(vkResult);
-    }
 
     //create vertex buffer for colored triangle
     // 3 vertices, each with 3D position and RGB color
@@ -2461,15 +2456,6 @@ VkResult initialize(void)
         return(vkResult);
     }
 
-    // STEP  : Create shaders
-    vkResult = createShaders();
-    if (vkResult != VK_SUCCESS)
-    {
-        fprintf(gpFILE, "initialize() : createShaders() failed (%d).\n", vkResult);
-        return(vkResult);
-    }
-
-
     //DescriptorSetLayouts
     gpDescriptorSetLayouts = new DescriptorSetLayouts();
     vkResult = gpDescriptorSetLayouts->vkResult;
@@ -2536,13 +2522,8 @@ VkResult initialize(void)
     //    return(vkResult);
     //}
 
-    // STEP 18 : Create semaphores and fences
-    vkResult = createSemaphores();
-    if (vkResult != VK_SUCCESS)
-    {
-        fprintf(gpFILE, "initialize() : createSemaphores() failed (%d).\n", vkResult);
-        return(vkResult);
-    }
+    //Create semaphores and fences
+
 
     //vkResult = createFences();
     //if (vkResult != VK_SUCCESS)
@@ -2836,12 +2817,12 @@ VkResult resize(int width, int height)
         return VK_ERROR_INITIALIZATION_FAILED;
     }
 
-    // vkCommandBuffer
-    for (uint32_t i = 0; i < gSwapchain.imageCount; i++)
-    {
-        vkFreeCommandBuffers(gVulkanContext.vkDevice, gVulkanContext.vkCommandPool, 1, &gFrames[i].commandBuffer);
-        // fprintf(gpFILE, "resize() : vkFreeCommandBuffers() succeeded for iteration %d.\n", i);
-    }
+    //// vkCommandBuffer
+    //for (uint32_t i = 0; i < gSwapchain.imageCount; i++)
+    //{
+    //    vkFreeCommandBuffers(gVulkanContext.vkDevice, gVulkanContext.vkCommandPool, 1, &gFrames[i].commandBuffer);
+    //    // fprintf(gpFILE, "resize() : vkFreeCommandBuffers() succeeded for iteration %d.\n", i);
+    //}
 
     // pipeline
     destroyGraphicsPipelines();
@@ -2870,13 +2851,13 @@ VkResult resize(int width, int height)
         return(vkResult);
     }
 
-    //create command buffers
-    vkResult = createCommandBuffers();
-    if (vkResult != VK_SUCCESS)
-    {
-        fprintf(gpFILE, "resize() : createCommandBuffers() failed (%d).\n", vkResult);
-        return(vkResult);
-    }
+    ////create command buffers
+    //vkResult = createCommandBuffers();
+    //if (vkResult != VK_SUCCESS)
+    //{
+    //    fprintf(gpFILE, "resize() : createCommandBuffers() failed (%d).\n", vkResult);
+    //    return(vkResult);
+    //}
 
     //initial layout transitions (Depth for now)
     vkResult = initialLayoutTransitions();
@@ -2935,7 +2916,7 @@ VkResult display(void)
         VkSemaphoreWaitInfo waitInfo{};
         waitInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_WAIT_INFO;
         waitInfo.semaphoreCount = 1;
-        waitInfo.pSemaphores = &vkSemaphore_Timeline;
+        waitInfo.pSemaphores = &gVulkanContext.vkSemaphore_Timeline;
         waitInfo.pValues = &waitValue;
 
         vkWaitSemaphores(gVulkanContext.vkDevice, &waitInfo, UINT64_MAX);
@@ -2977,56 +2958,51 @@ VkResult display(void)
         }
     }
 
-    uint64_t signalValue = ++gTimelineValue;
+    uint64_t signalValue = ++gVulkanContext.gTimelineValue;
     gFrames[curIndex].timelineValue = signalValue;
 
+    VkSemaphoreSubmitInfo waitSemaphoreInfo{};
+    waitSemaphoreInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO;
+    waitSemaphoreInfo.semaphore = gFrames[curIndex].vkSemaphore_Acquire;
+    waitSemaphoreInfo.value = 0;
+    waitSemaphoreInfo.stageMask = VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT;
 
-    uint64_t signalValues[] =
-    {
-        0,              // ignored for binary semaphore
-        signalValue     // timeline semaphore value
-    };
+    VkSemaphoreSubmitInfo signalSemaphoreInfos[2]{};
 
-    VkSemaphore waitSemaphores[] =
-    {
-        gFrames[curIndex].vkSemaphore_Acquire
-    };
+    signalSemaphoreInfos[0].sType = VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO;
+    signalSemaphoreInfos[0].semaphore = gFrames[curIndex].vkSemaphore_RenderComplete;
+    signalSemaphoreInfos[0].value = 0;
+    signalSemaphoreInfos[0].stageMask = VK_PIPELINE_STAGE_2_ALL_GRAPHICS_BIT;
 
-    VkPipelineStageFlags waitStages[] =
-    {
-        VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT
-    };
+    signalSemaphoreInfos[1].sType = VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO;
+    signalSemaphoreInfos[1].semaphore = gVulkanContext.vkSemaphore_Timeline;
+    signalSemaphoreInfos[1].value = signalValue;
+    signalSemaphoreInfos[1].stageMask = VK_PIPELINE_STAGE_2_ALL_GRAPHICS_BIT;
 
-    VkTimelineSemaphoreSubmitInfo timelineInfo{};
-    timelineInfo.sType =
-        VK_STRUCTURE_TYPE_TIMELINE_SEMAPHORE_SUBMIT_INFO;
-    timelineInfo.signalSemaphoreValueCount = 2;
-    timelineInfo.pSignalSemaphoreValues = signalValues;
+    VkCommandBufferSubmitInfo commandBufferInfo{};
+    commandBufferInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_SUBMIT_INFO;
+    commandBufferInfo.commandBuffer = gFrames[curIndex].commandBuffer;
 
-    VkSemaphore signalSemaphores[] =
-    {
-        gFrames[curIndex].vkSemaphore_RenderComplete,
-        vkSemaphore_Timeline
-    };
+    VkSubmitInfo2 submitInfo{};
+    submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO_2;
+    submitInfo.waitSemaphoreInfoCount = 1;
+    submitInfo.pWaitSemaphoreInfos = &waitSemaphoreInfo;
+    submitInfo.commandBufferInfoCount = 1;
+    submitInfo.pCommandBufferInfos = &commandBufferInfo;
+    submitInfo.signalSemaphoreInfoCount = 2;
+    submitInfo.pSignalSemaphoreInfos = signalSemaphoreInfos;
 
-    VkSubmitInfo submitInfo{};
-    submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
-    submitInfo.pNext = &timelineInfo;
-    submitInfo.waitSemaphoreCount = 1;
-    submitInfo.pWaitSemaphores = waitSemaphores;
-    submitInfo.pWaitDstStageMask = waitStages;
-    submitInfo.commandBufferCount = 1;
-    submitInfo.pCommandBuffers = &gFrames[curIndex].commandBuffer;
-    submitInfo.signalSemaphoreCount = 2;
-    submitInfo.pSignalSemaphores = signalSemaphores;
+    vkResult = vkQueueSubmit2(
+        gVulkanContext.vkGraphicsQueue,
+        1,
+        &submitInfo,
+        VK_NULL_HANDLE);
 
-
-	vkResult = vkQueueSubmit(gVulkanContext.vkGraphicsQueue, 1, &submitInfo, VK_NULL_HANDLE);
     if (vkResult != VK_SUCCESS)
     {
-        fprintf(gpFILE, "display() : vkQueueSubmit() failed (%d).\n", vkResult);
+        fprintf(gpFILE, "display() : vkQueueSubmit2() failed (%d).\n", vkResult);
         return vkResult;
-	}
+    }
 
 
     // Present the rendered image
@@ -3093,7 +3069,6 @@ void uninitialize(void)
     //void destroyGraphicsPipelines(void);
     //void destroySwapchainResources(void);
     void destroySamplers(void);
-    void destroyShaders(void);
 
     void destroyTextureData(ImageData * imageData);
     void ZzDestroyVertexBuffer(VulkanData * vulkanData);
@@ -3129,48 +3104,14 @@ void uninitialize(void)
     }
 #endif
 
-    //// Fences
-    //if (vkFence_Array)
-    //{
-    //    for (uint32_t i = 0; i < gSwapchainImageCount; i++)
-    //    {
-    //        vkDestroyFence(vkDevice, vkFence_Array[i], NULL);
-    //        vkFence_Array[i] = VK_NULL_HANDLE;
 
-    //    }
-
-    //    free(vkFence_Array);
-    //    vkFence_Array = NULL;
-
-    //}
-
-	//Semaphores
-
-    for (size_t i = 0; i < gSwapchain.imageCount; i++)
+    //Semaphore,commandbuffer
+    for (uint32_t i = 0; i < MAX_FRAMES; i++)
     {
-        if (gFrames[i].vkSemaphore_RenderComplete)
-        {
-            vkDestroySemaphore(gVulkanContext.vkDevice, gFrames[i].vkSemaphore_RenderComplete, NULL);
-            gFrames[i].vkSemaphore_RenderComplete = VK_NULL_HANDLE;
-
-        }
-
-        if (gFrames[i].vkSemaphore_Acquire)
-        {
-            vkDestroySemaphore(gVulkanContext.vkDevice, gFrames[i].vkSemaphore_Acquire, NULL);
-            gFrames[i].vkSemaphore_Acquire = VK_NULL_HANDLE;
-
-        }
+        gFrames[i].Destroy(&gVulkanContext);
     }
 
 	//timeline semaphore
-    if (vkSemaphore_Timeline)
-    {
-        vkDestroySemaphore(gVulkanContext.vkDevice, vkSemaphore_Timeline, NULL);
-        vkSemaphore_Timeline = VK_NULL_HANDLE;
-	}
-
-
 
     // pipeline
     //destroyGraphicsPipelines();
@@ -3223,8 +3164,6 @@ void uninitialize(void)
         gpDescriptorSetLayouts = NULL;
     }
 
-    //shaderModules
-    //destroyShaders();
 
 
     //Destroy vertex data for colored triangle
@@ -3247,26 +3186,6 @@ void uninitialize(void)
 
     gMeshletScene.ShutDown();
 
-    //uniform buffer
-
-    ////Camera uniform buffer
- //   for (uint32_t i = 0; i < MAX_FRAMES; i++)
- //   {
- //       // Unmap the uniformData memory
- //       vkUnmapMemory(gVulkanContext.vkDevice, uniformBufferData_camera[i].vkDeviceMemory);
-
- //       //uniformData
- //       if (uniformBufferData_camera[i].vkDeviceMemory)
- //       {
- //           vkFreeMemory(gVulkanContext.vkDevice, uniformBufferData_camera[i].vkDeviceMemory, NULL);
- //           uniformBufferData_camera[i].vkDeviceMemory = VK_NULL_HANDLE;
- //       }
- //       if (uniformBufferData_camera[i].vkBuffer)
- //       {
- //           vkDestroyBuffer(gVulkanContext.vkDevice, uniformBufferData_camera[i].vkBuffer, NULL);
- //           uniformBufferData_camera[i].vkBuffer = VK_NULL_HANDLE;
- //       }
- //   }
 
     //FrameData uniform buffer
     for (uint32_t i = 0; i < MAX_FRAMES; i++)
@@ -3285,11 +3204,6 @@ void uninitialize(void)
             vkDestroyBuffer(gVulkanContext.vkDevice, gFrames[i].uniformData.vkBuffer, NULL);
             gFrames[i].uniformData.vkBuffer = VK_NULL_HANDLE;
         }
-    }
-
-    for (uint32_t i = 0; i < gSwapchain.imageCount; i++)
-    {
-        vkFreeCommandBuffers(gVulkanContext.vkDevice, gVulkanContext.vkCommandPool, 1, &gFrames[i].commandBuffer);
     }
 
 
@@ -4591,7 +4505,7 @@ void destroySamplers(void)
 }
 
 
-
+/*
 VkResult createCommandBuffers(void)
 {
     // local variables
@@ -4627,7 +4541,7 @@ VkResult createCommandBuffers(void)
 
     return(vkResult);
 }
-
+*/
 /*
 VkResult createVertexBuffer_(void)
 {
@@ -6285,358 +6199,6 @@ VkResult createShaderModule(VkShaderModule* shaderModule, const char* fileName)
 
 }
 
-VkResult createShaders(void)
-{
-    VkResult createShaderModule(VkShaderModule * shaderModule, const char* fileName);
-    // local variables
-    VkResult vkResult = VK_SUCCESS;
-
-    //vkResult = createShaderModule(&vkShaderModule_basic_vs, "shader.vert.spv");
-    //if (vkResult != VK_SUCCESS)
-    //{
-    //    fprintf(gpFILE, "createShaders() -> createShaderModule() for vertex shader failed.\n");
-    //    return vkResult;
-    //}
-
-    //vkResult = createShaderModule(&vkShaderModule_basic_fs, "shader.frag.spv");
-    //if (vkResult != VK_SUCCESS)
-    //{
-    //    fprintf(gpFILE, "createShaders() -> createShaderModule() for fragment shader failed.\n");
-    //    return vkResult;
-    //}
-
- //   //vkShaderModule_whiteVertex_vs
- //   vkResult = createShaderModule(&vkShaderModule_whiteVertex_vs, "whiteVertex.vert.spv");
- //   if (vkResult != VK_SUCCESS)
- //   {
- //       fprintf(gpFILE, "createShaders() -> createShaderModule() for white vertex shader failed.\n");
- //       return vkResult;
- //   }
-
- //   //vkShaderModule_whiteFragment_fs
- //   vkResult = createShaderModule(&vkShaderModule_whiteVertex_fs, "whiteVertex.frag.spv");
- //   if (vkResult != VK_SUCCESS)
- //   {
- //       fprintf(gpFILE, "createShaders() -> createShaderModule() for white fragment shader failed.\n");
- //       return vkResult;
- //   }
-
- //   //----------
-
- //   //vkShaderModule_previewImage_vs
- //   vkResult = createShaderModule(&vkShaderModule_previewImage_vs, "PreviewImage.vert.spv");
- //   if (vkResult != VK_SUCCESS)
- //   {
- //       fprintf(gpFILE, "createShaders() -> createShaderModule() for preview image vertex shader failed.\n");
- //       return vkResult;
- //   }
-
- //   //vkShaderModule_previewImage_fs
- //   vkResult = createShaderModule(&vkShaderModule_previewImage_fs, "PreviewImage.frag.spv");
- //   if (vkResult != VK_SUCCESS)
- //   {
- //       fprintf(gpFILE, "createShaders() -> createShaderModule() for preview image fragment shader failed.\n");
- //       return vkResult;
- //   }
-
- //   //----------
-
- //   //vkShaderModule_impostor_vs
- //   vkResult = createShaderModule(&vkShaderModule_impostor_vs, "Impostor.vert.spv");
- //   if (vkResult != VK_SUCCESS)
- //   {
- //       fprintf(gpFILE, "createShaders() -> createShaderModule() for impostor vertex shader failed.\n");
- //       return vkResult;
- //   }
-
- //   //vkShaderModule_impostor_fs
- //   vkResult = createShaderModule(&vkShaderModule_impostor_fs, "Impostor.frag.spv");
- //   if (vkResult != VK_SUCCESS)
- //   {
- //       fprintf(gpFILE, "createShaders() -> createShaderModule() for impostor fragment shader failed.\n");
- //       return vkResult;
- //   }
-
- //   //----------phongshader--------------
- //   vkResult = createShaderModule(&vkShaderModule_phong_vs, "Phong.vert.spv");
- //   if (vkResult != VK_SUCCESS)
- //   {
- //       fprintf(gpFILE, "createShaders() -> createShaderModule() for phong vertex shader failed.\n");
- //       return vkResult;
- //   }
-
- //   vkResult = createShaderModule(&vkShaderModule_phong_fs, "Phong.frag.spv");
- //   if (vkResult != VK_SUCCESS)
- //   {
- //       fprintf(gpFILE, "createShaders() -> createShaderModule() for phong fragment shader failed.\n");
- //       return vkResult;
- //   }
-
- //   //-----------PBR shader----------------
- //   vkResult = createShaderModule(&vkShaderModule_PBR_vs, "PBR.vert.spv");
- //   if (vkResult != VK_SUCCESS)
- //   {
- //       fprintf(gpFILE, "createShaders() -> createShaderModule() for pbr vertex shader failed.\n");
- //       return vkResult;
- //   }
- //   vkResult = createShaderModule(&vkShaderModule_PBR_fs, "PBR.frag.spv");
- //   if (vkResult != VK_SUCCESS)
- //   {
- //       fprintf(gpFILE, "createShaders() -> createShaderModule() for pbr fragment shader failed.\n");
- //       return vkResult;
- //   }
-
-	////PBR_Skinned
-	//vkResult = createShaderModule(&vkShaderModule_PBR_Skinned_vs, "PBR_Skinned.vert.spv");
- //   if (vkResult != VK_SUCCESS)
- //   {
- //       fprintf(gpFILE, "createShaders() -> createShaderModule() for pbr skinned vertex shader failed.\n");
-	//	return vkResult;
- //   }
-	//vkResult = createShaderModule(&vkShaderModule_PBR_Skinned_fs, "PBR_Skinned.frag.spv");
- //   if (vkResult != VK_SUCCESS)
- //   {
- //       fprintf(gpFILE, "createShaders() -> createShaderModule() for pbr skinned fragment shader failed.\n");
- //       return vkResult;
-	//}
-
-
-    return vkResult;
-}
-
-void destroyShaders(void)
-{
-    //if (vkShaderModule_basic_fs)
-    //{
-    //    vkDestroyShaderModule(vkDevice, vkShaderModule_basic_fs, NULL);
-    //    vkShaderModule_basic_fs = VK_NULL_HANDLE;
-    //}
-    //if (vkShaderModule_basic_vs)
-    //{
-    //    vkDestroyShaderModule(vkDevice, vkShaderModule_basic_vs, NULL);
-    //    vkShaderModule_basic_vs = VK_NULL_HANDLE;
-    //}
-
- //   //-- shader modules for white vertex shaders
- //   if (vkShaderModule_whiteVertex_vs)
- //   {
- //       vkDestroyShaderModule(vkDevice, vkShaderModule_whiteVertex_vs, NULL);
- //       vkShaderModule_whiteVertex_vs = VK_NULL_HANDLE;
- //   }
-
- //   if (vkShaderModule_whiteVertex_fs)
- //   {
- //       vkDestroyShaderModule(vkDevice, vkShaderModule_whiteVertex_fs, NULL);
- //       vkShaderModule_whiteVertex_fs = VK_NULL_HANDLE;
- //   }
-
- //   //-- shader modules for previewImage shaders
-
- //   if (vkShaderModule_previewImage_vs)
- //   {
- //       vkDestroyShaderModule(vkDevice, vkShaderModule_previewImage_vs, NULL);
- //       vkShaderModule_previewImage_vs = VK_NULL_HANDLE;
- //   }
-
- //   if (vkShaderModule_previewImage_fs)
- //   {
- //       vkDestroyShaderModule(vkDevice, vkShaderModule_previewImage_fs, NULL);
- //       vkShaderModule_previewImage_fs = VK_NULL_HANDLE;
- //   }
-
- //   //-- shader modules for impostor shaders
- //   if (vkShaderModule_impostor_vs)
- //   {
- //       vkDestroyShaderModule(vkDevice, vkShaderModule_impostor_vs, NULL);
- //       vkShaderModule_impostor_vs = VK_NULL_HANDLE;
- //   }
-
- //   if (vkShaderModule_impostor_fs)
- //   {
- //       vkDestroyShaderModule(vkDevice, vkShaderModule_impostor_fs, NULL);
- //       vkShaderModule_impostor_fs = VK_NULL_HANDLE;
- //   }
-
- //   //-- shader modules for phong shaders
- //   if (vkShaderModule_phong_vs)
- //   {
- //       vkDestroyShaderModule(vkDevice, vkShaderModule_phong_vs, NULL);
- //       vkShaderModule_phong_vs = VK_NULL_HANDLE;
- //   }
- //   if (vkShaderModule_phong_fs)
- //   {
- //       vkDestroyShaderModule(vkDevice, vkShaderModule_phong_fs, NULL);
- //       vkShaderModule_phong_fs = VK_NULL_HANDLE;
- //   }
-
- //   //-- shader modules for PBR shaders
- //   if (vkShaderModule_PBR_vs)
- //   {
- //       vkDestroyShaderModule(vkDevice, vkShaderModule_PBR_vs, NULL);
- //       vkShaderModule_PBR_vs = VK_NULL_HANDLE;
- //   }
- //   if (vkShaderModule_PBR_fs)
- //   {
- //       vkDestroyShaderModule(vkDevice, vkShaderModule_PBR_fs, NULL);
- //       vkShaderModule_PBR_fs = VK_NULL_HANDLE;
- //   }
-
-	////PBR_Skinned
- //   if (vkShaderModule_PBR_Skinned_vs)
- //   {
- //       vkDestroyShaderModule(vkDevice, vkShaderModule_PBR_Skinned_vs, NULL);
- //       vkShaderModule_PBR_Skinned_vs = VK_NULL_HANDLE;
-	//}
- //   if (vkShaderModule_PBR_Skinned_fs)
- //   {
- //       vkDestroyShaderModule(vkDevice, vkShaderModule_PBR_Skinned_fs, NULL);
- //       vkShaderModule_PBR_Skinned_fs = VK_NULL_HANDLE;
-	//}
-}
-
-/*
-VkResult createShaders(void)
-{
-    // local variables
-    VkResult vkResult = VK_SUCCESS;
-
-    //vertex shader
-    const char* szFileName = "shader.vert.spv";
-    FILE* fp = NULL;
-    size_t size = 0;
-
-    errno_t err = fopen_s(&fp,szFileName, "rb");
-
-    if (err != 0)
-    {
-        fprintf(gpFILE, "createShaders() -> fopen_s() :  failed.\n");
-        vkResult = VK_ERROR_INITIALIZATION_FAILED;
-        return vkResult;
-    }
-
-
-    fseek(fp, 0L, SEEK_END);
-    size = ftell(fp);
-
-
-    fseek(fp, 0L, SEEK_SET);
-
-    char* shaderData = (char*)malloc(sizeof(char) * size);
-
-    if (!shaderData)
-    {
-        fprintf(gpFILE, "createShaders() -> shaderData size failed.\n");
-        vkResult = VK_ERROR_INITIALIZATION_FAILED;
-        return vkResult;
-    }
-
-    size_t retVal = fread(shaderData, size, 1, fp);
-
-    if (retVal != 1)
-    {
-        fprintf(gpFILE, "createShaders() -> fread() :  failed.\n");
-        vkResult = VK_ERROR_INITIALIZATION_FAILED;
-        return vkResult;
-    }
-
-
-    fclose(fp);
-
-    VkShaderModuleCreateInfo vkShaderModuleCreateInfo;
-    memset((void*)&vkShaderModuleCreateInfo, 0, sizeof(VkShaderModuleCreateInfo));
-
-    vkShaderModuleCreateInfo.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
-    vkShaderModuleCreateInfo.pNext = NULL;
-    vkShaderModuleCreateInfo.flags = 0;
-    vkShaderModuleCreateInfo.codeSize = size;
-    vkShaderModuleCreateInfo.pCode = (uint32_t*)shaderData;
-
-    vkResult = vkCreateShaderModule(vkDevice, &vkShaderModuleCreateInfo, NULL, &vkShaderModule_vertex_shader);
-
-    if (vkResult != VK_SUCCESS)
-    {
-        fprintf(gpFILE, "createShaders() -> vkCreateShaderModule() :  failed.\n");
-        return(vkResult);
-    }
-
-    if (shaderData)
-    {
-        free(shaderData);
-        shaderData = NULL;
-    }
-
-
-    //-----------------------------------------------------------------------------------------------
-    //fragmentShader
-
-        //vertex shader
-    szFileName = "shader.frag.spv";
-    fp = NULL;
-    size = 0;
-
-    err = fopen_s(&fp, szFileName, "rb");
-
-    if (err != 0)
-    {
-        fprintf(gpFILE, "createShaders() -> fopen_s() :  failed.\n");
-        vkResult = VK_ERROR_INITIALIZATION_FAILED;
-        return vkResult;
-    }
-
-    fseek(fp, 0L, SEEK_END);
-    size = ftell(fp);
-
-
-    fseek(fp, 0L, SEEK_SET);
-
-     shaderData = (char*)malloc(sizeof(char) * size);
-
-    if (!shaderData)
-    {
-        fprintf(gpFILE, "createShaders() -> shaderData size failed.\n");
-        vkResult = VK_ERROR_INITIALIZATION_FAILED;
-        return vkResult;
-    }
-
-     retVal = fread(shaderData, size, 1, fp);
-
-    if (retVal != 1)
-    {
-        fprintf(gpFILE, "createShaders() -> fread() :  failed.\n");
-        vkResult = VK_ERROR_INITIALIZATION_FAILED;
-        return vkResult;
-    }
-
-    fclose(fp);
-
-
-    memset((void*)&vkShaderModuleCreateInfo, 0, sizeof(VkShaderModuleCreateInfo));
-
-    vkShaderModuleCreateInfo.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
-    vkShaderModuleCreateInfo.pNext = NULL;
-    vkShaderModuleCreateInfo.flags = 0;
-    vkShaderModuleCreateInfo.codeSize = size;
-    vkShaderModuleCreateInfo.pCode = (uint32_t*)shaderData;
-
-    vkResult = vkCreateShaderModule(vkDevice, &vkShaderModuleCreateInfo, NULL, &vkShaderModule_basic_fs);
-
-    if (vkResult != VK_SUCCESS)
-    {
-        fprintf(gpFILE, "createShaders() -> vkCreateShaderModule() :  failed.\n");
-        return(vkResult);
-    }
-
-    if (shaderData)
-    {
-        free(shaderData);
-        shaderData = NULL;
-    }
-
-    return vkResult;
-}
-*/
-
-
 VkResult createDescriptorPool(void)
 {
     // local variables
@@ -7150,80 +6712,6 @@ VkResult createDescriptorSet_AlbedoNormal(void)
 //    return(vkResult);
 //}
 
-VkResult createSemaphores(void)
-{
-    // local variables
-    VkResult vkResult = VK_SUCCESS;
-
-    // code
-    // In CreateSemaphore() user-defined function, declare, memset() and initialize VkSemaphoreCreateInfo structure.
-    VkSemaphoreCreateInfo vkSemaphoreCreateInfo;
-    memset((void*)&vkSemaphoreCreateInfo, 0, sizeof(VkSemaphoreCreateInfo));
-
-    vkSemaphoreCreateInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
-    vkSemaphoreCreateInfo.pNext = NULL; // by default, the semaphore will be created as a binary semaphore. 
-    vkSemaphoreCreateInfo.flags = 0;    // MUST be 0, this member is reserved.
-
-
-    for (uint32_t i = 0; i < gSwapchain.imageCount; i++)
-    {
-        //Now call vkCreateSemaphore() API 2 times to create our 2 semaphore objects. Remember, both will use the same create info structure.
-        vkResult = vkCreateSemaphore(
-            gVulkanContext.vkDevice,               // [in] vulkan logical device
-            &vkSemaphoreCreateInfo, // [in] pointer to a semaphore create info structure
-            NULL,                   // [in, optional] pointer to a custom memory allocator
-            &gFrames[i].vkSemaphore_Acquire // [out] VkSemaphore object
-        );
-
-        if (vkResult != VK_SUCCESS)
-        {
-            fprintf(gpFILE, "createSemaphores() : vkCreateSemaphore() failed for back buffer semaphore.\n");
-            return(vkResult);
-        }
-
-        vkResult = vkCreateSemaphore(
-            gVulkanContext.vkDevice,
-            &vkSemaphoreCreateInfo,
-            NULL,
-            &gFrames[i].vkSemaphore_RenderComplete
-        );
-
-        if (vkResult != VK_SUCCESS)
-        {
-            fprintf(gpFILE, "createSemaphores() : vkCreateSemaphore() failed for render complete semaphore.\n");
-            return(vkResult);
-        }
-
-    }
-
-
-	//timeline semophores
-
-	VkSemaphoreTypeCreateInfo timelineSemaphoreCreateInfo;
-	memset(&timelineSemaphoreCreateInfo, 0, sizeof(VkSemaphoreTypeCreateInfo));
-
-	timelineSemaphoreCreateInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_TYPE_CREATE_INFO;
-	timelineSemaphoreCreateInfo.pNext = NULL;
-	timelineSemaphoreCreateInfo.semaphoreType = VK_SEMAPHORE_TYPE_TIMELINE;
-	timelineSemaphoreCreateInfo.initialValue = 0;
-
-
-    //vkSemaphore_timeline
-	VkSemaphoreCreateInfo vkSemaphoreCreateInfo_Timeline;
-	memset(&vkSemaphoreCreateInfo_Timeline, 0, sizeof(VkSemaphoreCreateInfo));
-	vkSemaphoreCreateInfo_Timeline.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
-	vkSemaphoreCreateInfo_Timeline.pNext = &timelineSemaphoreCreateInfo;
-	vkSemaphoreCreateInfo_Timeline.flags = 0;
-	vkResult = vkCreateSemaphore(gVulkanContext.vkDevice, &vkSemaphoreCreateInfo_Timeline, NULL, &vkSemaphore_Timeline);
-	if (vkResult != VK_SUCCESS)
-	{
-		fprintf(gpFILE, "createSemaphores() : vkCreateSemaphore() failed for timeline semaphore.\n");
-		return(vkResult);
-	}
-
-
-    return(vkResult);
-}
 
 //VkResult createFences(void)
 //{
