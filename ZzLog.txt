@@ -6,10 +6,10 @@ resize() : initialization yet not completed.
 fillInstanceExtensionNames() : VK_KHR_SURFACE_EXTENSION_NAME found.
 fillInstanceExtensionNames() : VK_KHR_WIN32_SURFACE_EXTENSION_NAME found.
 -------------------------------------------------------------------------------------
-fillInstanceExtensionNames() : Validation is on & VK_EXT_DEBUG_REPORT_EXTENSION_NAME found.
+fillInstanceExtensionNames() : Validation is on & VK_EXT_DEBUG_UTILS_EXTENSION_NAME found.
 fillInstanceExtensionNames() : Enabled Vulkan instance extension name = VK_KHR_surface
 fillInstanceExtensionNames() : Enabled Vulkan instance extension name = VK_KHR_win32_surface
-fillInstanceExtensionNames() : Enabled Vulkan instance extension name = VK_EXT_debug_report
+fillInstanceExtensionNames() : Enabled Vulkan instance extension name = VK_EXT_debug_utils
 -------------------------------------------------------------------------------------
 -------------------------------------------------------------------------------------
 -------------------------------------------------------------------------------------
@@ -88,6 +88,18 @@ createSwapchain() : minImageCount = 2, maxImageCount = 8
 createSwapchain() : (1) Swapchain Image width x height = 3840 x 2160
 createImagesAndImageViews() : gives swapchain image count = 2
 uninitialize() : ImGui uninitialization is done.
+NDT_Validation [ERROR]: vkDestroyDevice(): Object Tracking - For VkDevice 0x25726d700d0, VkDescriptorSetLayout 0x560000000056 has not been destroyed.
+The Vulkan spec states: All child objects created on device that can be destroyed or freed must have been destroyed or freed prior to destroying device (https://docs.vulkan.org/spec/latest/chapters/devsandqueues.html#VUID-vkDestroyDevice-device-05137)
+NDT_Validation [ERROR]: vkDestroyDevice(): Object Tracking - For VkDevice 0x25726d700d0, VkDescriptorSetLayout 0x570000000057 has not been destroyed.
+The Vulkan spec states: All child objects created on device that can be destroyed or freed must have been destroyed or freed prior to destroying device (https://docs.vulkan.org/spec/latest/chapters/devsandqueues.html#VUID-vkDestroyDevice-device-05137)
+NDT_Validation [ERROR]: vkDestroyDevice(): Object Tracking - For VkDevice 0x25726d700d0, VkDescriptorSetLayout 0x5b000000005b has not been destroyed.
+The Vulkan spec states: All child objects created on device that can be destroyed or freed must have been destroyed or freed prior to destroying device (https://docs.vulkan.org/spec/latest/chapters/devsandqueues.html#VUID-vkDestroyDevice-device-05137)
+NDT_Validation [ERROR]: vkDestroyDevice(): Object Tracking - For VkDevice 0x25726d700d0, VkDescriptorSetLayout 0x5a000000005a has not been destroyed.
+The Vulkan spec states: All child objects created on device that can be destroyed or freed must have been destroyed or freed prior to destroying device (https://docs.vulkan.org/spec/latest/chapters/devsandqueues.html#VUID-vkDestroyDevice-device-05137)
+NDT_Validation [ERROR]: vkDestroyDevice(): Object Tracking - For VkDevice 0x25726d700d0, VkDescriptorSetLayout 0x590000000059 has not been destroyed.
+The Vulkan spec states: All child objects created on device that can be destroyed or freed must have been destroyed or freed prior to destroying device (https://docs.vulkan.org/spec/latest/chapters/devsandqueues.html#VUID-vkDestroyDevice-device-05137)
+NDT_Validation [ERROR]: vkDestroyDevice(): Object Tracking - For VkDevice 0x25726d700d0, VkDescriptorSetLayout 0x580000000058 has not been destroyed.
+The Vulkan spec states: All child objects created on device that can be destroyed or freed must have been destroyed or freed prior to destroying device (https://docs.vulkan.org/spec/latest/chapters/devsandqueues.html#VUID-vkDestroyDevice-device-05137)
 -------------------------------------------------------------------------------------
 -------------------------------------------------------------------------------------
 uninitialize() : Program ended successfully.

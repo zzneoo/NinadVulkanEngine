@@ -3,10 +3,23 @@
 //VulkanContext
 VulkanContext gVulkanContext;
 
-VKAPI_ATTR VkBool32 VKAPI_CALL debugReportCallback(VkDebugReportFlagsEXT vkDebugReportFlagsEXT, VkDebugReportObjectTypeEXT vkDebugReportObjectTypeEXT, uint64_t object, size_t location, int32_t messageCode, const char* pLayerPrefix, const char* pMessage, void* pUserData)
+VKAPI_ATTR VkBool32 VKAPI_CALL debugUtilsMessengerCallback(
+    VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity,
+    VkDebugUtilsMessageTypeFlagsEXT messageTypes,
+    const VkDebugUtilsMessengerCallbackDataEXT* callbackData,
+    void* userData)
 {
-    //code
-    fprintf(gpFILE, "NDT_Validation: %s %d = %s \n", pLayerPrefix, messageCode, pMessage);
+    const char* severity = "INFO";
+    if (messageSeverity & VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT)
+        severity = "ERROR";
+    else if (messageSeverity & VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT)
+        severity = "WARNING";
+
+    fprintf(
+        gpFILE,
+        "NDT_Validation [%s]: %s\n",
+        severity,
+        callbackData->pMessage);
 
     return VK_FALSE;
 }
@@ -130,11 +143,11 @@ void VulkanContext::Shutdown()
     }
 
     //validation
-    if (vkDebugReportCallbackEXT && vkDestroyDebugReportCallbackEXT_fnptr)
+    if (vkDebugUtilsMessengerEXT && vkDestroyDebugUtilsMessengerEXT_fnptr)
     {
-        vkDestroyDebugReportCallbackEXT_fnptr(vkInstance, vkDebugReportCallbackEXT, NULL);
-        vkDebugReportCallbackEXT = VK_NULL_HANDLE;
-        vkDestroyDebugReportCallbackEXT_fnptr = NULL;
+        vkDestroyDebugUtilsMessengerEXT_fnptr(vkInstance, vkDebugUtilsMessengerEXT, NULL);
+        vkDebugUtilsMessengerEXT = VK_NULL_HANDLE;
+        vkDestroyDebugUtilsMessengerEXT_fnptr = NULL;
     }
 
     // Destroy the VkInstance
@@ -253,7 +266,7 @@ VkResult VulkanContext::FillInstanceExtensionNames(void)
      */
     VkBool32 vulkanSurfaceExtensionFound = VK_FALSE;
     VkBool32 win32SurfaceExtensionFound = VK_FALSE;
-    VkBool32 debugReportExtensionFound = VK_FALSE;
+    VkBool32 debugUtilsExtensionFound = VK_FALSE;
 
     for (uint32_t i = 0; i < instanceExtensionCount; i++)
     {
@@ -270,15 +283,11 @@ VkResult VulkanContext::FillInstanceExtensionNames(void)
             enabledInstanceExtensionNames_Array[enabledInstanceExtensionCount++] = VK_KHR_WIN32_SURFACE_EXTENSION_NAME;
         }
 
-        if (strcmp(instanceExtensionNames_Array[i], VK_EXT_DEBUG_REPORT_EXTENSION_NAME) == 0)
+        if (strcmp(instanceExtensionNames_Array[i], VK_EXT_DEBUG_UTILS_EXTENSION_NAME) == 0)
         {
-            debugReportExtensionFound = VK_TRUE;
+            debugUtilsExtensionFound = VK_TRUE;
             if (TRUE == vkValidationEnabled)
-                enabledInstanceExtensionNames_Array[enabledInstanceExtensionCount++] = VK_EXT_DEBUG_REPORT_EXTENSION_NAME;
-            else
-            {
-                //array will not have entry of VK_EXT_DEBUG_REPORT_EXTENSION_NAME
-            }
+                enabledInstanceExtensionNames_Array[enabledInstanceExtensionCount++] = VK_EXT_DEBUG_UTILS_EXTENSION_NAME;
         }
     }
 
@@ -323,17 +332,17 @@ VkResult VulkanContext::FillInstanceExtensionNames(void)
     fprintf(gpFILE, LINE_END);
 
 
-    if (debugReportExtensionFound == VK_FALSE)
+    if (debugUtilsExtensionFound == VK_FALSE)
     {
         if (true == vkValidationEnabled)
         {
             vkResult = VK_ERROR_INITIALIZATION_FAILED; // return hard-coded failure
-            fprintf(gpFILE, "fillInstanceExtensionNames() : Validation is on but VK_EXT_DEBUG_REPORT_EXTENSION_NAME not found.\n");
+            fprintf(gpFILE, "fillInstanceExtensionNames() : Validation is on but VK_EXT_DEBUG_UTILS_EXTENSION_NAME not found.\n");
             return(vkResult);
         }
         else
         {
-            fprintf(gpFILE, "fillInstanceExtensionNames() : Validation is off & VK_EXT_DEBUG_REPORT_EXTENSION_NAME not found.\n");
+            fprintf(gpFILE, "fillInstanceExtensionNames() : Validation is off & VK_EXT_DEBUG_UTILS_EXTENSION_NAME not found.\n");
         }
 
     }
@@ -341,11 +350,11 @@ VkResult VulkanContext::FillInstanceExtensionNames(void)
     {
         if (true == vkValidationEnabled)
         {
-            fprintf(gpFILE, "fillInstanceExtensionNames() : Validation is on & VK_EXT_DEBUG_REPORT_EXTENSION_NAME found.\n");
+            fprintf(gpFILE, "fillInstanceExtensionNames() : Validation is on & VK_EXT_DEBUG_UTILS_EXTENSION_NAME found.\n");
         }
         else
         {
-            fprintf(gpFILE, "fillInstanceExtensionNames() : Validation is off & VK_EXT_DEBUG_REPORT_EXTENSION_NAME found.\n");
+            fprintf(gpFILE, "fillInstanceExtensionNames() : Validation is off & VK_EXT_DEBUG_UTILS_EXTENSION_NAME found.\n");
         }
     }
 
@@ -609,49 +618,52 @@ VkResult VulkanContext::FillDeviceExtensionNames(void)
 
 VkResult VulkanContext::CreateValidationCallbackFunction(void)
 {
-    //code
-    VKAPI_ATTR VkBool32 VKAPI_CALL debugReportCallback(VkDebugReportFlagsEXT, VkDebugReportObjectTypeEXT, uint64_t, size_t, int32_t, const char*, const char*, void*);
-
     VkResult vkResult = VK_SUCCESS;
 
-    PFN_vkCreateDebugReportCallbackEXT vkCreateDebugReportCallbackEXT_fnptr = NULL;
+    PFN_vkCreateDebugUtilsMessengerEXT vkCreateDebugUtilsMessengerEXT_fnptr =
+        (PFN_vkCreateDebugUtilsMessengerEXT)vkGetInstanceProcAddr(
+            vkInstance,
+            "vkCreateDebugUtilsMessengerEXT");
 
-    vkCreateDebugReportCallbackEXT_fnptr = (PFN_vkCreateDebugReportCallbackEXT)vkGetInstanceProcAddr(vkInstance, "vkCreateDebugReportCallbackEXT");
-
-    if (vkCreateDebugReportCallbackEXT_fnptr == NULL)
+    if (vkCreateDebugUtilsMessengerEXT_fnptr == NULL)
     {
         vkResult = VK_ERROR_INITIALIZATION_FAILED;
-        fprintf(gpFILE, "createValidationCallbackFunction() : vkGetInstanceProcAddr failed to get vkCreateDebugReportCallbackEXT_fnptr .\n");
+        fprintf(gpFILE, "createValidationCallbackFunction() : failed to get vkCreateDebugUtilsMessengerEXT.\n");
         return vkResult;
     }
 
-    //vkDebugReportCallbackEXT 
-    //vkDestroyDebugReportCallbackEXT_fnptr ;
+    vkDestroyDebugUtilsMessengerEXT_fnptr =
+        (PFN_vkDestroyDebugUtilsMessengerEXT)vkGetInstanceProcAddr(
+            vkInstance,
+            "vkDestroyDebugUtilsMessengerEXT");
 
-    vkDestroyDebugReportCallbackEXT_fnptr = (PFN_vkDestroyDebugReportCallbackEXT)vkGetInstanceProcAddr(vkInstance, "vkDestroyDebugReportCallbackEXT");
-
-    if (vkDestroyDebugReportCallbackEXT_fnptr == NULL)
+    if (vkDestroyDebugUtilsMessengerEXT_fnptr == NULL)
     {
         vkResult = VK_ERROR_INITIALIZATION_FAILED;
-        fprintf(gpFILE, "createValidationCallbackFunction() : vkGetInstanceProcAddr failed to get vkDestroyDebugReportCallbackEXT_fnptr .\n");
+        fprintf(gpFILE, "createValidationCallbackFunction() : failed to get vkDestroyDebugUtilsMessengerEXT.\n");
         return vkResult;
     }
 
-    //get the vulkan debug callback object // 
-    VkDebugReportCallbackCreateInfoEXT vkDebugReportCallbackCreateInfoEXT;
-    memset(&vkDebugReportCallbackCreateInfoEXT, 0, sizeof(VkDebugReportCallbackCreateInfoEXT));
+    VkDebugUtilsMessengerCreateInfoEXT createInfo{};
+    createInfo.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT;
+    createInfo.messageSeverity =
+        VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT |
+        VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT;
+    createInfo.messageType =
+        VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT |
+        VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT |
+        VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT;
+    createInfo.pfnUserCallback = debugUtilsMessengerCallback;
 
-    vkDebugReportCallbackCreateInfoEXT.sType = VK_STRUCTURE_TYPE_DEBUG_REPORT_CREATE_INFO_EXT;
-    vkDebugReportCallbackCreateInfoEXT.pNext = NULL;
-    vkDebugReportCallbackCreateInfoEXT.flags = VK_DEBUG_REPORT_ERROR_BIT_EXT | VK_DEBUG_REPORT_WARNING_BIT_EXT;// performance,profiling,informative
-    vkDebugReportCallbackCreateInfoEXT.pfnCallback = debugReportCallback;
-    vkDebugReportCallbackCreateInfoEXT.pUserData = NULL;
-
-    vkResult = vkCreateDebugReportCallbackEXT_fnptr(vkInstance, &vkDebugReportCallbackCreateInfoEXT, NULL, &vkDebugReportCallbackEXT);
+    vkResult = vkCreateDebugUtilsMessengerEXT_fnptr(
+        vkInstance,
+        &createInfo,
+        NULL,
+        &vkDebugUtilsMessengerEXT);
 
     if (vkResult != VK_SUCCESS)
     {
-        fprintf(gpFILE, "createValidationCallbackFunction() : vkCreateDebugReportCallbackEXT_fnptr failed.\n");
+        fprintf(gpFILE, "createValidationCallbackFunction() : vkCreateDebugUtilsMessengerEXT failed.\n");
         return(vkResult);
     }
 

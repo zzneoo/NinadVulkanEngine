@@ -23,7 +23,7 @@ public:
 
     // 1. VK_KHR_SURFACE_EXTENSION_NAME
     // 2. VK_KHR_WIN32_SURFACE_EXTENSION_NAME
-    // 3. VK_EXT_DEBUG_REPORT_EXTENSION_NAME
+    // 3. VK_EXT_DEBUG_UTILS_EXTENSION_NAME
     const char* enabledInstanceExtensionNames_Array[3];
 
     // Physical device
@@ -51,8 +51,8 @@ public:
     bool vkValidationEnabled = true;
     uint32_t enabledValidationLayerCount = 0;
     const char* enabledValidationLayerNames_array[1];//for VK_LAYER_KHRONOS_validation
-    VkDebugReportCallbackEXT vkDebugReportCallbackEXT = VK_NULL_HANDLE;
-    PFN_vkDestroyDebugReportCallbackEXT vkDestroyDebugReportCallbackEXT_fnptr = nullptr;
+    VkDebugUtilsMessengerEXT vkDebugUtilsMessengerEXT = VK_NULL_HANDLE;
+    PFN_vkDestroyDebugUtilsMessengerEXT vkDestroyDebugUtilsMessengerEXT_fnptr = nullptr;
 
 	//member functions
     uint32_t FindMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties);
@@ -76,9 +76,6 @@ public:
 
         VkResult GetDeviceQueue(void);
 		VkResult CreateCommandPool(void);
-
-        //debugReportCallback
-        //VKAPI_ATTR VkBool32 VKAPI_CALL debugReportCallback(VkDebugReportFlagsEXT vkDebugReportFlagsEXT, VkDebugReportObjectTypeEXT vkDebugReportObjectTypeEXT, uint64_t object, size_t location, int32_t messageCode, const char* pLayerPrefix, const char* pMessage, void* pUserData);
 
 };
 
