@@ -36,7 +36,7 @@ public:
 
 	const glm::uvec4 GetPBR_MaterialGlobalIDs() const
 	{
-		return glm::uvec4(Albedo.globalTextureArrayIndex, Normal.globalTextureArrayIndex, ORX.globalTextureArrayIndex, 0);
+		return glm::uvec4(Albedo.globalTextureArrayIndex, Normal.globalTextureArrayIndex, ORM.globalTextureArrayIndex, 0);
 	}
 
 private:
@@ -51,7 +51,7 @@ private:
 	VkDescriptorSet vkDescriptorSet = VK_NULL_HANDLE;
 	ImageData Albedo;
 	ImageData Normal;
-	ImageData ORX;
+	ImageData ORM;
 
 	VkResult vkResult;
 

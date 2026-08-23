@@ -165,11 +165,13 @@ VkViewport vkViewport;
 VkRect2D vkRect2D_Scissor;
 
 //All pipelines
-
 GraphicsPipelines* gpGraphicsPipelines = NULL;
 
 //Renderer
 Renderer* gpRenderer = nullptr;
+
+//Default material
+MaterialInfo defaultMaterialInfo{};
 
 // entry-point function
 int WINAPI WinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, _In_ LPSTR lpszCmdLine, _In_ int iCmdShow)
@@ -2625,6 +2627,23 @@ VkResult initialize(void)
 
     //-------------------------------------Resources---------------------------------------
 
+    //Default PBR material
+    defaultMaterialInfo={};
+
+    std::string directory = "C:/Users/Ninad/source/repos/BlueScreen/Resources/PBR_Materials/Default";
+
+    if (!directory.empty())
+    {
+        directory +=
+            std::filesystem::path::
+            preferred_separator;
+    }
+
+    defaultMaterialInfo.materialName = "DefaultMat";
+    defaultMaterialInfo.path = directory;
+    defaultMaterialInfo.data = new Material_BasicPBR(gpDescriptorSetLayouts->vkDescriptorSetLayout_BasicPBR, directory.c_str());
+
+
     //--------------------------------------Assimp Load Model----------------------------------------------------
     vkResult = LoadModel_Phong("Resources/Models/Test/suzanne.obj", &SuzanneBufferData, false);
     if (vkResult != VK_SUCCESS)
@@ -3177,6 +3196,13 @@ void uninitialize(void)
     ZzDestroyVertexAndIndexBuffer(&SuzanneBufferData);
     ZzDestroyVertexAndIndexBuffer(&SphereBufferData);
     //ZzDestroyVertexAndIndexBuffer(&RatBufferData);
+
+    //Default Material
+    if (defaultMaterialInfo.data)
+    {
+        delete defaultMaterialInfo.data;
+        defaultMaterialInfo.data = nullptr;
+    }
 
 	delete pModel_Rat;
     delete pModel_Static_Ganesha;
@@ -6209,7 +6235,7 @@ VkResult createDescriptorPool(void)
     VkDescriptorPoolSize vkDescriptorPoolSizes[] =
     {
         {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1 * MAX_FRAMES}, // descriptor type and descriptor count
-        {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 6 + 3 +3 +3}, // descriptor type and descriptor count for combined image sampler
+        {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 6 + 3 + 3 + 3 + 3}, // descriptor type and descriptor count for combined image sampler
 		{VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1 * MAX_FRAMES + 4}, // descriptor type and descriptor count for storage buffer
     };
 
@@ -6220,7 +6246,7 @@ VkResult createDescriptorPool(void)
     vkDescriptorPoolCreateInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
     vkDescriptorPoolCreateInfo.pNext = NULL;
     vkDescriptorPoolCreateInfo.flags = 0; // no flags
-    vkDescriptorPoolCreateInfo.maxSets = (2 * MAX_FRAMES) + 9; // maximum number of descriptor sets that can be allocated from this pool
+    vkDescriptorPoolCreateInfo.maxSets = (2 * MAX_FRAMES) + 10; // maximum number of descriptor sets that can be allocated from this pool
     vkDescriptorPoolCreateInfo.poolSizeCount = _ARRAYSIZE(vkDescriptorPoolSizes); // number of descriptor pool sizes
     vkDescriptorPoolCreateInfo.pPoolSizes = vkDescriptorPoolSizes;
 

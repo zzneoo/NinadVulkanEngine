@@ -90,11 +90,11 @@ void main()
 
     vec3 albedo = texture(textures[nonuniformEXT(inMaterialID)], inUV).rgb;
     vec3 normal_map = decodeBC5Normal_fast_robust(texture(textures[nonuniformEXT(inMaterialID + 1)], inUV).rg);
-    vec3 orx = texture(textures[nonuniformEXT(inMaterialID + 2)], inUV).rgb;
+    vec3 orm = texture(textures[nonuniformEXT(inMaterialID + 2)], inUV).rgb;
 
-    float ao = orx.r;
-    float roughness = clamp(orx.g, 0.045, 1.0);
-    float metallic = saturate(orx.b);
+    float ao = orm.r;
+    float roughness = clamp(orm.g, 0.045, 1.0);
+    float metallic = saturate(orm.b);
 
     vec3 normal = normalize(inNormal);
 
@@ -147,6 +147,6 @@ void main()
 
     outAlbedo = vec4(albedo,1.0);
     outNormal = vec4(normal_map * 0.5 + 0.5,1.0);
-    outORM = vec4(orx,1.0);
+    outORM = vec4(orm,1.0);
 }
 

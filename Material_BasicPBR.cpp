@@ -28,9 +28,9 @@ Material_BasicPBR::Material_BasicPBR(VkDescriptorSetLayout layout,const char* pa
 	}
 
 
-    char PathORX[512]; // make sure it's big enough
-    std::snprintf(PathORX, sizeof(PathORX), "%s%s", path, "ORX.dds");
-    res = loadTextureData_dds_c_bc7(&ORX, PathORX, vkSampler_LinearRepeatAniso, VK_FORMAT_BC7_UNORM_BLOCK);
+    char PathORM[512]; // make sure it's big enough
+    std::snprintf(PathORM, sizeof(PathORM), "%s%s", path, "ORM.dds");
+    res = loadTextureData_dds_c_bc7(&ORM, PathORM, vkSampler_LinearRepeatAniso, VK_FORMAT_BC7_UNORM_BLOCK);
     if (res != VK_SUCCESS && vkResult == VK_SUCCESS)
     {
         fprintf(gpFILE, "Failed to load ORM texture\n");
@@ -83,21 +83,21 @@ Material_BasicPBR::~Material_BasicPBR()
         Normal.vkDeviceMemory = VK_NULL_HANDLE;
     }
 
-	//ORX
-    if (ORX.vkImageView != VK_NULL_HANDLE)
+	//ORM
+    if (ORM.vkImageView != VK_NULL_HANDLE)
     {
-        vkDestroyImageView(gVulkanContext.vkDevice, ORX.vkImageView, nullptr);
-        ORX.vkImageView = VK_NULL_HANDLE;
+        vkDestroyImageView(gVulkanContext.vkDevice, ORM.vkImageView, nullptr);
+        ORM.vkImageView = VK_NULL_HANDLE;
     }
-    if (ORX.vkImage != VK_NULL_HANDLE)
+    if (ORM.vkImage != VK_NULL_HANDLE)
     {
-        vkDestroyImage(gVulkanContext.vkDevice, ORX.vkImage, nullptr);
-        ORX.vkImage = VK_NULL_HANDLE;
+        vkDestroyImage(gVulkanContext.vkDevice, ORM.vkImage, nullptr);
+        ORM.vkImage = VK_NULL_HANDLE;
     }
-    if (ORX.vkDeviceMemory != VK_NULL_HANDLE)
+    if (ORM.vkDeviceMemory != VK_NULL_HANDLE)
     {
-        vkFreeMemory(gVulkanContext.vkDevice, ORX.vkDeviceMemory, nullptr);
-        ORX.vkDeviceMemory = VK_NULL_HANDLE;
+        vkFreeMemory(gVulkanContext.vkDevice, ORM.vkDeviceMemory, nullptr);
+        ORM.vkDeviceMemory = VK_NULL_HANDLE;
     }
 
 	////descriptor set
@@ -146,11 +146,11 @@ VkResult Material_BasicPBR::createDescriptorSet(void)
     vkDescriptorImageInfo_Normal.imageView = Normal.vkImageView; // image view for the normal image
     vkDescriptorImageInfo_Normal.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL; // image layout for the normal image
 
-    VkDescriptorImageInfo vkDescriptorImageInfo_ORX;
-    memset((void*)&vkDescriptorImageInfo_ORX, 0, sizeof(VkDescriptorImageInfo));
-    vkDescriptorImageInfo_ORX.sampler = ORX.vkSampler; // sampler for the normal image
-    vkDescriptorImageInfo_ORX.imageView = ORX.vkImageView; // image view for the normal image
-    vkDescriptorImageInfo_ORX.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL; // image layout for the normal image
+    VkDescriptorImageInfo vkDescriptorImageInfo_ORM;
+    memset((void*)&vkDescriptorImageInfo_ORM, 0, sizeof(VkDescriptorImageInfo));
+    vkDescriptorImageInfo_ORM.sampler = ORM.vkSampler; // sampler for the normal image
+    vkDescriptorImageInfo_ORM.imageView = ORM.vkImageView; // image view for the normal image
+    vkDescriptorImageInfo_ORM.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL; // image layout for the normal image
 
     //write or copy the descriptor set with the albedo and normal image information
     // Declare and initialize VkWriteDescriptorSet structure which will have information about the descriptor set.
@@ -185,7 +185,7 @@ VkResult Material_BasicPBR::createDescriptorSet(void)
     vkWriteDescriptorSet_array[2].dstArrayElement = 0; // 0 means the index number of the array element
     vkWriteDescriptorSet_array[2].descriptorCount = 1; // we are using only one descriptor
     vkWriteDescriptorSet_array[2].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER; // type of the descriptor
-    vkWriteDescriptorSet_array[2].pImageInfo = &vkDescriptorImageInfo_ORX; // pointer to the normal image info
+    vkWriteDescriptorSet_array[2].pImageInfo = &vkDescriptorImageInfo_ORM; // pointer to the normal image info
     vkWriteDescriptorSet_array[2].pBufferInfo = NULL; // no buffer info
     vkWriteDescriptorSet_array[2].pTexelBufferView = NULL; // no tex
 

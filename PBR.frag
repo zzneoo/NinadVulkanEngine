@@ -19,7 +19,7 @@ layout(location = 4) in vec3 vWorldPos;
 
 //layout(set = 1, binding = 0) uniform sampler2D tSampler_albedo;
 //layout(set = 1, binding = 1) uniform sampler2D tSampler_normal;
-//layout(set = 1, binding = 2) uniform sampler2D tSampler_orx;
+//layout(set = 1, binding = 2) uniform sampler2D tSampler_orm;
 
 layout(set = 1, binding = 0) uniform sampler2D textures[];
 
@@ -102,17 +102,17 @@ void main(void)
     /*
     vec3 albedo = texture(tSampler_albedo, uv).rgb;
     vec3 normal_map = decodeBC5Normal_fast_robust(texture(tSampler_normal,uv).rg);
-    vec3 orx = texture(tSampler_orx, uv).rgb;
+    vec3 orm = texture(tSampler_orm, uv).rgb;
     */
 
     vec3 albedo = texture(textures[nonuniformEXT(pc.materialIDs.x)], uv).rgb;
     vec3 normal_map = decodeBC5Normal_fast_robust(
         texture(textures[nonuniformEXT(pc.materialIDs.y)], uv).rg);
-    vec3 orx = texture(textures[nonuniformEXT(pc.materialIDs.z)], uv).rgb;
+    vec3 orm = texture(textures[nonuniformEXT(pc.materialIDs.z)], uv).rgb;
 
-    float ao = orx.r;
-    float roughness = clamp(orx.g, 0.045, 1.0);
-    float metallic = saturate(orx.b);
+    float ao = orm.r;
+    float roughness = clamp(orm.g, 0.045, 1.0);
+    float metallic = saturate(orm.b);
 
     vec3 normal = normalize(outNormal);
 
