@@ -90,6 +90,8 @@ public:
         return PBR_Materials[0].data->GetPBR_MaterialGlobalIDs();
     }
 
+    glm::uvec4 GetPBR_MaterialGlobalIDs(uint32_t materialIndex) const;
+
 
 private:
 
@@ -110,7 +112,8 @@ private:
 
     VkResult CreateMeshlets(
         const std::vector<uint32_t>& indices,
-        const std::vector<VertexData_Meshlet>& vertices);
+        const std::vector<VertexData_Meshlet>& vertices,
+        uint32_t materialID);
 
 
     // ------------------------------------------------------------
@@ -145,6 +148,7 @@ private:
     // ------------------------------------------------------------
 
     std::vector<MaterialInfo> PBR_Materials;
+    std::vector<int32_t> AssimpMaterialToPBRIndex;
 
 
 };

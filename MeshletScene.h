@@ -21,8 +21,7 @@ public:
     // Add models
     // ------------------------------------------------------------
 
-    void AddModel(
-        StaticMeshletModel* model);
+    void AddModel(StaticMeshletModel* model);
 
 
     // ------------------------------------------------------------

@@ -9,6 +9,13 @@ MeshletScene::~MeshletScene()
 void MeshletScene::ShutDown(void)
 {
     DestroyGlobalSSBOs();
+
+    for (size_t i = 0; i < models.size(); i++)
+    {
+        delete models[i];
+    }
+
+    models.clear();
 }
 
 

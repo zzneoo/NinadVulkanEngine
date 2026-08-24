@@ -118,6 +118,7 @@ StaticModel* pModel_Static_Ganesha = NULL;
 StaticMeshletModel* pModel_Meshlet_Ganesha = NULL;
 StaticMeshletModel* pModel_Meshlet_Ganesha2 = NULL;
 StaticMeshletModel* pModel_Meshlet_Ground = NULL;
+StaticMeshletModel* pModel_Meshlet_DoubleSuzanne = NULL;
 MeshletScene gMeshletScene;
 
 
@@ -2688,13 +2689,21 @@ VkResult initialize(void)
         glm::rotate(glm::mat4(1.0f), glm::radians(0.0f), glm::vec3(0.0f, 1.0f, 0.0f)) *
         glm::scale(glm::mat4(1.0f), glm::vec3(1.0f, 1.0f, 1.0f));
 
+    glm::mat4 modelMatrixDoubleSuzanne =
+        glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 00.0f, 0.0f)) *
+        glm::rotate(glm::mat4(1.0f), glm::radians(0.0f), glm::vec3(1.0f, 0.0f, 0.0f)) *
+        glm::rotate(glm::mat4(1.0f), glm::radians(0.0f), glm::vec3(0.0f, 1.0f, 0.0f)) *
+        glm::scale(glm::mat4(1.0f), glm::vec3(1.0f, 1.0f, 1.0f));
+
     pModel_Meshlet_Ganesha = new StaticMeshletModel("Resources/Models/Ganesha/Ganesha.fbx", gpDescriptorSetLayouts->vkDescriptorSetLayout_BasicPBR, modelMatrixGanesha);
     pModel_Meshlet_Ganesha2 = new StaticMeshletModel("Resources/Models/Ganesha/Ganesha.fbx", gpDescriptorSetLayouts->vkDescriptorSetLayout_BasicPBR, modelMatrixGanesha2);
     pModel_Meshlet_Ground= new StaticMeshletModel("Resources/Models/GroundTest/Ground.fbx", gpDescriptorSetLayouts->vkDescriptorSetLayout_BasicPBR, modelMatrixGround);
+    pModel_Meshlet_DoubleSuzanne = new StaticMeshletModel("Resources/Models/DoubleSuzannePBR/DoubleSuzanne.fbx", gpDescriptorSetLayouts->vkDescriptorSetLayout_BasicPBR, modelMatrixDoubleSuzanne);
 
     gMeshletScene.AddModel(pModel_Meshlet_Ganesha);
     gMeshletScene.AddModel(pModel_Meshlet_Ganesha2);
     gMeshletScene.AddModel(pModel_Meshlet_Ground);
+    gMeshletScene.AddModel(pModel_Meshlet_DoubleSuzanne);
 
 
 
@@ -2722,20 +2731,20 @@ VkResult initialize(void)
     const char* pathRockyGround = "Resources/PBR_Materials/T_omfr20_4K/";
     pMaterial_BasicPBR_RockyGround = new Material_BasicPBR(gpDescriptorSetLayouts->vkDescriptorSetLayout_BasicPBR, pathRockyGround);
     vkResult = pMaterial_BasicPBR_RockyGround->getVkResult();
-    if (vkResult != VK_SUCCESS)
+    /*if (vkResult != VK_SUCCESS)
     {
         fprintf(gpFILE, "initialize() : pMaterial_BasicPBR_RockyGround failed to load (%d).\n", vkResult);
         return(vkResult);
-    }
+    }*/
 
     const char* pathGrassyGround = "Resources/PBR_Materials/T_sbykqdp0_4K/";
     pMaterial_BasicPBR_GrassyGround = new Material_BasicPBR(gpDescriptorSetLayouts->vkDescriptorSetLayout_BasicPBR, pathGrassyGround);
     vkResult = pMaterial_BasicPBR_GrassyGround->getVkResult();
-    if (vkResult != VK_SUCCESS)
+    /*if (vkResult != VK_SUCCESS)
     {
         fprintf(gpFILE, "initialize() : pMaterial_BasicPBR_GrassyGround failed to load (%d).\n", vkResult);
         return(vkResult);
-    }
+    }*/
 
 
     //--------------------------------------------------------------------------------------------------
@@ -3206,9 +3215,9 @@ void uninitialize(void)
 
 	delete pModel_Rat;
     delete pModel_Static_Ganesha;
-    delete pModel_Meshlet_Ganesha;
-    delete pModel_Meshlet_Ganesha2;
-    delete pModel_Meshlet_Ground;
+    //delete pModel_Meshlet_Ganesha;
+    //delete pModel_Meshlet_Ganesha2;
+    //delete pModel_Meshlet_Ground;
 
     gMeshletScene.ShutDown();
 
@@ -6235,7 +6244,7 @@ VkResult createDescriptorPool(void)
     VkDescriptorPoolSize vkDescriptorPoolSizes[] =
     {
         {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1 * MAX_FRAMES}, // descriptor type and descriptor count
-        {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 6 + 3 + 3 + 3 + 3}, // descriptor type and descriptor count for combined image sampler
+        {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 3 * 256}, // descriptor type and descriptor count for material textures
 		{VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1 * MAX_FRAMES + 4}, // descriptor type and descriptor count for storage buffer
     };
 
@@ -6246,7 +6255,7 @@ VkResult createDescriptorPool(void)
     vkDescriptorPoolCreateInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
     vkDescriptorPoolCreateInfo.pNext = NULL;
     vkDescriptorPoolCreateInfo.flags = 0; // no flags
-    vkDescriptorPoolCreateInfo.maxSets = (2 * MAX_FRAMES) + 10; // maximum number of descriptor sets that can be allocated from this pool
+    vkDescriptorPoolCreateInfo.maxSets = (2 * MAX_FRAMES) + 256; // maximum number of descriptor sets that can be allocated from this pool
     vkDescriptorPoolCreateInfo.poolSizeCount = _ARRAYSIZE(vkDescriptorPoolSizes); // number of descriptor pool sizes
     vkDescriptorPoolCreateInfo.pPoolSizes = vkDescriptorPoolSizes;
 

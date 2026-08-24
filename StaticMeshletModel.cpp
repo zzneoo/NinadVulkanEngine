@@ -33,6 +33,28 @@ StaticMeshletModel::~StaticMeshletModel()
     scene = nullptr;
 }
 
+glm::uvec4 StaticMeshletModel::GetPBR_MaterialGlobalIDs(
+    uint32_t materialIndex) const
+{
+    if (materialIndex >= AssimpMaterialToPBRIndex.size() ||
+        AssimpMaterialToPBRIndex[materialIndex] < 0)
+    {
+        fprintf(
+            gpFILE,
+            "StaticMeshletModel::GetPBR_MaterialGlobalIDs: "
+            "Invalid material index %u\n",
+            materialIndex);
+
+        return glm::uvec4(0);
+    }
+
+    const uint32_t pbrMaterialIndex =
+        static_cast<uint32_t>(AssimpMaterialToPBRIndex[materialIndex]);
+
+    return PBR_Materials[pbrMaterialIndex].data
+        ->GetPBR_MaterialGlobalIDs();
+}
+
 VkResult StaticMeshletModel::LoadModel_Static_PBR(
     const char* modelPath,
     VkDescriptorSetLayout vkDescriptorSetLayout)
@@ -72,47 +94,55 @@ VkResult StaticMeshletModel::LoadModel_Static_PBR(
     }
 
     // ============================================================
-    // STATIC MODEL REQUIREMENT:
-    // Currently this loader intentionally supports ONE mesh.
-    // ============================================================
-
-    if (scene->mNumMeshes != 1)
-    {
-        fprintf(
-            gpFILE,
-            "StaticMeshletModel::LoadModel_Static_PBR() : "
-            "Expected exactly 1 mesh, found %u.\n",
-            scene->mNumMeshes);
-
-        return VK_ERROR_INITIALIZATION_FAILED;
-    }
-
-    aiMesh* mesh = scene->mMeshes[0];
-
-    if (!mesh)
-    {
-        fprintf(
-            gpFILE,
-            "StaticMeshletModel::LoadModel_Static_PBR() : "
-            "scene->mMeshes[0] is NULL.\n");
-
-        return VK_ERROR_INITIALIZATION_FAILED;
-    }
-
-    // ============================================================
     // Materials
     // ============================================================
 
-    uint16_t numMaterials =
-        static_cast<uint16_t>(
-            scene->mNumMaterials);
+    AssimpMaterialToPBRIndex.assign(scene->mNumMaterials, -1);
+
+    // Only consider materials that are actually referenced by meshes.
+    std::vector<bool> usedMaterials(scene->mNumMaterials, false);
+    for (unsigned int meshIndex = 0;
+        meshIndex < scene->mNumMeshes;
+        ++meshIndex)
+    {
+        const aiMesh* mesh = scene->mMeshes[meshIndex];
+        if (!mesh || mesh->mMaterialIndex >= scene->mNumMaterials)
+        {
+            fprintf(
+                gpFILE,
+                "StaticMeshletModel::LoadModel_Static_PBR() : "
+                "Mesh %u has an invalid material index.\n",
+                meshIndex);
+
+            return VK_ERROR_INITIALIZATION_FAILED;
+        }
+
+        usedMaterials[mesh->mMaterialIndex] = true;
+    }
 
     for (unsigned int i = 0;
-        i < numMaterials;
+        i < scene->mNumMaterials;
         ++i)
     {
+        // Skip materials that are not referenced by any mesh to avoid creating unused PBR materials.
+        if (!usedMaterials[i])
+        {
+            continue;
+        }
+
         const aiMaterial* mat =
             scene->mMaterials[i];
+
+        if (!mat)
+        {
+            fprintf(
+                gpFILE,
+                "StaticMeshletModel::LoadModel_Static_PBR() : "
+                "Material %u is NULL.\n",
+                i);
+
+            return VK_ERROR_INITIALIZATION_FAILED;
+        }
 
         aiString matName;
 
@@ -130,66 +160,85 @@ VkResult StaticMeshletModel::LoadModel_Static_PBR(
 
         aiString tex;
 
-        if (AI_SUCCESS ==
+        if (AI_SUCCESS !=
             mat->GetTexture(
                 aiTextureType_DIFFUSE,
                 0,
                 &tex))
         {
-            MaterialInfo info;
+            fprintf(
+                gpFILE,
+                "StaticMeshletModel::LoadModel_Static_PBR() : "
+                "Material %u (%s) has no diffuse texture.\n",
+                i,
+                materialName.c_str());
 
-            std::string directory =
-                std::filesystem::path(
-                    tex.C_Str())
-                .parent_path()
-                .string();
-
-            if (!directory.empty())
-            {
-                directory +=
-                    std::filesystem::path::
-                    preferred_separator;
-            }
-
-            info.materialName =
-                materialName;
-
-            info.path =
-                directory;
-
-            info.data =
-                new Material_BasicPBR(
-                    vkDescriptorSetLayout,
-                    directory.c_str());
-
-            PBR_Materials.push_back(
-                info);
+            return VK_ERROR_INITIALIZATION_FAILED;
         }
+
+        MaterialInfo info;
+
+        std::string directory =
+            std::filesystem::path(tex.C_Str()).parent_path().string();
+
+        if (!directory.empty())
+        {
+            directory += std::filesystem::path::preferred_separator;
+        }
+
+        info.materialName = materialName;
+        info.path = directory;
+        info.data = new Material_BasicPBR(
+            vkDescriptorSetLayout,
+            directory.c_str());
+
+        /*if (!info.data || info.data->getVkResult() != VK_SUCCESS)
+        {
+            fprintf(
+                gpFILE,
+                "StaticMeshletModel::LoadModel_Static_PBR() : "
+                "Failed to load material %u (%s).\n",
+                i,
+                materialName.c_str());
+
+            delete info.data;
+            return VK_ERROR_INITIALIZATION_FAILED;
+        }*/
+
+        AssimpMaterialToPBRIndex[i] =
+            static_cast<int32_t>(PBR_Materials.size());
+        PBR_Materials.push_back(info);
     }
 
     // ============================================================
-    // Vertex data
+    // Vertex data and material-specific meshlets
     // ============================================================
 
     vkVertices.clear();
+    meshlets.clear();
+    meshletVertices.clear();
+    meshletTriangles.clear();
 
-    vkVertices.reserve(
-        mesh->mNumVertices);
-
-    // ============================================================
-    // 32-bit indices
-    // ============================================================
-
-
+    for (unsigned int meshIndex = 0;
+        meshIndex < scene->mNumMeshes;
+        ++meshIndex)
     {
-        std::vector<uint32_t> vkIndices;
+        const aiMesh* mesh = scene->mMeshes[meshIndex];
 
-        vkIndices.reserve(
-            mesh->mNumFaces * 3);
+        if (!mesh || mesh->mMaterialIndex >= AssimpMaterialToPBRIndex.size() ||
+            AssimpMaterialToPBRIndex[mesh->mMaterialIndex] < 0)
+        {
+            fprintf(
+                gpFILE,
+                "StaticMeshletModel::LoadModel_Static_PBR() : "
+                "Mesh %u has an invalid material.\n",
+                meshIndex);
 
-        // --------------------------------------------------------
-        // Vertices
-        // --------------------------------------------------------
+            return VK_ERROR_INITIALIZATION_FAILED;
+        }
+
+        const uint32_t vertexBase =
+            static_cast<uint32_t>(vkVertices.size());
 
         for (unsigned int i = 0;
             i < mesh->mNumVertices;
@@ -302,13 +351,8 @@ VkResult StaticMeshletModel::LoadModel_Static_PBR(
             vkVertices.push_back(v);
         }
 
-        // --------------------------------------------------------
-        // Indices
-        //
-        // IMPORTANT:
-        // Single mesh => Assimp's indices are already correct.
-        // No vertex offset is required.
-        // --------------------------------------------------------
+        std::vector<uint32_t> meshIndices;
+        meshIndices.reserve(mesh->mNumFaces * 3);
 
         for (unsigned int f = 0;
             f < mesh->mNumFaces;
@@ -321,24 +365,24 @@ VkResult StaticMeshletModel::LoadModel_Static_PBR(
                 j < face.mNumIndices;
                 ++j)
             {
-                vkIndices.push_back(
-                    static_cast<uint32_t>(
-                        face.mIndices[j]));
+                meshIndices.push_back(vertexBase + face.mIndices[j]);
             }
         }
 
-        
-        vkResult = CreateMeshlets(vkIndices, vkVertices);
+        const uint32_t pbrMaterialIndex =
+            static_cast<uint32_t>(
+                AssimpMaterialToPBRIndex[mesh->mMaterialIndex]);
+
+        vkResult = CreateMeshlets(
+            meshIndices,
+            vkVertices,
+            PBR_Materials[pbrMaterialIndex].data->GetPBR_MaterialGlobalIDs().x);
 
         if (vkResult != VK_SUCCESS)
         {
             return vkResult;
         }
-
     }
-
-
-
     // ============================================================
     // Done
     // ============================================================
@@ -351,7 +395,8 @@ VkResult StaticMeshletModel::LoadModel_Static_PBR(
 
 VkResult StaticMeshletModel::CreateMeshlets(
     const std::vector<uint32_t>& indices,
-    const std::vector<VertexData_Meshlet>& vertices)
+    const std::vector<VertexData_Meshlet>& vertices,
+    uint32_t materialID)
 {
     // ============================================================
     // Meshlet limits
@@ -522,18 +567,10 @@ VkResult StaticMeshletModel::CreateMeshlets(
     // Copy final meshlet data into class-owned arrays
     // ============================================================
 
-    meshlets.clear();
-    meshletVertices.clear();
-    meshletTriangles.clear();
-
-
-    meshlets.reserve(meshletCount);
-
-    meshletVertices.reserve(
-        totalMeshletVertices);
-
-    meshletTriangles.reserve(
-        totalMeshletTriangles);
+    const uint32_t meshletVertexBase =
+        static_cast<uint32_t>(meshletVertices.size());
+    const uint32_t meshletTriangleBase =
+        static_cast<uint32_t>(meshletTriangles.size());
 
 
     // ------------------------------------------------------------
@@ -550,12 +587,12 @@ VkResult StaticMeshletModel::CreateMeshlets(
         // --------------------------------------------------------
 
         dst.vertexOffset =
-            static_cast<uint32_t>(
-                src.vertex_offset);
+            meshletVertexBase +
+            static_cast<uint32_t>(src.vertex_offset);
 
         dst.triangleOffset =
-            static_cast<uint32_t>(
-                src.triangle_offset);
+            meshletTriangleBase +
+            static_cast<uint32_t>(src.triangle_offset);
 
         dst.vertexCount =
             static_cast<uint32_t>(
@@ -616,7 +653,7 @@ VkResult StaticMeshletModel::CreateMeshlets(
                 bounds.cone_apex[2],
                 1.0f);
 
-        dst.materialID_PBR = GetPBR_MaterialGlobalIDs()[0];
+        dst.materialID_PBR = materialID;
 
         meshlets.push_back(dst);
     }
@@ -626,7 +663,8 @@ VkResult StaticMeshletModel::CreateMeshlets(
     // Meshlet vertex references
     // ------------------------------------------------------------
 
-    meshletVertices.assign(
+    meshletVertices.insert(
+        meshletVertices.end(),
         tempMeshletVertices.begin(),
         tempMeshletVertices.begin() +
         totalMeshletVertices);
@@ -636,7 +674,8 @@ VkResult StaticMeshletModel::CreateMeshlets(
     // Meshlet triangle indices
     // ------------------------------------------------------------
 
-    meshletTriangles.assign(
+    meshletTriangles.insert(
+        meshletTriangles.end(),
         tempMeshletTriangles.begin(),
         tempMeshletTriangles.begin() +
         totalMeshletTriangles);
