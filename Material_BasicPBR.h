@@ -25,6 +25,10 @@ struct MaterialInfo
 	Material_BasicPBR* data = nullptr;
 };
 
+ //Default material
+extern MaterialInfo defaultMaterialInfo;
+
+
 class Material_BasicPBR
 {
 public:

@@ -11,40 +11,44 @@ Material_BasicPBR::Material_BasicPBR(VkDescriptorSetLayout layout,const char* pa
     char albedoPath[512]; // make sure it's big enough
     std::snprintf(albedoPath, sizeof(albedoPath), "%s%s", path, "Albedo.dds");
 	res = loadTextureData_dds_c_bc7(&Albedo, albedoPath, vkSampler_LinearRepeatAniso, VK_FORMAT_BC7_SRGB_BLOCK);
-    if (res != VK_SUCCESS && vkResult == VK_SUCCESS)
+    if (res != VK_SUCCESS)
     {
         fprintf(gpFILE, "Failed to load albedo texture\n");
         vkResult = res;
+
+        Albedo = defaultMaterialInfo.data->Albedo;
 	}
-                                            
 
     char normalPath[512]; // make sure it's big enough
     std::snprintf(normalPath, sizeof(normalPath), "%s%s", path, "Normal.dds");
     res = loadTextureData_dds_c_bc5_normal(&Normal, normalPath, vkSampler_LinearRepeatAniso, VK_FORMAT_BC5_UNORM_BLOCK);
-    if (res != VK_SUCCESS && vkResult == VK_SUCCESS)
+    if (res != VK_SUCCESS)
     {
         fprintf(gpFILE, "Failed to load normal texture\n");
         vkResult = res;
-	}
 
+        Normal = defaultMaterialInfo.data->Normal;
+	}
 
     char PathORM[512]; // make sure it's big enough
     std::snprintf(PathORM, sizeof(PathORM), "%s%s", path, "ORM.dds");
     res = loadTextureData_dds_c_bc7(&ORM, PathORM, vkSampler_LinearRepeatAniso, VK_FORMAT_BC7_UNORM_BLOCK);
-    if (res != VK_SUCCESS && vkResult == VK_SUCCESS)
+    if (res != VK_SUCCESS )
     {
         fprintf(gpFILE, "Failed to load ORM texture\n");
         vkResult = res;
+
+        ORM = defaultMaterialInfo.data->ORM;
 	}
 
 
-	// create descriptor set
-    res = createDescriptorSet();
-    if (res != VK_SUCCESS && vkResult == VK_SUCCESS)
-    {
-        fprintf(gpFILE, "Failed to create descriptor set for material\n");
-        vkResult = res;
-	}
+	//// create descriptor set
+ //   res = createDescriptorSet();
+ //   if (res != VK_SUCCESS && vkResult == VK_SUCCESS)
+ //   {
+ //       fprintf(gpFILE, "Failed to create descriptor set for material\n");
+ //       vkResult = res;
+	//}
 	
 }
 Material_BasicPBR::~Material_BasicPBR()
