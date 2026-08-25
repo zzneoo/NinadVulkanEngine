@@ -157,6 +157,7 @@ Material_BasicPBR* pMaterial_BasicPBR_GrassyGround = NULL;
 std::vector<ImageData*> global_textureArray;
 VkDescriptorPool global_textureArray_vkDescriptorPool;
 VkDescriptorSet global_textureArray_vkDescriptorSet;
+std::vector<VkDescriptorSet> gGBufferDescriptorSets;
 
 //desccriptor set layouts 
 DescriptorSetLayouts* gpDescriptorSetLayouts = NULL;
@@ -1316,6 +1317,66 @@ VkResult LoadModel_Phong(const char* modelPath, VulkanComboData* vulkanComboData
     return vkResult;
 }
 
+VkResult createDescriptorSet_GBuffer(void)
+{
+    const uint32_t imageCount = gSwapchain.imageCount;
+    gGBufferDescriptorSets.resize(imageCount);
+
+    std::vector<VkWriteDescriptorSet> writes(imageCount * 4);
+    std::vector<VkDescriptorImageInfo> imageInfos(imageCount * 4);
+
+    for (uint32_t i = 0; i < imageCount; ++i)
+    {
+        VkDescriptorSetAllocateInfo allocateInfo{};
+        allocateInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
+        allocateInfo.descriptorPool = vkDescriptorPool;
+        allocateInfo.descriptorSetCount = 1;
+        allocateInfo.pSetLayouts = &gpDescriptorSetLayouts->vkDescriptorSetLayout_GBuffer;
+
+        VkResult result = vkAllocateDescriptorSets(
+            gVulkanContext.vkDevice,
+            &allocateInfo,
+            &gGBufferDescriptorSets[i]);
+
+        if (result != VK_SUCCESS)
+        {
+            fprintf(gpFILE, "createDescriptorSet_GBuffer() : vkAllocateDescriptorSets() failed: %d.\n", result);
+            return result;
+        }
+
+        ImageData* images[4] = {
+            &gGBuffer.albedo[i],
+            &gGBuffer.normal[i],
+            &gGBuffer.ORM[i],
+            &gGBuffer.depth[i]
+        };
+
+        for (uint32_t binding = 0; binding < 4; ++binding)
+        {
+            const uint32_t index = i * 4 + binding;
+            imageInfos[index].sampler = vkSampler_LinearClamp;
+            imageInfos[index].imageView = images[binding]->vkImageView;
+            imageInfos[index].imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+
+            writes[index].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+            writes[index].dstSet = gGBufferDescriptorSets[i];
+            writes[index].dstBinding = binding;
+            writes[index].descriptorCount = 1;
+            writes[index].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+            writes[index].pImageInfo = &imageInfos[index];
+        }
+
+        vkUpdateDescriptorSets(
+            gVulkanContext.vkDevice,
+            4,
+            &writes[i * 4],
+            0,
+            nullptr);
+    }
+
+    return VK_SUCCESS;
+}
+
 VkResult LoadModel_PBR(const char* modelPath, VulkanComboData* vulkanComboData, bool index32)
 {
     VkResult vkResult = VK_SUCCESS;
@@ -2161,6 +2222,7 @@ VkResult initialize(void)
     VkResult createDescriptorSet_FrameDataBoneData(void);
     VkResult createDescriptorSet_SingleImage(void);
     VkResult createDescriptorSet_AlbedoNormal(void);
+    VkResult createDescriptorSet_GBuffer(void);
 
     VkResult createSamplers(void);
 
@@ -2187,6 +2249,7 @@ VkResult initialize(void)
     //compileShaderVS_FS("PBR");
     //compileShaderVS_FS("PBR_Skinned");
     compileShaderVS_FS("PreviewImage");
+    compileShaderVS_FS("DeferredPBR");
     compileShaderTS_MS_FS("Meshlet");
 
 
@@ -2205,7 +2268,7 @@ VkResult initialize(void)
     {
         fprintf(gpFILE, "initialize() : gSwapchain.Initialize() failed (%d).\n", vkResult);
 		return(vkResult);
-	}
+    }
 
     gFrames[0].Initialize(&gVulkanContext);
     gFrames[1].Initialize(&gVulkanContext);
@@ -2496,6 +2559,13 @@ VkResult initialize(void)
     if (vkResult != VK_SUCCESS)
     {
         fprintf(gpFILE, "initialize() : createDescriptorSet_AlbedoNormal() failed (%d).\n", vkResult);
+        return(vkResult);
+    }
+
+    vkResult = createDescriptorSet_GBuffer();
+    if (vkResult != VK_SUCCESS)
+    {
+        fprintf(gpFILE, "initialize() : createDescriptorSet_GBuffer() failed (%d).\n", vkResult);
         return(vkResult);
     }
 
@@ -6836,6 +6906,32 @@ void RenderFullscreenQuad(uint32_t curIndex)
     vkCmdDraw(gFrames[curIndex].commandBuffer, 3, 1, 0, 0);
 }
 
+void RenderFullscreenPBRQuad(uint32_t curIndex)
+{
+    // Bind the pipeline and descriptor sets
+    VkDescriptorSet descriptorSets[] = {
+        gFrames[curIndex].vkDescriptor_FrameData,
+        gGBufferDescriptorSets[curIndex]
+    };
+
+    vkCmdBindPipeline(
+        gFrames[curIndex].commandBuffer,
+        VK_PIPELINE_BIND_POINT_GRAPHICS,
+        gpGraphicsPipelines->DeferredPBR.vkPipeline);
+
+    vkCmdBindDescriptorSets(
+        gFrames[curIndex].commandBuffer,
+        VK_PIPELINE_BIND_POINT_GRAPHICS,
+        gpGraphicsPipelines->DeferredPBR.vkPipelineLayout,
+        0,
+        2,
+        descriptorSets,
+        0,
+        nullptr);
+
+    vkCmdDraw(gFrames[curIndex].commandBuffer, 3, 1, 0, 0);
+}
+
 void RenderColoredTriangle(uint32_t curIndex)
 {
     static float fAngle = 0.0f;
@@ -7888,7 +7984,8 @@ VkResult buildCommandBuffers(uint32_t curIndex, uint32_t currentImageIndex)
 
     vkCmdBeginRendering(gFrames[curIndex].commandBuffer,&deferredRenderingInfo);
 
-    RenderFullscreenQuad(curIndex); // Render the fullscreen quad
+    //RenderFullscreenQuad(curIndex); // Render the fullscreen quad
+    RenderFullscreenPBRQuad(curIndex); // Render the fullscreen quad
 
 #ifdef IMGUI_ENABLE
     Render_ImGui(curIndex); // Render ImGui UI

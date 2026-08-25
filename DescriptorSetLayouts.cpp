@@ -156,6 +156,37 @@ VkResult DescriptorSetLayouts::createDescriptorSetLayout_SingleImage(void)
     return vkResult;
 }
 
+VkResult DescriptorSetLayouts::createDescriptorSetLayout_GBuffer(void)
+{
+    VkDescriptorSetLayoutBinding bindings[4]{};
+
+    for (uint32_t i = 0; i < 4; ++i)
+    {
+        bindings[i].binding = i;
+        bindings[i].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+        bindings[i].descriptorCount = 1;
+        bindings[i].stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
+    }
+
+    VkDescriptorSetLayoutCreateInfo layoutInfo{};
+    layoutInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
+    layoutInfo.bindingCount = 4;
+    layoutInfo.pBindings = bindings;
+
+    VkResult result = vkCreateDescriptorSetLayout(
+        gVulkanContext.vkDevice,
+        &layoutInfo,
+        nullptr,
+        &vkDescriptorSetLayout_GBuffer);
+
+    if (result != VK_SUCCESS)
+    {
+        fprintf(gpFILE, "createDescriptorSetLayout_GBuffer() failed: %d.\n", result);
+    }
+
+    return result;
+}
+
 VkResult DescriptorSetLayouts::createDescriptorSetLayout_AlbedoNormal(void)
 {
     // variable declarations
@@ -321,6 +352,13 @@ VkResult DescriptorSetLayouts::createDescriptorSetLayouts(void)
         return vkResult;
     }
 
+    vkResult = createDescriptorSetLayout_GBuffer();
+    if (vkResult != VK_SUCCESS)
+    {
+        fprintf(gpFILE, "initialize() : createDescriptorSetLayout_GBuffer() failed (%d).\n", vkResult);
+        return vkResult;
+    }
+
 
     return vkResult;
 }
@@ -367,5 +405,12 @@ void DescriptorSetLayouts::destroyDescriptorSetLayouts(void)
         vkDestroyDescriptorSetLayout(gVulkanContext.vkDevice, vkDescriptorSetLayout_GlobalTextureArray, NULL);
         vkDescriptorSetLayout_GlobalTextureArray = VK_NULL_HANDLE;
 	}
+
+    if (vkDescriptorSetLayout_GBuffer)
+    {
+        vkDestroyDescriptorSetLayout(gVulkanContext.vkDevice, vkDescriptorSetLayout_GBuffer, NULL);
+        vkDescriptorSetLayout_GBuffer = VK_NULL_HANDLE;
+
+    }
 
 }

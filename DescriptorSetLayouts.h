@@ -20,6 +20,7 @@ public:
 	VkDescriptorSetLayout vkDescriptorSetLayout_AlbedoNormal = VK_NULL_HANDLE;
 	VkDescriptorSetLayout vkDescriptorSetLayout_BasicPBR = VK_NULL_HANDLE;
 	VkDescriptorSetLayout vkDescriptorSetLayout_GlobalTextureArray = VK_NULL_HANDLE;
+	VkDescriptorSetLayout vkDescriptorSetLayout_GBuffer = VK_NULL_HANDLE;
 
 	VkResult vkResult;
 
@@ -33,6 +34,7 @@ private:
 	VkResult createDescriptorSetLayout_AlbedoNormal(void);
 	VkResult createDescriptorSetLayout_BasicPBR(void);
 	VkResult createDescriptorSetLayout_GlobalTextureArray(void);
+	VkResult createDescriptorSetLayout_GBuffer(void);
 
 
 };

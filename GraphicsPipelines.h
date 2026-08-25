@@ -24,6 +24,7 @@ public:
 
 	PipelineData Impostor;
 	PipelineData PreviewImage;
+	PipelineData DeferredPBR;
 	PipelineData Phong;
 	PipelineData PBR;
 	PipelineData PBR_Skinned;
@@ -56,6 +57,8 @@ private:
 	//----------------------------Pipelines-------------------------------------------------------
 
 	VkResult createGraphicsPipeline_PreviewImage(VkPipelineLayoutCreateInfo vkPipelineLayoutCreateInfo);
+	VkResult createGraphicsPipeline_DeferredPBR(VkPipelineLayoutCreateInfo vkPipelineLayoutCreateInfo);
+	VkResult createGraphicsPipeline_Fullscreen(VkPipelineLayoutCreateInfo vkPipelineLayoutCreateInfo, PipelineData& pipeline);
 	VkResult createGraphicsPipeline_Impostor(VkPipelineLayoutCreateInfo vkPipelineLayoutCreateInfo);
 	VkResult createGraphicsPipeline_Phong(VkPipelineLayoutCreateInfo vkPipelineLayoutCreateInfo);
 	VkResult createGraphicsPipeline_PBR(VkPipelineLayoutCreateInfo vkPipelineLayoutCreateInfo);

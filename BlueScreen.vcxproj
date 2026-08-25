@@ -227,6 +227,8 @@
     <None Include=".github\upgrades\scenarios\cppbuildtoolsupgrade\scenario-instructions.md" />
     <None Include="build.bat" />
     <None Include="BuildMesh.bat" />
+    <None Include="DeferredPBR.frag" />
+    <None Include="DeferredPBR.vert" />
     <None Include="Impostor.frag" />
     <None Include="Impostor.vert" />
     <None Include="Meshlet.frag" />

@@ -45,44 +45,7 @@ vec3 decodeBC5Normal_fast_robust(vec2 enc)
     }
 }
 
-//PBR
-// Microfacet helpers (GGX/Trowbridge-Reitz + Smith + Schlick Fresnel)
-float DistributionGGX(float NdotH, float roughness) 
-{
-    float a = roughness * roughness;
-    float a2 = a * a;
-    float denom = (NdotH * NdotH) * (a2 - 1.0) + 1.0;
-    return a2 / max(PI * denom * denom, 1e-5);
-}
 
-float GeometrySchlickGGX(float NdotV, float k) 
-{
-    return NdotV / (NdotV * (1.0 - k) + k);
-}
-
-
-float GeometrySmith(float NdotV, float NdotL, float roughness) 
-{
-    float r = roughness + 1.0;
-    float k = (r * r) / 8.0; // direct lighting optimization
-    return GeometrySchlickGGX(NdotV, k) * GeometrySchlickGGX(NdotL, k);
-}
-
-
-vec3 FresnelSchlick(float cosTheta, vec3 F0) 
-{
-    return F0 + (1.0 - F0) * pow(1.0 - cosTheta, 5.0);
-}
-
-//ToneMap
-vec3 Tonemap_ACES(vec3 x) {
-    const float a = 2.51;
-    const float b = 0.03;
-    const float c = 2.43;
-    const float d = 0.59;
-    const float e = 0.14;
-    return clamp((x * (a * x + b)) / (x * (c * x + d) + e), 0.0, 1.0);
-}
 
 void main()
 {
@@ -92,9 +55,6 @@ void main()
     vec3 normal_map = decodeBC5Normal_fast_robust(texture(textures[nonuniformEXT(inMaterialID + 1)], inUV).rg);
     vec3 orm = texture(textures[nonuniformEXT(inMaterialID + 2)], inUV).rgb;
 
-    float ao = orm.r;
-    float roughness = clamp(orm.g, 0.045, 1.0);
-    float metallic = saturate(orm.b);
 
     vec3 normal = normalize(inNormal);
 
@@ -105,48 +65,10 @@ void main()
 
     mat3 TBN = mat3(tangent, bitangent, normal);
     //-------------------------------------------------------------------
-
-
     vec3 N = normalize(TBN * normal_map);
-    //vec3 N = normalize(normal);
-    vec3 V = normalize(global.cameraPos - inWorldPos);
-    vec3 L = normalize(global.sunDir);
-    vec3 H = normalize(V + L);
-
-    vec3 radiance = vec3(1.0) * mix(1.0,10.0,0.5);//pc.v3Color
-
-    // Base reflectance
-    vec3 F0 = mix(vec3(0.04), albedo, metallic);
-
-    float NdotL = max(dot(N, L), 0.0);
-    float NdotV = max(dot(N, V), 0.0001);
-    float NdotH = max(dot(N, H), 0.0);
-    float HdotV = max(dot(H, V), 0.0);
-
-    float D = DistributionGGX(NdotH, roughness);
-    float G = GeometrySmith(NdotV, NdotL, roughness);
-    vec3 F = FresnelSchlick(HdotV, F0);
-
-    vec3 numerator = D * G * F;
-    float denom = max(4.0 * NdotV * NdotL, 1e-4);
-    vec3 specular = numerator / denom;
-
-
-    // Energy-conserving diffuse term (Lambert)
-    vec3 kS = F; // specular amount
-    vec3 kD = (vec3(1.0) - kS) * (1.0 - metallic);
-    vec3 diffuse = kD * albedo / PI;
-
-    vec3 ambient = albedo * ao * 0.04;
-    vec3 Lo = (diffuse + specular) * radiance * NdotL;
-
-    vec3 finalColor = Lo + ambient;
-    finalColor = Tonemap_ACES(finalColor);
-
-    //FragColor = vec4(vec3(finalColor),1.0);
 
     outAlbedo = vec4(albedo,1.0);
-    outNormal = vec4(normal_map * 0.5 + 0.5,1.0);
+    outNormal = vec4(N * 0.5 + 0.5, 1.0);
     outORM = vec4(orm,1.0);
 }
 
