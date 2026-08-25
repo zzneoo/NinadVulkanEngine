@@ -16,6 +16,7 @@ public:
 
 	//variables
 	static glm::mat4 gProjectionMatrix;
+	static glm::mat4 gPrevViewProjMatrix;
 	//static vmath::mat4 gInvProjectionMatrix;
 
 	static glm::mat4 gViewMatrix;

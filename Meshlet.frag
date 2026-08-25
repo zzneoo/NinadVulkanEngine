@@ -16,6 +16,7 @@ layout(location = 2) in vec3 inColor;
 layout(location = 3) in vec2 inUV;
 layout(location = 4) in vec4 inTangent;
 layout(location = 5) in vec3 inWorldPos;
+layout(location = 6) noperspective in vec2 inVelocity;
 
 
 layout(set = 1, binding = 0) uniform sampler2D textures[];
@@ -26,6 +27,7 @@ layout(set = 1, binding = 0) uniform sampler2D textures[];
 layout(location = 0) out vec4 outAlbedo;
 layout(location = 1) out vec4 outNormal;
 layout(location = 2) out vec4 outORM;
+layout(location = 3) out vec2 outVelocity;
 
 
 
@@ -49,7 +51,8 @@ vec3 decodeBC5Normal_fast_robust(vec2 enc)
 
 void main()
 {
-    //FragColor = vec4(pow(inColor.xyz,vec3(2.2)),1.0); //Per meshlet color
+     //Per meshlet color
+    //vec3 meshletColor = pow(inColor.xyz,vec3(2.2));
 
     vec3 albedo = texture(textures[nonuniformEXT(inMaterialID)], inUV).rgb;
     vec3 normal_map = decodeBC5Normal_fast_robust(texture(textures[nonuniformEXT(inMaterialID + 1)], inUV).rg);
@@ -70,5 +73,6 @@ void main()
     outAlbedo = vec4(albedo,1.0);
     outNormal = vec4(N * 0.5 + 0.5, 1.0);
     outORM = vec4(orm,1.0);
+    outVelocity = inVelocity;
 }
 

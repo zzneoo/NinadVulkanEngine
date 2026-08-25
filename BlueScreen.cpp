@@ -993,12 +993,18 @@ static VkResult CreateGBuffer()
     gGBuffer.normal.resize(imageCount);
     gGBuffer.ORM.resize(imageCount);
     gGBuffer.depth.resize(imageCount);
+    gGBuffer.velocity.resize(imageCount);
 
     for (uint32_t i = 0; i < imageCount; ++i)
     {
         VkResult result;
 
         result = CreateGBufferImage( gGBuffer.width, gGBuffer.height, VK_FORMAT_R8G8B8A8_SRGB, gGBuffer.albedo[i]);
+
+        if (result != VK_SUCCESS)
+            return result;
+
+        result = CreateGBufferImage(gGBuffer.width, gGBuffer.height, VK_FORMAT_R16G16_SFLOAT, gGBuffer.velocity[i]);
 
         if (result != VK_SUCCESS)
             return result;
@@ -1114,12 +1120,22 @@ static void DestroyGBuffer()
                 nullptr);
             gGBuffer.depth[i].vkDeviceMemory = VK_NULL_HANDLE;
         }
+
+        if (gGBuffer.velocity[i].vkImageView != VK_NULL_HANDLE)
+            vkDestroyImageView(gVulkanContext.vkDevice, gGBuffer.velocity[i].vkImageView, nullptr);
+
+        if (gGBuffer.velocity[i].vkImage != VK_NULL_HANDLE)
+            vkDestroyImage(gVulkanContext.vkDevice, gGBuffer.velocity[i].vkImage, nullptr);
+
+        if (gGBuffer.velocity[i].vkDeviceMemory != VK_NULL_HANDLE)
+            vkFreeMemory(gVulkanContext.vkDevice, gGBuffer.velocity[i].vkDeviceMemory, nullptr);
     }
 
     gGBuffer.albedo.clear();
     gGBuffer.normal.clear();
     gGBuffer.ORM.clear();
     gGBuffer.depth.clear();
+    gGBuffer.velocity.clear();
 
     gGBuffer.width = 0;
     gGBuffer.height = 0;
@@ -1322,8 +1338,8 @@ VkResult createDescriptorSet_GBuffer(void)
     const uint32_t imageCount = gSwapchain.imageCount;
     gGBufferDescriptorSets.resize(imageCount);
 
-    std::vector<VkWriteDescriptorSet> writes(imageCount * 4);
-    std::vector<VkDescriptorImageInfo> imageInfos(imageCount * 4);
+    std::vector<VkWriteDescriptorSet> writes(imageCount * 5);
+    std::vector<VkDescriptorImageInfo> imageInfos(imageCount * 5);
 
     for (uint32_t i = 0; i < imageCount; ++i)
     {
@@ -1344,16 +1360,17 @@ VkResult createDescriptorSet_GBuffer(void)
             return result;
         }
 
-        ImageData* images[4] = {
+        ImageData* images[5] = {
             &gGBuffer.albedo[i],
             &gGBuffer.normal[i],
             &gGBuffer.ORM[i],
-            &gGBuffer.depth[i]
+            &gGBuffer.depth[i],
+            &gGBuffer.velocity[i]
         };
 
-        for (uint32_t binding = 0; binding < 4; ++binding)
+        for (uint32_t binding = 0; binding < 5; ++binding)
         {
-            const uint32_t index = i * 4 + binding;
+            const uint32_t index = i * 5 + binding;
             imageInfos[index].sampler = vkSampler_LinearClamp;
             imageInfos[index].imageView = images[binding]->vkImageView;
             imageInfos[index].imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
@@ -1368,8 +1385,8 @@ VkResult createDescriptorSet_GBuffer(void)
 
         vkUpdateDescriptorSets(
             gVulkanContext.vkDevice,
-            4,
-            &writes[i * 4],
+            5,
+            &writes[i * 5],
             0,
             nullptr);
     }
@@ -2148,6 +2165,13 @@ static VkResult initialLayoutTransitions(void)
         transitionImageLayout(
             commandBuffer,
             gGBuffer.ORM[i].vkImage,
+            VK_IMAGE_LAYOUT_UNDEFINED,
+            VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
+        );
+
+        transitionImageLayout(
+            commandBuffer,
+            gGBuffer.velocity[i].vkImage,
             VK_IMAGE_LAYOUT_UNDEFINED,
             VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
         );
@@ -2973,6 +2997,7 @@ VkResult resize(int width, int height)
     );
     MyWin32::gProjectionMatrix[1][1] *= -1.0f; // flip the Y axis for Vulkan
 
+    MyWin32::gPrevViewProjMatrix = MyWin32::gProjectionMatrix * camera.GetViewMatrix();
 
     bInitialized = TRUE; // set to true to allow display() to work
 
@@ -6201,6 +6226,7 @@ VkResult updateUniformBuffer_frameData(uint32_t curIndex)
     uniformTransformBufferObject_frameData.frameID = 1; // current frame index
     uniformTransformBufferObject_frameData.view = View; // view matrix
     uniformTransformBufferObject_frameData.proj = Proj; // projection matrix
+    uniformTransformBufferObject_frameData.prevViewProj = MyWin32::gPrevViewProjMatrix;
     uniformTransformBufferObject_frameData.cameraPos = camera.GetCameraPos(); // camera position
     uniformTransformBufferObject_frameData.sunDir = sunDirection;
 
@@ -6227,6 +6253,8 @@ VkResult updateUniformBuffer_frameData(uint32_t curIndex)
 
     // Copy the data to the uniform buffer
     memcpy(gFrames[curIndex].uniformData.pData, &uniformTransformBufferObject_frameData, sizeof(UniformBufferObject_FrameData));
+
+    MyWin32::gPrevViewProjMatrix = ViewProj;
 
     return vkResult;
 }
@@ -6908,7 +6936,7 @@ void RenderFullscreenQuad(uint32_t curIndex)
 
 void RenderFullscreenPBRQuad(uint32_t curIndex)
 {
-    // Bind the pipeline and descriptor sets
+    // Bind the DeferredPBR pipeline and descriptor sets
     VkDescriptorSet descriptorSets[] = {
         gFrames[curIndex].vkDescriptor_FrameData,
         gGBufferDescriptorSets[curIndex]
@@ -7813,7 +7841,7 @@ VkResult buildCommandBuffers(uint32_t curIndex, uint32_t currentImageIndex)
 
     //Dynamic Rendering + G-Buffer
 
-    VkRenderingAttachmentInfo gbufferAttachments[3]{};
+    VkRenderingAttachmentInfo gbufferAttachments[4]{};
 
     gbufferAttachments[0].sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO;
     gbufferAttachments[0].imageView = gGBuffer.albedo[currentImageIndex].vkImageView;
@@ -7836,6 +7864,13 @@ VkResult buildCommandBuffers(uint32_t curIndex, uint32_t currentImageIndex)
     gbufferAttachments[2].storeOp = VK_ATTACHMENT_STORE_OP_STORE;
     gbufferAttachments[2].clearValue.color = { {0.0f, 0.0f, 0.0f, 0.0f} };
 
+    gbufferAttachments[3].sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO;
+    gbufferAttachments[3].imageView = gGBuffer.velocity[currentImageIndex].vkImageView;
+    gbufferAttachments[3].imageLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+    gbufferAttachments[3].loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+    gbufferAttachments[3].storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+    gbufferAttachments[3].clearValue.color = { {0.0f, 0.0f, 0.0f, 0.0f} };
+
     VkRenderingAttachmentInfo depthAttachment{};
     depthAttachment.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO;
 
@@ -7850,7 +7885,7 @@ VkResult buildCommandBuffers(uint32_t curIndex, uint32_t currentImageIndex)
     renderingInfo.renderArea.offset = { 0, 0 };
     renderingInfo.renderArea.extent = { WIN_WIDTH, WIN_HEIGHT };
     renderingInfo.layerCount = 1;
-    renderingInfo.colorAttachmentCount = 3;
+    renderingInfo.colorAttachmentCount = 4;
     renderingInfo.pColorAttachments = gbufferAttachments;
     renderingInfo.pDepthAttachment = &depthAttachment;
 
@@ -7858,6 +7893,13 @@ VkResult buildCommandBuffers(uint32_t curIndex, uint32_t currentImageIndex)
     transitionImageLayout(
         gFrames[curIndex].commandBuffer,
         gGBuffer.albedo[currentImageIndex].vkImage,
+        VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+        VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL
+    );
+
+    transitionImageLayout(
+        gFrames[curIndex].commandBuffer,
+        gGBuffer.velocity[currentImageIndex].vkImage,
         VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
         VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL
     );
@@ -7928,6 +7970,13 @@ VkResult buildCommandBuffers(uint32_t curIndex, uint32_t currentImageIndex)
     transitionImageLayout(
         gFrames[curIndex].commandBuffer,
         gGBuffer.albedo[currentImageIndex].vkImage,
+        VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+        VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
+    );
+
+    transitionImageLayout(
+        gFrames[curIndex].commandBuffer,
+        gGBuffer.velocity[currentImageIndex].vkImage,
         VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
         VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
     );

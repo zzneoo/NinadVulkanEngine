@@ -158,9 +158,9 @@ VkResult DescriptorSetLayouts::createDescriptorSetLayout_SingleImage(void)
 
 VkResult DescriptorSetLayouts::createDescriptorSetLayout_GBuffer(void)
 {
-    VkDescriptorSetLayoutBinding bindings[4]{};
+    VkDescriptorSetLayoutBinding bindings[5]{};
 
-    for (uint32_t i = 0; i < 4; ++i)
+    for (uint32_t i = 0; i < 5; ++i)
     {
         bindings[i].binding = i;
         bindings[i].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
@@ -170,7 +170,7 @@ VkResult DescriptorSetLayouts::createDescriptorSetLayout_GBuffer(void)
 
     VkDescriptorSetLayoutCreateInfo layoutInfo{};
     layoutInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
-    layoutInfo.bindingCount = 4;
+    layoutInfo.bindingCount = 5;
     layoutInfo.pBindings = bindings;
 
     VkResult result = vkCreateDescriptorSetLayout(

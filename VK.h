@@ -18,6 +18,7 @@ struct UniformBufferObject_FrameData
 {
 	glm::mat4 view;
 	glm::mat4 proj;
+	glm::mat4 prevViewProj;
 
 	glm::vec3 sunDir;
     float fTime;
@@ -207,6 +208,7 @@ struct GBuffer
 	std::vector<ImageData> normal;
 	std::vector<ImageData> ORM;
 	std::vector<ImageData> depth;
+	std::vector<ImageData> velocity;
 
 	uint32_t width = 0;
 	uint32_t height = 0;

@@ -14,6 +14,7 @@
 	//unsigned char MyWin32::iBlockPixelID = 0;
 	
 	glm::mat4 MyWin32::gProjectionMatrix = glm::mat4(1.0);
+	glm::mat4 MyWin32::gPrevViewProjMatrix = glm::mat4(1.0);
 	//vmath::mat4 MyWin32::gInvProjectionMatrix = vmath::mat4::identity();
 	
 	glm::mat4 MyWin32::gViewMatrix = glm::mat4(1.0);

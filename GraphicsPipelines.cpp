@@ -564,7 +564,7 @@ VkResult GraphicsPipelines::createGraphicsPipeline_Impostor(VkPipelineLayoutCrea
     renderingInfo.colorAttachmentCount = 1;
     renderingInfo.pColorAttachmentFormats = &colorFormat;
 
-    renderingInfo.depthAttachmentFormat = VK_FORMAT_D32_SFLOAT;
+    renderingInfo.depthAttachmentFormat = VK_FORMAT_UNDEFINED;
     renderingInfo.stencilAttachmentFormat = VK_FORMAT_UNDEFINED;
 
 
@@ -2526,7 +2526,7 @@ VkResult GraphicsPipelines::createGraphicsPipeline_Meshlet(VkPipelineLayoutCreat
     vkPipelineRasterizationStateCreateInfo.lineWidth = 1.0f; // line width
 
     // Color blend state
-    VkPipelineColorBlendAttachmentState vkPipelineColorBlendAttachmentState_array[3]{};
+    VkPipelineColorBlendAttachmentState vkPipelineColorBlendAttachmentState_array[4]{};
     vkPipelineColorBlendAttachmentState_array[0].blendEnable = VK_FALSE; // enable blending
     vkPipelineColorBlendAttachmentState_array[0].colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT; // all color components
     vkPipelineColorBlendAttachmentState_array[0].srcColorBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA; // source color blend factor
@@ -2538,6 +2538,7 @@ VkResult GraphicsPipelines::createGraphicsPipeline_Meshlet(VkPipelineLayoutCreat
 
     vkPipelineColorBlendAttachmentState_array[1] = vkPipelineColorBlendAttachmentState_array[0];
     vkPipelineColorBlendAttachmentState_array[2] = vkPipelineColorBlendAttachmentState_array[0];
+    vkPipelineColorBlendAttachmentState_array[3] = vkPipelineColorBlendAttachmentState_array[0];
 
     //ColorBlendStateCreateInfo
     VkPipelineColorBlendStateCreateInfo vkPipelineColorBlendStateCreateInfo{};
@@ -2675,10 +2676,11 @@ VkResult GraphicsPipelines::createGraphicsPipeline_Meshlet(VkPipelineLayoutCreat
     {
         VK_FORMAT_R8G8B8A8_SRGB,
         VK_FORMAT_R16G16B16A16_SFLOAT,
-        VK_FORMAT_R8G8B8A8_UNORM
+        VK_FORMAT_R8G8B8A8_UNORM,
+        VK_FORMAT_R16G16_SFLOAT
     };
 
-    renderingInfo.colorAttachmentCount = 3;
+    renderingInfo.colorAttachmentCount = 4;
     renderingInfo.pColorAttachmentFormats = colorFormats;
     renderingInfo.depthAttachmentFormat = VK_FORMAT_D32_SFLOAT;
     renderingInfo.stencilAttachmentFormat = VK_FORMAT_UNDEFINED;
