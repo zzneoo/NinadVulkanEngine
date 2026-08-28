@@ -334,8 +334,6 @@
     </None>
     <None Include=".github\upgrades\scenarios\cppbuildtoolsupgrade\scenario-instructions.md" />
     <None Include=".github\upgrades\scenarios\cppbuildtoolsupgrade\assessment.md" />
-    <None Include="DeferredPBR.vert" />
-    <None Include="DeferredPBR.frag" />
     <None Include="BuildCompute.bat">
       <Filter>Source Files</Filter>
     </None>
@@ -343,6 +341,12 @@
       <Filter>Shaders</Filter>
     </None>
     <None Include="VolumetricClouds.comp">
+      <Filter>Shaders</Filter>
+    </None>
+    <None Include="DeferredPBR.frag">
+      <Filter>Shaders</Filter>
+    </None>
+    <None Include="DeferredPBR.vert">
       <Filter>Shaders</Filter>
     </None>
   </ItemGroup>

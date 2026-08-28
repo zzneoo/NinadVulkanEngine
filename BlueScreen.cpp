@@ -2477,7 +2477,7 @@ VkResult initialize(void)
     compileShaderVS_FS("PreviewImage");
     compileShaderVS_FS("DeferredPBR");
     compileShaderTS_MS_FS("Meshlet");
-    compileShaderCS("TextureGradient");
+    //compileShaderCS("TextureGradient");
     compileShaderCS("VolumetricClouds");
 
 
@@ -6437,6 +6437,8 @@ VkResult updateUniformBuffer_frameData(uint32_t curIndex)
 
     glm::mat4 ViewProj = Proj * View;
 
+    glm::mat4 inverseViewProj = glm::inverse(ViewProj);
+
     glm::vec4 row0 =glm::vec4(ViewProj[0][0],ViewProj[1][0],ViewProj[2][0],ViewProj[3][0]);
     glm::vec4 row1 =glm::vec4(ViewProj[0][1],ViewProj[1][1],ViewProj[2][1],ViewProj[3][1]);
     glm::vec4 row2 =glm::vec4(ViewProj[0][2],ViewProj[1][2],ViewProj[2][2],ViewProj[3][2]);
@@ -6462,6 +6464,7 @@ VkResult updateUniformBuffer_frameData(uint32_t curIndex)
     uniformTransformBufferObject_frameData.view = View; // view matrix
     uniformTransformBufferObject_frameData.proj = Proj; // projection matrix
     uniformTransformBufferObject_frameData.prevViewProj = MyWin32::gPrevViewProjMatrix;
+    uniformTransformBufferObject_frameData.inverseViewProj = inverseViewProj;
     uniformTransformBufferObject_frameData.cameraPos = camera.GetCameraPos(); // camera position
     uniformTransformBufferObject_frameData.sunDir = sunDirection;
 
@@ -8351,8 +8354,8 @@ VkResult buildCommandBuffers(uint32_t curIndex, uint32_t currentImageIndex)
 
     vkCmdBeginRendering(gFrames[curIndex].commandBuffer,&deferredRenderingInfo);
 
-    RenderFullscreenQuad(curIndex); // Render the fullscreen quad
-    //RenderFullscreenPBRQuad(curIndex, currentImageIndex); // Render the fullscreen quad
+    //RenderFullscreenQuad(curIndex); // Render the fullscreen quad
+    RenderFullscreenPBRQuad(curIndex, currentImageIndex); // Render the fullscreen quad
 
 
 #ifdef IMGUI_ENABLE

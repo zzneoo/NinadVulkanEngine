@@ -62,8 +62,7 @@ void main()
 		return;
 	}
 
-	mat4 inverseViewProjection = inverse(global.proj * global.view);
-	vec4 worldPosition = inverseViewProjection * vec4(v2TexCoord * 2.0 - 1.0, depth, 1.0);
+	vec4 worldPosition = global.inverseViewProj * vec4(v2TexCoord * 2.0 - 1.0, depth, 1.0);
 	worldPosition /= worldPosition.w;
 
 	vec3 albedo = albedoSample.rgb;

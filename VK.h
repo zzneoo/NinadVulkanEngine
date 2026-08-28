@@ -19,6 +19,7 @@ struct UniformBufferObject_FrameData
 	glm::mat4 view;
 	glm::mat4 proj;
 	glm::mat4 prevViewProj;
+	glm::mat4 inverseViewProj;
 
 	glm::vec3 sunDir;
     float fTime;
