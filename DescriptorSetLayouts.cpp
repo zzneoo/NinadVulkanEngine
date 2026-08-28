@@ -301,74 +301,7 @@ VkResult DescriptorSetLayouts::createDescriptorSetLayout_GlobalTextureArray(void
 
 //--------------------------------------------------------------------------------------------
 
-VkResult DescriptorSetLayouts::createDescriptorSetLayouts(void)
-{
-
-    VkResult vkResult = VK_SUCCESS;
-
-    vkResult = createDescriptorSetLayout_FrameData();
-    if (vkResult != VK_SUCCESS)
-    {
-        fprintf(gpFILE, "initialize() : createDescriptorSetLayout_FrameData() failed (%d).\n", vkResult);
-        return(vkResult);
-    }
-
-	vkResult = createDescriptorSetLayout_FrameDataBoneData();
-	if (vkResult != VK_SUCCESS)
-	{
-		fprintf(gpFILE, "initialize() : createDescriptorSetLayout_FrameDataBoneData() failed (%d).\n", vkResult);
-		return(vkResult);
-	}
-
-    //descriptor set layout for impostor
-    vkResult = createDescriptorSetLayout_SingleImage();
-    if (vkResult != VK_SUCCESS)
-    {
-        fprintf(gpFILE, "initialize() : createDescriptorSetLayout_CamImage() failed (%d).\n", vkResult);
-        return(vkResult);
-    }
-
-    //descriptor set layout for albedo normal
-    vkResult = createDescriptorSetLayout_AlbedoNormal();
-    if (vkResult != VK_SUCCESS)
-    {
-        fprintf(gpFILE, "initialize() : createDescriptorSetLayout_AlbedoNormal() failed (%d).\n", vkResult);
-        return(vkResult);
-    }
-
-    //descriptor set layout for PBR basic
-    vkResult = createDescriptorSetLayout_BasicPBR();
-    if (vkResult != VK_SUCCESS)
-    {
-        fprintf(gpFILE, "initialize() : createDescriptorSetLayout_BasicPBR() failed (%d).\n", vkResult);
-        return(vkResult);
-    }
-
-	//descriptor set layout for global texture array
-	vkResult = createDescriptorSetLayout_GlobalTextureArray();
-    if (vkResult != VK_SUCCESS)
-    {
-        fprintf(gpFILE, "initialize() : createDescriptorSetLayout_GlobalTextureArray() failed (%d).\n", vkResult);
-        return vkResult;
-    }
-
-    vkResult = createDescriptorSetLayout_GBuffer();
-    if (vkResult != VK_SUCCESS)
-    {
-        fprintf(gpFILE, "initialize() : createDescriptorSetLayout_GBuffer() failed (%d).\n", vkResult);
-        return vkResult;
-    }
-
-    vkResult = createDescriptorSetLayout_ComputeStorageImage();
-    if (vkResult != VK_SUCCESS)
-    {
-        fprintf(gpFILE, "initialize() : createDescriptorSetLayout_ComputeStorageImage() failed (%d).\n", vkResult);
-        return vkResult;
-    }
-
-
-    return vkResult;
-}
+//Compute
 
 VkResult DescriptorSetLayouts::createDescriptorSetLayout_ComputeStorageImage(void)
 {
@@ -381,61 +314,149 @@ VkResult DescriptorSetLayouts::createDescriptorSetLayout_ComputeStorageImage(voi
     return createDescriptorSetLayout(&binding, 1, &vkDescriptorSetLayout_ComputeStorageImage);
 }
 
-void DescriptorSetLayouts::destroyDescriptorSetLayouts(void)
+VkResult DescriptorSetLayouts::createDescriptorSetLayout_VolumetricClouds(void)
 {
-    //descriptorSetLayout for frameData
-    if (vkDescriptorSetLayout_frameData)
+
+    // variable declarations
+    VkResult vkResult = VK_SUCCESS;
+    VkDescriptorSetLayoutBinding vkDescriptorSetLayoutBinding_Array[2]{};
+    vkDescriptorSetLayoutBinding_Array[0].binding = 0; // binding index
+    vkDescriptorSetLayoutBinding_Array[0].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE; // descriptor type
+    vkDescriptorSetLayoutBinding_Array[0].descriptorCount = 1; // number of descriptors
+    vkDescriptorSetLayoutBinding_Array[0].stageFlags = VK_SHADER_STAGE_COMPUTE_BIT; // stage flags for the descriptor set layout binding
+    vkDescriptorSetLayoutBinding_Array[0].pImmutableSamplers = NULL; // no immutable samplers
+
+    vkDescriptorSetLayoutBinding_Array[1].binding = 1; // binding index
+    vkDescriptorSetLayoutBinding_Array[1].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER; // descriptor type
+    vkDescriptorSetLayoutBinding_Array[1].descriptorCount = 1; // number of descriptors
+    vkDescriptorSetLayoutBinding_Array[1].stageFlags = VK_SHADER_STAGE_COMPUTE_BIT; // stage flags for the descriptor set layout binding
+    vkDescriptorSetLayoutBinding_Array[1].pImmutableSamplers = NULL; // no immutable samplers
+    // code
+    VkDescriptorSetLayoutCreateInfo vkDescriptorSetLayoutCreateInfo{};
+    vkDescriptorSetLayoutCreateInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
+    vkDescriptorSetLayoutCreateInfo.pNext = NULL;
+    vkDescriptorSetLayoutCreateInfo.flags = 0;
+    vkDescriptorSetLayoutCreateInfo.bindingCount = 2;
+    vkDescriptorSetLayoutCreateInfo.pBindings = vkDescriptorSetLayoutBinding_Array; // pointer to the descriptor set layout binding array
+    vkResult = vkCreateDescriptorSetLayout(gVulkanContext.vkDevice, &vkDescriptorSetLayoutCreateInfo, NULL, &vkDescriptorSetLayout_VolumetricClouds);
+    if (vkResult != VK_SUCCESS)
     {
-        vkDestroyDescriptorSetLayout(gVulkanContext.vkDevice, vkDescriptorSetLayout_frameData, NULL);
-        vkDescriptorSetLayout_frameData = VK_NULL_HANDLE;
+        fprintf(gpFILE, "createDescriptorSetLayout_VolumetricClouds() -> vkCreateDescriptorSetLayout() :  failed: %d.\n", vkResult);
+        return(vkResult);
     }
 
-    if (vkDescriptorSetLayout_frameDataBoneData)
+    return vkResult;
+}
+
+//---------------------------------------------------------------------------------------------
+
+VkResult DescriptorSetLayouts::createDescriptorSetLayouts(void)
+{
+
+    VkResult vkResult = VK_SUCCESS;
+
+    vkResult = createDescriptorSetLayout_FrameData();
+    if (vkResult != VK_SUCCESS)
     {
-        vkDestroyDescriptorSetLayout(gVulkanContext.vkDevice, vkDescriptorSetLayout_frameDataBoneData, NULL);
-        vkDescriptorSetLayout_frameDataBoneData = VK_NULL_HANDLE;
+        fprintf(gpFILE, " createDescriptorSetLayout_FrameData() failed (%d).\n", vkResult);
+        return(vkResult);
+    }
+    vkDescriptorSetLayoutList.push_back(vkDescriptorSetLayout_frameData);
+
+	vkResult = createDescriptorSetLayout_FrameDataBoneData();
+	if (vkResult != VK_SUCCESS)
+	{
+		fprintf(gpFILE, " createDescriptorSetLayout_FrameDataBoneData() failed (%d).\n", vkResult);
+		return(vkResult);
 	}
+    vkDescriptorSetLayoutList.push_back(vkDescriptorSetLayout_frameDataBoneData);
 
     //descriptor set layout for impostor
-    if (vkDescriptorSetLayout_SingleImage)
+    vkResult = createDescriptorSetLayout_SingleImage();
+    if (vkResult != VK_SUCCESS)
     {
-        vkDestroyDescriptorSetLayout(gVulkanContext.vkDevice, vkDescriptorSetLayout_SingleImage, NULL);
-        vkDescriptorSetLayout_SingleImage = VK_NULL_HANDLE;
+        fprintf(gpFILE, " createDescriptorSetLayout_CamImage() failed (%d).\n", vkResult);
+        return(vkResult);
     }
+    vkDescriptorSetLayoutList.push_back(vkDescriptorSetLayout_SingleImage);
 
-    //descriptor set layout for Albedo Normal
-    if (vkDescriptorSetLayout_AlbedoNormal)
+    //descriptor set layout for albedo normal
+    vkResult = createDescriptorSetLayout_AlbedoNormal();
+    if (vkResult != VK_SUCCESS)
     {
-        vkDestroyDescriptorSetLayout(gVulkanContext.vkDevice, vkDescriptorSetLayout_AlbedoNormal, NULL);
-        vkDescriptorSetLayout_AlbedoNormal = VK_NULL_HANDLE;
+        fprintf(gpFILE, " createDescriptorSetLayout_AlbedoNormal() failed (%d).\n", vkResult);
+        return(vkResult);
     }
+    vkDescriptorSetLayoutList.push_back(vkDescriptorSetLayout_AlbedoNormal);
 
-    //descriptor set layout for PBR
-    if (vkDescriptorSetLayout_BasicPBR)
+    //descriptor set layout for PBR basic
+    vkResult = createDescriptorSetLayout_BasicPBR();
+    if (vkResult != VK_SUCCESS)
     {
-        vkDestroyDescriptorSetLayout(gVulkanContext.vkDevice, vkDescriptorSetLayout_BasicPBR, NULL);
-        vkDescriptorSetLayout_BasicPBR = VK_NULL_HANDLE;
+        fprintf(gpFILE, " createDescriptorSetLayout_BasicPBR() failed (%d).\n", vkResult);
+        return(vkResult);
     }
+    vkDescriptorSetLayoutList.push_back(vkDescriptorSetLayout_BasicPBR);
 
 	//descriptor set layout for global texture array
-    if (vkDescriptorSetLayout_GlobalTextureArray)
+	vkResult = createDescriptorSetLayout_GlobalTextureArray();
+    if (vkResult != VK_SUCCESS)
     {
-        vkDestroyDescriptorSetLayout(gVulkanContext.vkDevice, vkDescriptorSetLayout_GlobalTextureArray, NULL);
-        vkDescriptorSetLayout_GlobalTextureArray = VK_NULL_HANDLE;
-	}
+        fprintf(gpFILE, " createDescriptorSetLayout_GlobalTextureArray() failed (%d).\n", vkResult);
+        return vkResult;
+    }
+    vkDescriptorSetLayoutList.push_back(vkDescriptorSetLayout_GlobalTextureArray);
 
-    if (vkDescriptorSetLayout_GBuffer)
+    vkResult = createDescriptorSetLayout_GBuffer();
+    if (vkResult != VK_SUCCESS)
     {
-        vkDestroyDescriptorSetLayout(gVulkanContext.vkDevice, vkDescriptorSetLayout_GBuffer, NULL);
-        vkDescriptorSetLayout_GBuffer = VK_NULL_HANDLE;
+        fprintf(gpFILE, " createDescriptorSetLayout_GBuffer() failed (%d).\n", vkResult);
+        return vkResult;
+    }
+    vkDescriptorSetLayoutList.push_back(vkDescriptorSetLayout_GBuffer);
 
+    vkResult = createDescriptorSetLayout_ComputeStorageImage();
+    if (vkResult != VK_SUCCESS)
+    {
+        fprintf(gpFILE, " createDescriptorSetLayout_ComputeStorageImage() failed (%d).\n", vkResult);
+        return vkResult;
+    }
+    vkDescriptorSetLayoutList.push_back(vkDescriptorSetLayout_ComputeStorageImage);
+
+    //volumetric clouds
+    
+    vkResult = createDescriptorSetLayout_VolumetricClouds();
+    if (vkResult != VK_SUCCESS)
+    {
+        fprintf(gpFILE, " createDescriptorSetLayout_VolumetricClouds() failed (%d).\n", vkResult);
+        return vkResult;
+    }
+    vkDescriptorSetLayoutList.push_back(vkDescriptorSetLayout_VolumetricClouds);
+
+    return vkResult;
+}
+
+
+
+
+void DescriptorSetLayouts::destroyDescriptorSetLayouts(void)
+{
+    // destroy vkPipelineList
+    for (int32_t i = (int32_t)vkDescriptorSetLayoutList.size() - 1; i >= 0; i--)
+    {
+        if (vkDescriptorSetLayoutList[i])
+        {
+            vkDestroyDescriptorSetLayout(
+                gVulkanContext.vkDevice,
+                vkDescriptorSetLayoutList[i],
+                NULL
+            );
+
+            vkDescriptorSetLayoutList[i] = VK_NULL_HANDLE;
+        }
     }
 
-    if (vkDescriptorSetLayout_ComputeStorageImage)
-    {
-        vkDestroyDescriptorSetLayout(gVulkanContext.vkDevice, vkDescriptorSetLayout_ComputeStorageImage, NULL);
-        vkDescriptorSetLayout_ComputeStorageImage = VK_NULL_HANDLE;
-    }
+    vkDescriptorSetLayoutList.clear();
 
 }
 

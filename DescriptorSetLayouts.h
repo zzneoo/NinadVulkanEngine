@@ -22,6 +22,7 @@ public:
 	VkDescriptorSetLayout vkDescriptorSetLayout_GlobalTextureArray = VK_NULL_HANDLE;
 	VkDescriptorSetLayout vkDescriptorSetLayout_GBuffer = VK_NULL_HANDLE;
 	VkDescriptorSetLayout vkDescriptorSetLayout_ComputeStorageImage = VK_NULL_HANDLE;
+	VkDescriptorSetLayout vkDescriptorSetLayout_VolumetricClouds = VK_NULL_HANDLE;
 
 	VkResult vkResult;
 
@@ -37,8 +38,9 @@ private:
 	VkResult createDescriptorSetLayout_GlobalTextureArray(void);
 	VkResult createDescriptorSetLayout_GBuffer(void);
 	VkResult createDescriptorSetLayout_ComputeStorageImage(void);
+	VkResult createDescriptorSetLayout_VolumetricClouds(void);
 
-
+	std::vector<VkDescriptorSetLayout> vkDescriptorSetLayoutList;
 };
 
 extern DescriptorSetLayouts* gpDescriptorSetLayouts;

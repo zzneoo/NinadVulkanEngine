@@ -22,13 +22,13 @@ VolumetricClouds::VolumetricClouds()
     }
 
 
-    ////Initial Layout transitions
-    //res = InitialLayoutTransitions();
-    //if (res != VK_SUCCESS)
-    //{
-    //    fprintf(gpFILE, "VolumetricClouds() : InitialLayoutTransitions() failed (%d).\n", vkResult);
-    //    vkResult = res;
-    //}
+    //Initial Layout transitions
+    res = InitialLayoutTransitions();
+    if (res != VK_SUCCESS)
+    {
+        fprintf(gpFILE, "VolumetricClouds() : InitialLayoutTransitions() failed (%d).\n", vkResult);
+        vkResult = res;
+    }
 }
 
 VolumetricClouds::~VolumetricClouds()
@@ -73,7 +73,7 @@ VkResult VolumetricClouds::CreateCloudTexture(
         VK_IMAGE_USAGE_STORAGE_BIT |
         VK_IMAGE_USAGE_SAMPLED_BIT;
     imageInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
-    imageInfo.initialLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+    imageInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
 
     VkResult result = vkCreateImage(
         gVulkanContext.vkDevice,
@@ -419,11 +419,9 @@ VkResult VolumetricClouds::CreateDescriptorSet_VolumetricClouds()
     VkDescriptorSetAllocateInfo allocInfo{
         VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO
     };
-
     allocInfo.descriptorPool = vkDescriptorPool;
     allocInfo.descriptorSetCount = 1;
-    allocInfo.pSetLayouts =
-        &gpDescriptorSetLayouts->vkDescriptorSetLayout_ComputeStorageImage;
+    allocInfo.pSetLayouts = &gpDescriptorSetLayouts->vkDescriptorSetLayout_VolumetricClouds;
 
     VkResult result = vkAllocateDescriptorSets(
         gVulkanContext.vkDevice,
@@ -433,28 +431,39 @@ VkResult VolumetricClouds::CreateDescriptorSet_VolumetricClouds()
     if (result != VK_SUCCESS)
         return result;
 
-    VkDescriptorImageInfo imageInfo{};
-    imageInfo.imageView =
-        imageData_Clouds.vkImageView;
+    // Binding 0: Storage Image
+    VkDescriptorImageInfo storageImageInfo{};
+    storageImageInfo.imageView = imageData_Clouds.vkImageView;
+    storageImageInfo.imageLayout = VK_IMAGE_LAYOUT_GENERAL;
 
-    imageInfo.imageLayout =
-        VK_IMAGE_LAYOUT_GENERAL;
+    // Binding 1: Combined Image Sampler
+    VkDescriptorImageInfo sampledImageInfo{};
+    //sampledImageInfo.sampler = imageData_Noise.vkSampler; // Provide your sampler handle here
+    //sampledImageInfo.imageView = imageData_Noise.vkImageView;
+    sampledImageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 
-    VkWriteDescriptorSet write{
-        VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET
-    };
+    VkWriteDescriptorSet writes[2]{};
 
-    write.dstSet = vkDescriptorSet_VolumetricClouds;
-    write.dstBinding = 0;
-    write.descriptorCount = 1;
-    write.descriptorType =
-        VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
-    write.pImageInfo = &imageInfo;
+    // Write for Binding 0
+    writes[0].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+    writes[0].dstSet = vkDescriptorSet_VolumetricClouds;
+    writes[0].dstBinding = 0;
+    writes[0].descriptorCount = 1;
+    writes[0].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
+    writes[0].pImageInfo = &storageImageInfo;
+
+    // Write for Binding 1
+    writes[1].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+    writes[1].dstSet = vkDescriptorSet_VolumetricClouds;
+    writes[1].dstBinding = 1;
+    writes[1].descriptorCount = 1;
+    writes[1].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+    writes[1].pImageInfo = &sampledImageInfo;
 
     vkUpdateDescriptorSets(
         gVulkanContext.vkDevice,
-        1,
-        &write,
+        1,              // Count of writes updated
+        writes,
         0,
         nullptr);
 
