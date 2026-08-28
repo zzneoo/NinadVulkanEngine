@@ -32,49 +32,110 @@ printVkInfo() : Device ID   = 0x2684
 fillDeviceExtensionNames() : Enabled Vulkan device extension name = VK_KHR_swapchain
 fillDeviceExtensionNames() : Enabled Vulkan device extension name = VK_EXT_mesh_shader
 -------------------------------------------------------------------------------------
+NDT_Validation [WARNING]: vkGetDeviceProcAddr(): pName is trying to grab vkCreateInstance which is an instance level function
+NDT_Validation [WARNING]: vkGetDeviceProcAddr(): pName is trying to grab vkGetPhysicalDeviceProperties which is an instance level function
+NDT_Validation [WARNING]: vkGetDeviceProcAddr(): pName is trying to grab vkGetPhysicalDeviceQueueFamilyProperties which is an instance level function
+NDT_Validation [WARNING]: vkGetDeviceProcAddr(): pName is trying to grab vkGetPhysicalDeviceMemoryProperties which is an instance level function
+NDT_Validation [WARNING]: vkGetDeviceProcAddr(): pName is trying to grab vkGetInstanceProcAddr which is an instance level function
+NDT_Validation [WARNING]: vkGetDeviceProcAddr(): pName is trying to grab vkCreateDevice which is an instance level function
+NDT_Validation [WARNING]: vkGetDeviceProcAddr(): pName is trying to grab vkEnumerateDeviceExtensionProperties which is an instance level function
+NDT_Validation [WARNING]: vkGetDeviceProcAddr(): pName is trying to grab vkGetPhysicalDeviceFeatures2 which is an instance level function
+NDT_Validation [WARNING]: vkGetDeviceProcAddr(): pName is trying to grab vkGetPhysicalDeviceProperties2 which is an instance level function
+NDT_Validation [WARNING]: (Warning - This VUID has now been reported 10 times, which is the duplicate_message_limit value, this will be the last time reporting it).
+vkGetDeviceProcAddr(): pName is trying to grab vkGetPhysicalDeviceToolProperties which is an instance level function
+NDT_Validation [ERROR]: vkResetQueryPool(): hostQueryReset feature was not enabled.
+The Vulkan spec states: The hostQueryReset feature must be enabled (https://docs.vulkan.org/spec/latest/chapters/queries.html#VUID-vkResetQueryPool-None-02665)
+NDT_Validation [ERROR]: vkResetQueryPool(): hostQueryReset feature was not enabled.
+The Vulkan spec states: The hostQueryReset feature must be enabled (https://docs.vulkan.org/spec/latest/chapters/queries.html#VUID-vkResetQueryPool-None-02665)
+NDT_Validation [ERROR]: vkResetQueryPool(): hostQueryReset feature was not enabled.
+The Vulkan spec states: The hostQueryReset feature must be enabled (https://docs.vulkan.org/spec/latest/chapters/queries.html#VUID-vkResetQueryPool-None-02665)
+NDT_Validation [ERROR]: vkResetQueryPool(): hostQueryReset feature was not enabled.
+The Vulkan spec states: The hostQueryReset feature must be enabled (https://docs.vulkan.org/spec/latest/chapters/queries.html#VUID-vkResetQueryPool-None-02665)
+NDT_Validation [ERROR]: vkResetQueryPool(): hostQueryReset feature was not enabled.
+The Vulkan spec states: The hostQueryReset feature must be enabled (https://docs.vulkan.org/spec/latest/chapters/queries.html#VUID-vkResetQueryPool-None-02665)
+NDT_Validation [ERROR]: vkResetQueryPool(): hostQueryReset feature was not enabled.
+The Vulkan spec states: The hostQueryReset feature must be enabled (https://docs.vulkan.org/spec/latest/chapters/queries.html#VUID-vkResetQueryPool-None-02665)
+NDT_Validation [ERROR]: vkResetQueryPool(): hostQueryReset feature was not enabled.
+The Vulkan spec states: The hostQueryReset feature must be enabled (https://docs.vulkan.org/spec/latest/chapters/queries.html#VUID-vkResetQueryPool-None-02665)
+NDT_Validation [ERROR]: vkResetQueryPool(): hostQueryReset feature was not enabled.
+The Vulkan spec states: The hostQueryReset feature must be enabled (https://docs.vulkan.org/spec/latest/chapters/queries.html#VUID-vkResetQueryPool-None-02665)
 createSwapchain() : minImageCount = 2, maxImageCount = 8
 createSwapchain() : (1) Swapchain Image width x height = 2528 x 1352
 createImagesAndImageViews() : gives swapchain image count = 2
 createSamplers() : Samplers created successfully.
+NDT_Validation [ERROR]: vkCmdWriteTimestamp(): VkQueryPool 0x30000000003 and query 0: query not reset. After query pool creation, each query must be reset (with vkCmdResetQueryPool or vkResetQueryPool) before it is used. Queries must also be reset between uses.
+The Vulkan spec states: All queries used by the command must be unavailable (https://docs.vulkan.org/spec/latest/chapters/queries.html#VUID-vkCmdWriteTimestamp-None-00830)
+NDT_Validation [ERROR]: vkCmdWriteTimestamp(): VkQueryPool 0x30000000003 and query 1: query not reset. After query pool creation, each query must be reset (with vkCmdResetQueryPool or vkResetQueryPool) before it is used. Queries must also be reset between uses.
+The Vulkan spec states: All queries used by the command must be unavailable (https://docs.vulkan.org/spec/latest/chapters/queries.html#VUID-vkCmdWriteTimestamp-None-00830)
 
 Success: Loaded image 'Resources/StockTextures/lion.png' ( 1600 x 1500 ), 4 channels
 
+NDT_Validation [ERROR]: vkCmdWriteTimestamp(): VkQueryPool 0x30000000003 and query 2: query not reset. After query pool creation, each query must be reset (with vkCmdResetQueryPool or vkResetQueryPool) before it is used. Queries must also be reset between uses.
+The Vulkan spec states: All queries used by the command must be unavailable (https://docs.vulkan.org/spec/latest/chapters/queries.html#VUID-vkCmdWriteTimestamp-None-00830)
+NDT_Validation [ERROR]: vkCmdWriteTimestamp(): VkQueryPool 0x30000000003 and query 3: query not reset. After query pool creation, each query must be reset (with vkCmdResetQueryPool or vkResetQueryPool) before it is used. Queries must also be reset between uses.
+The Vulkan spec states: All queries used by the command must be unavailable (https://docs.vulkan.org/spec/latest/chapters/queries.html#VUID-vkCmdWriteTimestamp-None-00830)
 loadTextureData() : Texture image loaded successfully.
 
 Success: Loaded image 'Resources/StockTextures/border.png' ( 1600 x 941 ), 4 channels
 
+NDT_Validation [ERROR]: vkCmdWriteTimestamp(): VkQueryPool 0x30000000003 and query 4: query not reset. After query pool creation, each query must be reset (with vkCmdResetQueryPool or vkResetQueryPool) before it is used. Queries must also be reset between uses.
+The Vulkan spec states: All queries used by the command must be unavailable (https://docs.vulkan.org/spec/latest/chapters/queries.html#VUID-vkCmdWriteTimestamp-None-00830)
+NDT_Validation [ERROR]: vkCmdWriteTimestamp(): VkQueryPool 0x30000000003 and query 5: query not reset. After query pool creation, each query must be reset (with vkCmdResetQueryPool or vkResetQueryPool) before it is used. Queries must also be reset between uses.
+The Vulkan spec states: All queries used by the command must be unavailable (https://docs.vulkan.org/spec/latest/chapters/queries.html#VUID-vkCmdWriteTimestamp-None-00830)
 loadTextureData() : Texture image loaded successfully.
+NDT_Validation [ERROR]: vkCmdWriteTimestamp(): VkQueryPool 0x30000000003 and query 6: query not reset. After query pool creation, each query must be reset (with vkCmdResetQueryPool or vkResetQueryPool) before it is used. Queries must also be reset between uses.
+The Vulkan spec states: All queries used by the command must be unavailable (https://docs.vulkan.org/spec/latest/chapters/queries.html#VUID-vkCmdWriteTimestamp-None-00830)
+NDT_Validation [ERROR]: vkCmdWriteTimestamp(): VkQueryPool 0x30000000003 and query 7: query not reset. After query pool creation, each query must be reset (with vkCmdResetQueryPool or vkResetQueryPool) before it is used. Queries must also be reset between uses.
+The Vulkan spec states: All queries used by the command must be unavailable (https://docs.vulkan.org/spec/latest/chapters/queries.html#VUID-vkCmdWriteTimestamp-None-00830)
 loadTextureData_dds_c_bc7(): Loaded 'Resources/Impostors/BlackAlder_Field_02/T_Impostor_BaseColor_Field_02_Summer.dds' w=4096 h=4096 mips=1 layers=1 (BC7)
+NDT_Validation [ERROR]: vkCmdWriteTimestamp(): VkQueryPool 0x30000000003 and query 8: query not reset. After query pool creation, each query must be reset (with vkCmdResetQueryPool or vkResetQueryPool) before it is used. Queries must also be reset between uses.
+The Vulkan spec states: All queries used by the command must be unavailable (https://docs.vulkan.org/spec/latest/chapters/queries.html#VUID-vkCmdWriteTimestamp-None-00830)
+NDT_Validation [ERROR]: (Warning - This VUID has now been reported 10 times, which is the duplicate_message_limit value, this will be the last time reporting it).
+vkCmdWriteTimestamp(): VkQueryPool 0x30000000003 and query 9: query not reset. After query pool creation, each query must be reset (with vkCmdResetQueryPool or vkResetQueryPool) before it is used. Queries must also be reset between uses.
+The Vulkan spec states: All queries used by the command must be unavailable (https://docs.vulkan.org/spec/latest/chapters/queries.html#VUID-vkCmdWriteTimestamp-None-00830)
 loadTextureData_dds_c_bc7(): Loaded 'Resources/Impostors/BlackAlder_Field_02/T_Impostor_Normal_Field_02_Summer.dds' w=4096 h=4096 mips=13 layers=1 (BC7)
+loadTextureData_dds_c_bc7(): Loaded 'C:/Users/Ninad/source/repos/BlueScreen/Resources/PBR_Materials/Default\Albedo.dds' w=32 h=32 mips=1 layers=1 (BC7)
+loadTextureData_dds_c_bc5_normal(): Loaded 'C:/Users/Ninad/source/repos/BlueScreen/Resources/PBR_Materials/Default\Normal.dds' w=32 h=32 mips=1 layers=1 (BC5)
+loadTextureData_dds_c_bc7(): Loaded 'C:/Users/Ninad/source/repos/BlueScreen/Resources/PBR_Materials/Default\ORM.dds' w=32 h=32 mips=1 layers=1 (BC7)
 loadTextureData_dds_c_bc7(): Loaded 'E:\ZzNeO_Engine_new\ZzNeO_Engine\Everything\Resources\Models\RAT\Textures\Skin_4_White\Albedo.dds' w=4096 h=4096 mips=13 layers=1 (BC7)
 loadTextureData_dds_c_bc5_normal(): Loaded 'E:\ZzNeO_Engine_new\ZzNeO_Engine\Everything\Resources\Models\RAT\Textures\Skin_4_White\Normal.dds' w=4096 h=4096 mips=13 layers=1 (BC5)
-loadTextureData_dds_c_bc7(): Loaded 'E:\ZzNeO_Engine_new\ZzNeO_Engine\Everything\Resources\Models\RAT\Textures\Skin_4_White\ORX.dds' w=4096 h=4096 mips=13 layers=1 (BC7)
+loadTextureData_dds_c_bc7(): Loaded 'E:\ZzNeO_Engine_new\ZzNeO_Engine\Everything\Resources\Models\RAT\Textures\Skin_4_White\ORM.dds' w=4096 h=4096 mips=13 layers=1 (BC7)
 loadTextureData_dds_c_bc7(): Loaded 'C:\Users\Ninad\source\repos\BlueScreen\Resources\Models\Ganesha\Albedo.dds' w=4096 h=4096 mips=13 layers=1 (BC7)
 loadTextureData_dds_c_bc5_normal(): Loaded 'C:\Users\Ninad\source\repos\BlueScreen\Resources\Models\Ganesha\Normal.dds' w=4096 h=4096 mips=13 layers=1 (BC5)
-loadTextureData_dds_c_bc7(): Loaded 'C:\Users\Ninad\source\repos\BlueScreen\Resources\Models\Ganesha\ORX.dds' w=4096 h=4096 mips=13 layers=1 (BC7)
+loadTextureData_dds_c_bc7(): Loaded 'C:\Users\Ninad\source\repos\BlueScreen\Resources\Models\Ganesha\ORM.dds' w=4096 h=4096 mips=13 layers=1 (BC7)
 StaticModel::LoadModel_Static_PBR() : Loaded static model successfully. Meshes=1 Vertices=6976 Faces=13272 Indices=39816.
 loadTextureData_dds_c_bc7(): Loaded 'C:\Users\Ninad\source\repos\BlueScreen\Resources\Models\Ganesha\Albedo.dds' w=4096 h=4096 mips=13 layers=1 (BC7)
 loadTextureData_dds_c_bc5_normal(): Loaded 'C:\Users\Ninad\source\repos\BlueScreen\Resources\Models\Ganesha\Normal.dds' w=4096 h=4096 mips=13 layers=1 (BC5)
-loadTextureData_dds_c_bc7(): Loaded 'C:\Users\Ninad\source\repos\BlueScreen\Resources\Models\Ganesha\ORX.dds' w=4096 h=4096 mips=13 layers=1 (BC7)
+loadTextureData_dds_c_bc7(): Loaded 'C:\Users\Ninad\source\repos\BlueScreen\Resources\Models\Ganesha\ORM.dds' w=4096 h=4096 mips=13 layers=1 (BC7)
 StaticMeshletModel::CreateMeshlets() : Generated 142 meshlets.
 StaticMeshletModel::CreateMeshlets() : Vertices=9054, Triangles=39816.
 loadTextureData_dds_c_bc7(): Loaded 'C:\Users\Ninad\source\repos\BlueScreen\Resources\Models\Ganesha\Albedo.dds' w=4096 h=4096 mips=13 layers=1 (BC7)
 loadTextureData_dds_c_bc5_normal(): Loaded 'C:\Users\Ninad\source\repos\BlueScreen\Resources\Models\Ganesha\Normal.dds' w=4096 h=4096 mips=13 layers=1 (BC5)
-loadTextureData_dds_c_bc7(): Loaded 'C:\Users\Ninad\source\repos\BlueScreen\Resources\Models\Ganesha\ORX.dds' w=4096 h=4096 mips=13 layers=1 (BC7)
+loadTextureData_dds_c_bc7(): Loaded 'C:\Users\Ninad\source\repos\BlueScreen\Resources\Models\Ganesha\ORM.dds' w=4096 h=4096 mips=13 layers=1 (BC7)
 StaticMeshletModel::CreateMeshlets() : Generated 142 meshlets.
 StaticMeshletModel::CreateMeshlets() : Vertices=9054, Triangles=39816.
 loadTextureData_dds_c_bc7(): Loaded 'C:\Users\Ninad\source\repos\BlueScreen\Resources\PBR_Materials\Stone_oxy_moss_water\Albedo.dds' w=4096 h=4096 mips=13 layers=1 (BC7)
 loadTextureData_dds_c_bc5_normal(): Loaded 'C:\Users\Ninad\source\repos\BlueScreen\Resources\PBR_Materials\Stone_oxy_moss_water\Normal.dds' w=4096 h=4096 mips=13 layers=1 (BC5)
-loadTextureData_dds_c_bc7(): Loaded 'C:\Users\Ninad\source\repos\BlueScreen\Resources\PBR_Materials\Stone_oxy_moss_water\ORX.dds' w=4096 h=4096 mips=13 layers=1 (BC7)
+loadTextureData_dds_c_bc7(): Loaded 'C:\Users\Ninad\source\repos\BlueScreen\Resources\PBR_Materials\Stone_oxy_moss_water\ORM.dds' w=4096 h=4096 mips=13 layers=1 (BC7)
 StaticMeshletModel::CreateMeshlets() : Generated 840 meshlets.
 StaticMeshletModel::CreateMeshlets() : Vertices=53737, Triangles=240000.
-StaticMeshletModel::CreateMeshletSSBOs() : Created device-local meshlet buffers. Vertices=54395 Meshlets=1124.
+loadTextureData_dds_c_bc7(): Loaded 'C:\Users\Ninad\source\repos\BlueScreen\Resources\PBR_Materials\Nordic_moss\Albedo.dds' w=4096 h=4096 mips=13 layers=1 (BC7)
+loadTextureData_dds_c_bc5_normal(): Loaded 'C:\Users\Ninad\source\repos\BlueScreen\Resources\PBR_Materials\Nordic_moss\Normal.dds' w=1 h=1 mips=1 layers=1 (BC5)
+loadTextureData_dds_c_bc7(): Loaded 'C:\Users\Ninad\source\repos\BlueScreen\Resources\PBR_Materials\Nordic_moss\ORM.dds' w=4096 h=4096 mips=13 layers=1 (BC7)
+loadTextureData_dds_c_bc7(): Loaded 'C:\Users\Ninad\source\repos\BlueScreen\Resources\PBR_Materials\T_omfr20_4K\Albedo.dds' w=4096 h=4096 mips=13 layers=1 (BC7)
+loadTextureData_dds_c_bc5_normal(): Loaded 'C:\Users\Ninad\source\repos\BlueScreen\Resources\PBR_Materials\T_omfr20_4K\Normal.dds' w=4096 h=4096 mips=13 layers=1 (BC5)
+loadTextureData_dds_c_bc7(): Loaded 'C:\Users\Ninad\source\repos\BlueScreen\Resources\PBR_Materials\T_omfr20_4K\ORM.dds' w=4096 h=4096 mips=13 layers=1 (BC7)
+StaticMeshletModel::CreateMeshlets() : Generated 11 meshlets.
+StaticMeshletModel::CreateMeshlets() : Vertices=685, Triangles=2904.
+StaticMeshletModel::CreateMeshlets() : Generated 244 meshlets.
+StaticMeshletModel::CreateMeshlets() : Vertices=16045, Triangles=18264.
+StaticMeshletModel::CreateMeshletSSBOs() : Created device-local meshlet buffers. Vertices=70310 Meshlets=1379.
 loadTextureData_dds_c_bc7(): Loaded 'Resources/PBR_Materials/T_omfr20_4K/Albedo.dds' w=4096 h=4096 mips=13 layers=1 (BC7)
 loadTextureData_dds_c_bc5_normal(): Loaded 'Resources/PBR_Materials/T_omfr20_4K/Normal.dds' w=4096 h=4096 mips=13 layers=1 (BC5)
-loadTextureData_dds_c_bc7(): Loaded 'Resources/PBR_Materials/T_omfr20_4K/ORX.dds' w=4096 h=4096 mips=13 layers=1 (BC7)
+loadTextureData_dds_c_bc7(): Loaded 'Resources/PBR_Materials/T_omfr20_4K/ORM.dds' w=4096 h=4096 mips=13 layers=1 (BC7)
 loadTextureData_dds_c_bc7(): Loaded 'Resources/PBR_Materials/T_sbykqdp0_4K/Albedo.dds' w=4096 h=4096 mips=13 layers=1 (BC7)
 loadTextureData_dds_c_bc5_normal(): Loaded 'Resources/PBR_Materials/T_sbykqdp0_4K/Normal.dds' w=4096 h=4096 mips=13 layers=1 (BC5)
-loadTextureData_dds_c_bc7(): Loaded 'Resources/PBR_Materials/T_sbykqdp0_4K/ORX.dds' w=4096 h=4096 mips=13 layers=1 (BC7)
+loadTextureData_dds_c_bc7(): Loaded 'Resources/PBR_Materials/T_sbykqdp0_4K/ORM.dds' w=4096 h=4096 mips=13 layers=1 (BC7)
 initialize() : initialize complete.
 -------------------------------------------------------------------------------------
 
@@ -85,21 +146,12 @@ WinMain() : initialize() succeeded.
 -------------------------------------------------------------------------------------
 -------------------------------------------------------------------------------------
 createSwapchain() : minImageCount = 2, maxImageCount = 8
+createSwapchain() : (1) Swapchain Image width x height = 2528 x 1352
+createImagesAndImageViews() : gives swapchain image count = 2
+createSwapchain() : minImageCount = 2, maxImageCount = 8
 createSwapchain() : (1) Swapchain Image width x height = 3840 x 2160
 createImagesAndImageViews() : gives swapchain image count = 2
 uninitialize() : ImGui uninitialization is done.
-NDT_Validation [ERROR]: vkDestroyDevice(): Object Tracking - For VkDevice 0x25726d700d0, VkDescriptorSetLayout 0x560000000056 has not been destroyed.
-The Vulkan spec states: All child objects created on device that can be destroyed or freed must have been destroyed or freed prior to destroying device (https://docs.vulkan.org/spec/latest/chapters/devsandqueues.html#VUID-vkDestroyDevice-device-05137)
-NDT_Validation [ERROR]: vkDestroyDevice(): Object Tracking - For VkDevice 0x25726d700d0, VkDescriptorSetLayout 0x570000000057 has not been destroyed.
-The Vulkan spec states: All child objects created on device that can be destroyed or freed must have been destroyed or freed prior to destroying device (https://docs.vulkan.org/spec/latest/chapters/devsandqueues.html#VUID-vkDestroyDevice-device-05137)
-NDT_Validation [ERROR]: vkDestroyDevice(): Object Tracking - For VkDevice 0x25726d700d0, VkDescriptorSetLayout 0x5b000000005b has not been destroyed.
-The Vulkan spec states: All child objects created on device that can be destroyed or freed must have been destroyed or freed prior to destroying device (https://docs.vulkan.org/spec/latest/chapters/devsandqueues.html#VUID-vkDestroyDevice-device-05137)
-NDT_Validation [ERROR]: vkDestroyDevice(): Object Tracking - For VkDevice 0x25726d700d0, VkDescriptorSetLayout 0x5a000000005a has not been destroyed.
-The Vulkan spec states: All child objects created on device that can be destroyed or freed must have been destroyed or freed prior to destroying device (https://docs.vulkan.org/spec/latest/chapters/devsandqueues.html#VUID-vkDestroyDevice-device-05137)
-NDT_Validation [ERROR]: vkDestroyDevice(): Object Tracking - For VkDevice 0x25726d700d0, VkDescriptorSetLayout 0x590000000059 has not been destroyed.
-The Vulkan spec states: All child objects created on device that can be destroyed or freed must have been destroyed or freed prior to destroying device (https://docs.vulkan.org/spec/latest/chapters/devsandqueues.html#VUID-vkDestroyDevice-device-05137)
-NDT_Validation [ERROR]: vkDestroyDevice(): Object Tracking - For VkDevice 0x25726d700d0, VkDescriptorSetLayout 0x580000000058 has not been destroyed.
-The Vulkan spec states: All child objects created on device that can be destroyed or freed must have been destroyed or freed prior to destroying device (https://docs.vulkan.org/spec/latest/chapters/devsandqueues.html#VUID-vkDestroyDevice-device-05137)
 -------------------------------------------------------------------------------------
 -------------------------------------------------------------------------------------
 uninitialize() : Program ended successfully.

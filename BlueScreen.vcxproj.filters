@@ -117,6 +117,12 @@
     <ClInclude Include="Renderer.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="ComputePipelines.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="VolumetricClouds.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="BlueScreen.cpp">
@@ -245,6 +251,12 @@
     <ClCompile Include="Renderer.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="ComputePipelines.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="VolumetricClouds.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="BlueScreen.rc">
@@ -324,5 +336,14 @@
     <None Include=".github\upgrades\scenarios\cppbuildtoolsupgrade\assessment.md" />
     <None Include="DeferredPBR.vert" />
     <None Include="DeferredPBR.frag" />
+    <None Include="BuildCompute.bat">
+      <Filter>Source Files</Filter>
+    </None>
+    <None Include="TextureGradient.comp">
+      <Filter>Shaders</Filter>
+    </None>
+    <None Include="VolumetricClouds.comp">
+      <Filter>Shaders</Filter>
+    </None>
   </ItemGroup>
 </Project>

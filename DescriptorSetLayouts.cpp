@@ -359,8 +359,26 @@ VkResult DescriptorSetLayouts::createDescriptorSetLayouts(void)
         return vkResult;
     }
 
+    vkResult = createDescriptorSetLayout_ComputeStorageImage();
+    if (vkResult != VK_SUCCESS)
+    {
+        fprintf(gpFILE, "initialize() : createDescriptorSetLayout_ComputeStorageImage() failed (%d).\n", vkResult);
+        return vkResult;
+    }
+
 
     return vkResult;
+}
+
+VkResult DescriptorSetLayouts::createDescriptorSetLayout_ComputeStorageImage(void)
+{
+    VkDescriptorSetLayoutBinding binding{};
+    binding.binding = 0;
+    binding.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
+    binding.descriptorCount = 1;
+    binding.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
+
+    return createDescriptorSetLayout(&binding, 1, &vkDescriptorSetLayout_ComputeStorageImage);
 }
 
 void DescriptorSetLayouts::destroyDescriptorSetLayouts(void)
@@ -413,4 +431,12 @@ void DescriptorSetLayouts::destroyDescriptorSetLayouts(void)
 
     }
 
+    if (vkDescriptorSetLayout_ComputeStorageImage)
+    {
+        vkDestroyDescriptorSetLayout(gVulkanContext.vkDevice, vkDescriptorSetLayout_ComputeStorageImage, NULL);
+        vkDescriptorSetLayout_ComputeStorageImage = VK_NULL_HANDLE;
+    }
+
 }
+
+

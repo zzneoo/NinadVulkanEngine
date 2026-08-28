@@ -62,11 +62,13 @@ using namespace tinyddsloader;
 
 #include "DescriptorSetLayouts.h"
 #include "GraphicsPipelines.h"
+#include "ComputePipelines.h"
 
 #include "StaticModel.h"
 #include "AnimatedModel.h"
 #include "StaticMeshletModel.h"
 #include "MeshletScene.h"
+#include "VolumetricClouds.h"
 
 // global function declarations
 LRESULT CALLBACK WndProc(HWND, UINT, WPARAM, LPARAM);
@@ -121,6 +123,8 @@ StaticMeshletModel* pModel_Meshlet_Ground = NULL;
 StaticMeshletModel* pModel_Meshlet_DoubleSuzanne = NULL;
 MeshletScene gMeshletScene;
 
+VolumetricClouds* clouds;
+
 
 const uint16_t triangle_indices[] =
 {
@@ -168,6 +172,10 @@ VkRect2D vkRect2D_Scissor;
 
 //All pipelines
 GraphicsPipelines* gpGraphicsPipelines = NULL;
+ComputePipelines* gpComputePipelines = NULL;
+
+ImageData computeGradientTexture;
+VkDescriptorSet vkDescriptorSet_ComputeStorageImage = VK_NULL_HANDLE;
 
 //Renderer
 Renderer* gpRenderer = nullptr;
@@ -764,6 +772,56 @@ void compileShaderTS_MS_FS(const char* shaderName)
     }
 }
 
+static void compileShaderCS(const char* shaderName)
+{
+    STARTUPINFOA si = { sizeof(si) };
+    PROCESS_INFORMATION pi{};
+
+    char command[256];
+
+    // Build the command line: cmd.exe /c "build.bat Impostor"
+    snprintf(command, sizeof(command), "cmd.exe /c \"buildCompute.bat %s\"", shaderName);
+
+    BOOL success = CreateProcessA(
+        NULL,           // App name (null if included in command line)
+        (LPSTR)command, // Command line (must be mutable)
+        NULL, NULL,     // Process/thread security
+        FALSE,          // Inherit handles
+        0,              // Creation flags
+        NULL,           // Environment
+        NULL,           // Current directory
+        &si, &pi
+    );
+
+    if (!success)
+    {
+        std::cerr << "Failed to run process: " << GetLastError() << std::endl;
+        exit(EXIT_FAILURE);
+    }
+
+    // Wait until the process exits
+    WaitForSingleObject(pi.hProcess, INFINITE);
+    CloseHandle(pi.hProcess);
+    CloseHandle(pi.hThread);
+
+    //------------verify if compute shader file exists----------------
+    char filename[256];
+    snprintf(filename, sizeof(filename), "%s.comp.spv", shaderName);
+    if (!file_exists(filename))
+    {
+        STARTUPINFOA sInfo = { sizeof(sInfo) };
+        PROCESS_INFORMATION pInfo;
+        snprintf(command, sizeof(command), "notepad.exe \"%s\"", "csCompileLog.txt");
+        CreateProcessA(NULL, command, NULL, NULL, FALSE, 0, NULL, NULL, &sInfo, &pInfo);
+
+        // Wait until the process exits
+        WaitForSingleObject(pInfo.hProcess, INFINITE);
+        CloseHandle(pInfo.hProcess);
+        CloseHandle(pInfo.hThread);
+        exit(EXIT_FAILURE);
+    }
+}
+
 static VkResult CreateGBufferImage(
     uint32_t width,
     uint32_t height,
@@ -1331,6 +1389,115 @@ VkResult LoadModel_Phong(const char* modelPath, VulkanComboData* vulkanComboData
     }
 
     return vkResult;
+}
+
+static VkResult CreateComputeGradientTexture(
+    uint32_t width,
+    uint32_t height,
+    VkFormat format,
+    ImageData& imageData)
+{
+    imageData = {};
+
+    VkImageCreateInfo imageInfo{};
+    imageInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
+    imageInfo.imageType = VK_IMAGE_TYPE_2D;
+    imageInfo.format = format;
+    imageInfo.extent = { width, height, 1 };
+    imageInfo.mipLevels = 1;
+    imageInfo.arrayLayers = 1;
+    imageInfo.samples = VK_SAMPLE_COUNT_1_BIT;
+    imageInfo.tiling = VK_IMAGE_TILING_OPTIMAL;
+    imageInfo.usage =
+        VK_IMAGE_USAGE_STORAGE_BIT |
+        VK_IMAGE_USAGE_SAMPLED_BIT;
+    imageInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+    imageInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+
+    VkResult result = vkCreateImage(
+        gVulkanContext.vkDevice,
+        &imageInfo,
+        nullptr,
+        &imageData.vkImage);
+
+    if (result != VK_SUCCESS)
+        return result;
+
+    VkMemoryRequirements memReq{};
+    vkGetImageMemoryRequirements(
+        gVulkanContext.vkDevice,
+        imageData.vkImage,
+        &memReq);
+
+    VkMemoryAllocateInfo allocInfo{};
+    allocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
+    allocInfo.allocationSize = memReq.size;
+    allocInfo.memoryTypeIndex =
+        gVulkanContext.FindMemoryType(
+            memReq.memoryTypeBits,
+            VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+
+    result = vkAllocateMemory(
+        gVulkanContext.vkDevice,
+        &allocInfo,
+        nullptr,
+        &imageData.vkDeviceMemory);
+
+    if (result != VK_SUCCESS)
+        return result;
+
+    result = vkBindImageMemory(
+        gVulkanContext.vkDevice,
+        imageData.vkImage,
+        imageData.vkDeviceMemory,
+        0);
+
+    if (result != VK_SUCCESS)
+        return result;
+
+    VkImageViewCreateInfo viewInfo{};
+    viewInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+    viewInfo.image = imageData.vkImage;
+    viewInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
+    viewInfo.format = format;
+    viewInfo.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+    viewInfo.subresourceRange.baseMipLevel = 0;
+    viewInfo.subresourceRange.levelCount = 1;
+    viewInfo.subresourceRange.baseArrayLayer = 0;
+    viewInfo.subresourceRange.layerCount = 1;
+
+    result = vkCreateImageView(
+        gVulkanContext.vkDevice,
+        &viewInfo,
+        nullptr,
+        &imageData.vkImageView);
+
+    if (result != VK_SUCCESS)
+        return result;
+
+    return VK_SUCCESS;
+}
+
+VkResult createDescriptorSet_ComputeStorageImage(void)
+{
+    VkDescriptorSetAllocateInfo allocInfo{ VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO };
+    allocInfo.descriptorPool = vkDescriptorPool;
+    allocInfo.descriptorSetCount = 1;
+    allocInfo.pSetLayouts = &gpDescriptorSetLayouts->vkDescriptorSetLayout_ComputeStorageImage;
+    VkResult result = vkAllocateDescriptorSets(gVulkanContext.vkDevice, &allocInfo, &vkDescriptorSet_ComputeStorageImage);
+    if (result != VK_SUCCESS) return result;
+
+    VkDescriptorImageInfo imageInfo{};
+    imageInfo.imageView = computeGradientTexture.vkImageView;
+    imageInfo.imageLayout = VK_IMAGE_LAYOUT_GENERAL;
+    VkWriteDescriptorSet write{ VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET };
+    write.dstSet = vkDescriptorSet_ComputeStorageImage;
+    write.dstBinding = 0;
+    write.descriptorCount = 1;
+    write.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
+    write.pImageInfo = &imageInfo;
+    vkUpdateDescriptorSets(gVulkanContext.vkDevice, 1, &write, 0, nullptr);
+    return VK_SUCCESS;
 }
 
 VkResult createDescriptorSet_GBuffer(void)
@@ -2193,6 +2360,13 @@ static VkResult initialLayoutTransitions(void)
 
     }
 
+    transitionImageLayout(
+        commandBuffer,
+        computeGradientTexture.vkImage,
+        VK_IMAGE_LAYOUT_UNDEFINED,
+        VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
+    );
+
     // End command buffer recording
     vkResult = vkEndCommandBuffer(commandBuffer);
     if (vkResult != VK_SUCCESS)
@@ -2214,6 +2388,30 @@ static VkResult initialLayoutTransitions(void)
     vkFreeCommandBuffers(gVulkanContext.vkDevice, gVulkanContext.vkCommandPool, 1, &commandBuffer);
 
     return vkResult;
+}
+
+void SetFinalQuadImage(ImageData imageData)
+{
+    //Declare and initialize VkDescriptorImageInfo structure which will have information about the image.
+    VkDescriptorImageInfo vkDescriptorImageInfo;
+    vkDescriptorImageInfo.sampler = vkSampler_LinearClamp; // sampler for the image
+    vkDescriptorImageInfo.imageView = imageData.vkImageView; // image view for the image
+    vkDescriptorImageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL; // image layout for the image
+
+    //write or copy the descriptor set with the uniform buffer information
+    VkWriteDescriptorSet vkWriteDescriptorSet{};
+    vkWriteDescriptorSet.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+    vkWriteDescriptorSet.pNext = NULL;
+    vkWriteDescriptorSet.dstSet = vkDescriptorSet_SingleImage; // descriptor set
+    vkWriteDescriptorSet.dstBinding = 0; // 0 means the index number of the binding
+    vkWriteDescriptorSet.dstArrayElement = 0; // 0 means the index number of the array element
+    vkWriteDescriptorSet.descriptorCount = 1; // we are using only one descriptor
+    vkWriteDescriptorSet.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER; // type of the descriptor
+    vkWriteDescriptorSet.pImageInfo = &vkDescriptorImageInfo;
+    vkWriteDescriptorSet.pBufferInfo = NULL; // pointer to the buffer info
+    vkWriteDescriptorSet.pTexelBufferView = NULL; // no texel buffer view
+
+    vkUpdateDescriptorSets(gVulkanContext.vkDevice, 1, &vkWriteDescriptorSet, 0, NULL);
 }
 
 VkResult initialize(void)
@@ -2246,12 +2444,16 @@ VkResult initialize(void)
     VkResult createDescriptorSet_FrameDataBoneData(void);
     VkResult createDescriptorSet_SingleImage(void);
     VkResult createDescriptorSet_AlbedoNormal(void);
+    VkResult createDescriptorSet_ComputeStorageImage(void);
+
+
     VkResult createDescriptorSet_GBuffer(void);
 
     VkResult createSamplers(void);
 
     //VkResult createRenderPass(void);
     VkResult createGraphicsPipelines(void);
+    VkResult createComputePipelines(void);
     VkResult createDepthResources(void);
     //VkResult createFramebuffers(void);
     //VkResult createSemaphores(void);
@@ -2275,6 +2477,8 @@ VkResult initialize(void)
     compileShaderVS_FS("PreviewImage");
     compileShaderVS_FS("DeferredPBR");
     compileShaderTS_MS_FS("Meshlet");
+    compileShaderCS("TextureGradient");
+    compileShaderCS("VolumetricClouds");
 
 
 	vkResult = gVulkanContext.Initialize();
@@ -2307,6 +2511,15 @@ VkResult initialize(void)
     vkCmdDrawMeshTasksEXT_pfn = (PFN_vkCmdDrawMeshTasksEXT)vkGetDeviceProcAddr(gVulkanContext.vkDevice,"vkCmdDrawMeshTasksEXT");
     assert(vkCmdDrawMeshTasksEXT_pfn);
 
+
+    vkResult = CreateComputeGradientTexture(
+        WIN_WIDTH,
+        WIN_HEIGHT,
+        VK_FORMAT_R8G8B8A8_UNORM,
+        computeGradientTexture);
+
+    if (vkResult != VK_SUCCESS)
+        return vkResult;
 
     //-----------------------------------------------------------------------------------------------
     //samplers
@@ -2586,6 +2799,10 @@ VkResult initialize(void)
         return(vkResult);
     }
 
+    vkResult = createDescriptorSet_ComputeStorageImage();
+    if (vkResult != VK_SUCCESS) return vkResult;
+
+
     vkResult = createDescriptorSet_GBuffer();
     if (vkResult != VK_SUCCESS)
     {
@@ -2603,11 +2820,18 @@ VkResult initialize(void)
     //    return(vkResult);
     //}
 
-    //pipeline
+    //Graphics pipeline
     vkResult = createGraphicsPipelines();
     if (vkResult != VK_SUCCESS)
     {
         fprintf(gpFILE, "initialize() : createGraphicsPipelines() failed (%d).\n", vkResult);
+        return(vkResult);
+    }
+
+    vkResult = createComputePipelines();
+    if (vkResult != VK_SUCCESS)
+    {
+        fprintf(gpFILE, "initialize() : createComputePipelines() failed (%d).\n", vkResult);
         return(vkResult);
     }
 
@@ -2809,6 +3033,8 @@ VkResult initialize(void)
         return result;
     }
 
+    clouds = new VolumetricClouds;
+
 
 
     //createDescriptorSet_FrameDataBoneData
@@ -2870,7 +3096,8 @@ VkResult initialize(void)
     fprintf(gpFILE, "initialize() : initialize complete.\n");
 
     //---------------------------------Test-----------------------------------
-
+    //using descriptorSet SingleTexture to test final texture for RenderFullScreenQuad();
+    SetFinalQuadImage(clouds->GetImageData());
 
     //-----------------------------------------------------------------------------
 
@@ -3244,6 +3471,12 @@ void uninitialize(void)
         gpGraphicsPipelines = NULL;
     }
 
+    if (gpComputePipelines)
+    {
+        delete gpComputePipelines;
+        gpComputePipelines = NULL;
+    }
+
     //// renderpass
     //if (vkRenderPass)
     //{
@@ -3315,6 +3548,8 @@ void uninitialize(void)
     //delete pModel_Meshlet_Ground;
 
     gMeshletScene.ShutDown();
+
+    delete clouds;
 
 
     //FrameData uniform buffer
@@ -6342,7 +6577,8 @@ VkResult createDescriptorPool(void)
     VkDescriptorPoolSize vkDescriptorPoolSizes[] =
     {
         {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1 * MAX_FRAMES}, // descriptor type and descriptor count
-        {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 3 * 256}, // descriptor type and descriptor count for material textures
+        {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 3 * 256}, // descriptor type and descriptor count for material textures  
+        { VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 256 }, // ADD THIS: Reserve capacity for Storage Images
 		{VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1 * MAX_FRAMES + 4}, // descriptor type and descriptor count for storage buffer
     };
 
@@ -6590,7 +6826,7 @@ VkResult createDescriptorSet_SingleImage(void)
         VkDescriptorImageInfo vkDescriptorImageInfo;
         memset((void*)&vkDescriptorImageInfo, 0, sizeof(VkDescriptorImageInfo));
         vkDescriptorImageInfo.sampler = vkSampler_LinearClamp; // sampler for the image
-        vkDescriptorImageInfo.imageView = gGBuffer.albedo[0].vkImageView; // image view for the image
+        vkDescriptorImageInfo.imageView = computeGradientTexture.vkImageView; // image view for the image
         vkDescriptorImageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL; // image layout for the image
 
         //write or copy the descriptor set with the uniform buffer information
@@ -6934,12 +7170,12 @@ void RenderFullscreenQuad(uint32_t curIndex)
     vkCmdDraw(gFrames[curIndex].commandBuffer, 3, 1, 0, 0);
 }
 
-void RenderFullscreenPBRQuad(uint32_t curIndex)
+void RenderFullscreenPBRQuad(uint32_t curIndex, uint32_t currentImageIndex)
 {
     // Bind the DeferredPBR pipeline and descriptor sets
     VkDescriptorSet descriptorSets[] = {
         gFrames[curIndex].vkDescriptor_FrameData,
-        gGBufferDescriptorSets[curIndex]
+        gGBufferDescriptorSets[currentImageIndex]
     };
 
     vkCmdBindPipeline(
@@ -7617,6 +7853,33 @@ void transitionImageLayout(
             VK_ACCESS_2_NONE;
     }
 
+    else if (oldLayout == VK_IMAGE_LAYOUT_UNDEFINED &&
+        newLayout == VK_IMAGE_LAYOUT_GENERAL)
+        {
+            barrier.srcStageMask = VK_PIPELINE_STAGE_2_NONE;
+            barrier.srcAccessMask = VK_ACCESS_2_NONE;
+
+            barrier.dstStageMask = VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT;
+            barrier.dstAccessMask = VK_ACCESS_2_SHADER_STORAGE_WRITE_BIT;
+            }
+    else if (oldLayout == VK_IMAGE_LAYOUT_GENERAL &&
+        newLayout == VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL)
+        {
+            barrier.srcStageMask = VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT;
+            barrier.srcAccessMask = VK_ACCESS_2_SHADER_STORAGE_WRITE_BIT;
+
+            barrier.dstStageMask = VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT;
+            barrier.dstAccessMask = VK_ACCESS_2_SHADER_SAMPLED_READ_BIT;
+            }
+    else if (oldLayout == VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL &&
+        newLayout == VK_IMAGE_LAYOUT_GENERAL)
+        {
+            barrier.srcStageMask = VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT;
+            barrier.srcAccessMask = VK_ACCESS_2_SHADER_SAMPLED_READ_BIT;
+
+            barrier.dstStageMask = VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT;
+            barrier.dstAccessMask = VK_ACCESS_2_SHADER_STORAGE_WRITE_BIT;
+            }
     else
     {
         throw std::runtime_error(
@@ -7669,6 +7932,52 @@ void transitionDepthLayout(
 
     vkCmdPipelineBarrier2(cmd, &dep);
 }
+
+void Compute_TextureGradient(uint32_t curIndex)
+{
+    //-------------------------------------------------------------------------
+// Compute Texture
+//-------------------------------------------------------------------------
+
+    transitionImageLayout(
+        gFrames[curIndex].commandBuffer,
+        computeGradientTexture.vkImage,
+        VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+        VK_IMAGE_LAYOUT_GENERAL
+    );
+
+    vkCmdBindPipeline(
+        gFrames[curIndex].commandBuffer,
+        VK_PIPELINE_BIND_POINT_COMPUTE,
+        gpComputePipelines->TextureGradient.vkPipeline
+    );
+
+    vkCmdBindDescriptorSets(
+        gFrames[curIndex].commandBuffer,
+        VK_PIPELINE_BIND_POINT_COMPUTE,
+        gpComputePipelines->TextureGradient.vkPipelineLayout,
+        0,
+        1,
+        &vkDescriptorSet_ComputeStorageImage,
+        0,
+        nullptr
+    );
+
+    vkCmdDispatch(
+        gFrames[curIndex].commandBuffer,
+        (WIN_WIDTH + 7) / 8,
+        (WIN_HEIGHT + 7) / 8,
+        1
+    );
+
+    transitionImageLayout(
+        gFrames[curIndex].commandBuffer,
+        computeGradientTexture.vkImage,
+        VK_IMAGE_LAYOUT_GENERAL,
+        VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
+    );
+}
+
 
 
 VkResult buildCommandBuffersOld(uint32_t curIndex, uint32_t currentImageIndex)
@@ -7838,6 +8147,15 @@ VkResult buildCommandBuffers(uint32_t curIndex, uint32_t currentImageIndex)
         fprintf(gpFILE, "buildCommandBuffers() : vkBeginCommandBuffer() failed for command buffer %d.\n", curIndex);
         return vkResult;
     }
+
+
+    //ComputePipeline
+    //Compute_TextureGradient(curIndex);
+    clouds->Compute_VolumetricClouds(
+        curIndex,
+        gpComputePipelines->VolumetricClouds.vkPipeline,
+        gpComputePipelines->VolumetricClouds.vkPipelineLayout);
+
 
     //Dynamic Rendering + G-Buffer
 
@@ -8033,8 +8351,9 @@ VkResult buildCommandBuffers(uint32_t curIndex, uint32_t currentImageIndex)
 
     vkCmdBeginRendering(gFrames[curIndex].commandBuffer,&deferredRenderingInfo);
 
-    //RenderFullscreenQuad(curIndex); // Render the fullscreen quad
-    RenderFullscreenPBRQuad(curIndex); // Render the fullscreen quad
+    RenderFullscreenQuad(curIndex); // Render the fullscreen quad
+    //RenderFullscreenPBRQuad(curIndex, currentImageIndex); // Render the fullscreen quad
+
 
 #ifdef IMGUI_ENABLE
     Render_ImGui(curIndex); // Render ImGui UI
@@ -8098,6 +8417,49 @@ void destroyGraphicsPipelines(void)
     if (gpGraphicsPipelines)
     {
         gpGraphicsPipelines->destroyPipelines();
+    }
+
+
+}
+
+
+VkResult createComputePipelines(void)
+{
+    // local variables
+    VkResult vkResult = VK_SUCCESS;
+    // code
+
+    if (gpComputePipelines)
+    {
+        vkResult = gpComputePipelines->createPipelines();
+        if (vkResult != VK_SUCCESS)
+        {
+            fprintf(gpFILE, "createComputePipelines() : gpComputePipelines->createPipelines() failed: %d.\n", vkResult);
+            return vkResult;
+        }
+    }
+    else
+    {
+        gpComputePipelines = new ComputePipelines();
+        vkResult = gpComputePipelines->vkResult;
+        if (vkResult != VK_SUCCESS)
+        {
+            fprintf(gpFILE, "createGraphicsPipelines() : gpComputePipelines->createPipelines() failed: %d.\n", vkResult);
+            return vkResult;
+        }
+    }
+
+
+
+    return vkResult;
+}
+
+void destroyComputePipelines(void)
+{
+
+    if (gpComputePipelines)
+    {
+        gpComputePipelines->destroyPipelines();
     }
 
 

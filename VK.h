@@ -230,6 +230,7 @@ typedef struct PipelineData
 	VkShaderModule vkFragmentShaderModule = VK_NULL_HANDLE;
 	VkShaderModule vkTaskShaderModule = VK_NULL_HANDLE;
 	VkShaderModule vkMeshShaderModule = VK_NULL_HANDLE;
+	VkShaderModule vkComputeShaderModule = VK_NULL_HANDLE;
 
 }PipelineData;
 

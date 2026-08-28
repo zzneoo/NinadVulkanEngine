@@ -144,6 +144,7 @@
     <ClInclude Include="AnimatedModel.h" />
     <ClInclude Include="BlueScreen.h" />
     <ClInclude Include="Camera.h" />
+    <ClInclude Include="ComputePipelines.h" />
     <ClInclude Include="DescriptorSetLayouts.h" />
     <ClInclude Include="FrameContext.h" />
     <ClInclude Include="framework.h" />
@@ -168,6 +169,7 @@
     <ClInclude Include="SwapchainContext.h" />
     <ClInclude Include="targetver.h" />
     <ClInclude Include="VK.h" />
+    <ClInclude Include="VolumetricClouds.h" />
     <ClInclude Include="VulkanContext.h" />
     <ClInclude Include="Win32Window.h" />
   </ItemGroup>
@@ -175,6 +177,7 @@
     <ClCompile Include="AnimatedModel.cpp" />
     <ClCompile Include="BlueScreen.cpp" />
     <ClCompile Include="Camera.cpp" />
+    <ClCompile Include="ComputePipelines.cpp" />
     <ClCompile Include="DescriptorSetLayouts.cpp" />
     <ClCompile Include="FrameContext.cpp" />
     <ClCompile Include="GraphicsPipelines.cpp" />
@@ -212,6 +215,7 @@
     <ClCompile Include="StaticMeshletModel.cpp" />
     <ClCompile Include="StaticModel.cpp" />
     <ClCompile Include="SwapchainContext.cpp" />
+    <ClCompile Include="VolumetricClouds.cpp" />
     <ClCompile Include="VulkanContext.cpp" />
     <ClCompile Include="Win32Window.cpp" />
   </ItemGroup>
@@ -226,6 +230,7 @@
     <None Include=".github\upgrades\scenarios\cppbuildtoolsupgrade\assessment.md" />
     <None Include=".github\upgrades\scenarios\cppbuildtoolsupgrade\scenario-instructions.md" />
     <None Include="build.bat" />
+    <None Include="BuildCompute.bat" />
     <None Include="BuildMesh.bat" />
     <None Include="DeferredPBR.frag" />
     <None Include="DeferredPBR.vert" />
@@ -250,6 +255,8 @@
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
       </ExcludedFromBuild>
     </None>
+    <None Include="TextureGradient.comp" />
+    <None Include="VolumetricClouds.comp" />
     <None Include="WhiteVertex.frag" />
     <None Include="WhiteVertex.vert" />
   </ItemGroup>
