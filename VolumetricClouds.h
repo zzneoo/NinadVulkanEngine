@@ -9,10 +9,11 @@
 #include <iostream>
 #include <sstream>  // Fixes: incomplete type "std::stringstream"
 #include <iomanip>  // Needed for std::setfill and std::setw
+#include "DescriptorSetLayouts.h"
 
 extern VkDescriptorPool vkDescriptorPool;
 extern VkSampler vkSampler_LinearMipmapRepeat;
-extern VkSampler vkSampler_LinearMipmapClamp;
+extern VkSampler vkSampler_LinearClamp;
 
 class VolumetricClouds
 {

@@ -604,7 +604,7 @@ VkResult ComputePipelines::createPipelines(void)
 	//Volumetric Clouds
 	//--------------------------------------------------------------------------------------------
 
-	vkDescriptorSetLayouts = { gpDescriptorSetLayouts->vkDescriptorSetLayout_VolumetricClouds };
+	vkDescriptorSetLayouts = { gpDescriptorSetLayouts->vkDescriptorSetLayout_frameData, gpDescriptorSetLayouts->vkDescriptorSetLayout_VolumetricClouds };
 	vkPipelineLayoutCreateInfo = {};
 
 	vkPipelineLayoutCreateInfo.setLayoutCount = static_cast<uint32_t>(vkDescriptorSetLayouts.size());

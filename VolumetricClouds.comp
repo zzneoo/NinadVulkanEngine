@@ -1,15 +1,154 @@
 #version 460
 
+#extension GL_GOOGLE_include_directive : require
+
+#include "common.glsl"
+
 layout(local_size_x = 8, local_size_y = 8, local_size_z = 1) in;
-layout(set = 0, binding = 0, rgba8) uniform writeonly image2D outputImage;
+
+layout(set = 1, binding = 0, rgba8) uniform writeonly image2D outputImage;
+layout(set = 1, binding = 1) uniform sampler3D noise3D;
+
+
+float sdSphere(vec3 p, float radius)
+{
+    return length(p) - radius;
+}
+
+bool IntersectSphere(
+    vec3 rayOrigin,
+    vec3 rayDir,
+    vec3 center,
+    float radius,
+    out float tEnter,
+    out float tExit)
+{
+    vec3 oc = rayOrigin - center;
+
+    float b = dot(oc, rayDir);
+    float c = dot(oc, oc) - radius * radius;
+
+    float discriminant = b * b - c;
+
+    if (discriminant < 0.0)
+        return false;
+
+    float s = sqrt(discriminant);
+
+    tEnter = -b - s;
+    tExit  = -b + s;
+
+    // Camera starts inside sphere.
+    tEnter = max(tEnter, 0.0);
+
+    return tExit > tEnter;
+}
 
 void main()
 {
-	ivec2 pixel = ivec2(gl_GlobalInvocationID.xy);
-	ivec2 size = imageSize(outputImage);
-	if (pixel.x >= size.x || pixel.y >= size.y)
-		return;
+    ivec2 pixel = ivec2(gl_GlobalInvocationID.xy);
+    ivec2 size = imageSize(outputImage);
 
-	vec2 uv = (vec2(pixel) + 0.5) / vec2(size);
-	imageStore(outputImage, pixel, vec4(uv.x, 1.0 - uv.y, 0.0, 1.0));
+    if (pixel.x >= size.x || pixel.y >= size.y)
+        return;
+
+
+    // --------------------------------------------------
+    // Reconstruct world-space ray
+    // --------------------------------------------------
+
+    vec2 uv =
+        (vec2(pixel) + 0.5) /
+        vec2(size);
+
+    vec2 ndc = uv * 2.0 - 1.0;
+
+    vec4 worldFar =
+        global.inverseViewProj *
+        vec4(ndc, 1.0, 1.0);
+
+    worldFar.xyz /= worldFar.w;
+
+    vec3 rayOrigin = global.cameraPos;
+
+    vec3 rayDir =
+        normalize(worldFar.xyz - rayOrigin);
+
+
+    // --------------------------------------------------
+    // Sphere volume
+    // --------------------------------------------------
+
+    vec3 sphereCenter = vec3(0.0);
+    float sphereRadius = 2.0;
+
+    float tEnter;
+    float tExit;
+
+    float transmittance = 1.0;
+
+    // --------------------------------------------------
+    // Ray / sphere intersection
+    // --------------------------------------------------
+
+    if (IntersectSphere(
+            rayOrigin,
+            rayDir,
+            sphereCenter,
+            sphereRadius,
+            tEnter,
+            tExit))
+    {
+        const float STEP_SIZE = 0.03;
+        const int MAX_STEPS = 128;
+
+        float t = tEnter;
+
+
+
+        for (int i = 0;
+             i < MAX_STEPS && t < tExit;
+             ++i)
+        {
+            vec3 worldPos = rayOrigin + rayDir * t;
+
+            vec3 volumeUV =
+                (worldPos - sphereCenter) /
+                (2.0 * sphereRadius) +
+                0.5;
+
+            float density =  texture(noise3D, volumeUV).r * smoothstep(1.0,0.4,distance(worldPos,sphereCenter));
+
+            // Density -> extinction coefficient
+            float sigmaT = density * 2.0;
+
+            // Beer-Lambert
+            float stepTransmittance =
+                exp(-sigmaT * STEP_SIZE);
+
+            transmittance *= stepTransmittance;
+
+            t += STEP_SIZE;
+
+            // Early termination
+            if (transmittance < 0.01)
+                break;
+        }
+    }
+
+
+    // --------------------------------------------------
+    // Visualize density
+    // --------------------------------------------------
+
+    float opacity = 1.0 - transmittance;
+
+    float result =
+        clamp(opacity, 0.0, 1.0);
+
+    imageStore(
+        outputImage,
+        pixel,
+        vec4(vec3(result), 1.0)
+    );
 }

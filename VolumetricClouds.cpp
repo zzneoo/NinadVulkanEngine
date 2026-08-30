@@ -5,6 +5,31 @@ VolumetricClouds::VolumetricClouds()
 {
     VkResult res = VK_SUCCESS;
 
+
+    //Noise3D
+    uint32_t mipLevels = 0;
+
+    bool success = Load3DTextureWithMipmaps(
+        gVulkanContext.vkDevice,         // Logical device handle
+        gVulkanContext.vkCommandPool,    // Command pool for single-time commands
+        gVulkanContext.vkGraphicsQueue,  // Graphics queue handle
+        "Resources/Noise/Nubis3D",      // Directory path containing slices
+        "NubisVoxelCloudNoise",        // Base file prefix
+        ".tga",                        // File extension
+        128,                           // Number of Z-slices (depth)
+        3,                             // Zero-padding width (e.g., 3 for .001, .002...)
+        imageData_Noise3D,                  // Output ImageData struct (populated by ref)
+        mipLevels                      // Output total calculated mip levels
+    );
+    imageData_Noise3D.vkSampler = vkSampler_LinearMipmapRepeat;
+
+    if (!success) {
+        fprintf(gpFILE, "VolumetricClouds() : Load3DTextureWithMipmaps() failed (%d).\n", vkResult);
+        vkResult = VK_ERROR_INITIALIZATION_FAILED;
+    }
+
+    //cloud Texture
+
     Width = WIN_WIDTH;
     Height = WIN_HEIGHT;
     res = CreateCloudTexture(Width, Height, VK_FORMAT_R8G8B8A8_UNORM,imageData_Clouds);
@@ -30,27 +55,7 @@ VolumetricClouds::VolumetricClouds()
         vkResult = res;
     }
 
-    //Noise3D
-    uint32_t mipLevels = 0;
 
-    bool success = Load3DTextureWithMipmaps(
-        gVulkanContext.vkDevice,         // Logical device handle
-        gVulkanContext.vkCommandPool,    // Command pool for single-time commands
-        gVulkanContext.vkGraphicsQueue,  // Graphics queue handle
-        "Resources/Noise/Nubis3D",      // Directory path containing slices
-        "NubisVoxelCloudNoise",        // Base file prefix
-        ".tga",                        // File extension
-        128,                           // Number of Z-slices (depth)
-        3,                             // Zero-padding width (e.g., 3 for .001, .002...)
-        imageData_Noise3D,                  // Output ImageData struct (populated by ref)
-        mipLevels                      // Output total calculated mip levels
-    );
-    imageData_Noise3D.vkSampler = vkSampler_LinearMipmapRepeat;
-
-    if (!success) {
-        fprintf(gpFILE, "VolumetricClouds() : Load3DTextureWithMipmaps() failed (%d).\n", vkResult);
-        vkResult = VK_ERROR_INITIALIZATION_FAILED;
-    }
 }
 
 VolumetricClouds::~VolumetricClouds()
@@ -72,6 +77,23 @@ VolumetricClouds::~VolumetricClouds()
         imageData_Clouds.vkDeviceMemory = VK_NULL_HANDLE;
     }
 
+    //noise3D texture
+        //cloud texture
+    if (imageData_Noise3D.vkImageView != VK_NULL_HANDLE)
+    {
+        vkDestroyImageView(gVulkanContext.vkDevice, imageData_Noise3D.vkImageView, nullptr);
+        imageData_Noise3D.vkImageView = VK_NULL_HANDLE;
+    }
+    if (imageData_Noise3D.vkImage != VK_NULL_HANDLE)
+    {
+        vkDestroyImage(gVulkanContext.vkDevice, imageData_Noise3D.vkImage, nullptr);
+        imageData_Noise3D.vkImage = VK_NULL_HANDLE;
+    }
+    if (imageData_Noise3D.vkDeviceMemory != VK_NULL_HANDLE)
+    {
+        vkFreeMemory(gVulkanContext.vkDevice, imageData_Noise3D.vkDeviceMemory, nullptr);
+        imageData_Noise3D.vkDeviceMemory = VK_NULL_HANDLE;
+    }
 }
 
 VkResult VolumetricClouds::CreateCloudTexture(
@@ -158,7 +180,7 @@ VkResult VolumetricClouds::CreateCloudTexture(
     if (result != VK_SUCCESS)
         return result;
 
-    imageData.vkSampler = vkSampler_LinearMipmapClamp;
+    imageData.vkSampler = vkSampler_LinearClamp;
 
 
     return VK_SUCCESS;
@@ -457,7 +479,7 @@ VkResult VolumetricClouds::CreateDescriptorSet_VolumetricClouds()
 
     // Binding 0: Storage Image
     VkDescriptorImageInfo storageImageInfo{};
-    storageImageInfo.sampler = vkSampler_LinearMipmapClamp;
+    storageImageInfo.sampler = vkSampler_LinearClamp;
     storageImageInfo.imageView = imageData_Clouds.vkImageView;
     storageImageInfo.imageLayout = VK_IMAGE_LAYOUT_GENERAL;
 
@@ -487,7 +509,7 @@ VkResult VolumetricClouds::CreateDescriptorSet_VolumetricClouds()
 
     vkUpdateDescriptorSets(
         gVulkanContext.vkDevice,
-        1,              // Count of writes updated
+        2,              // Count of writes updated
         writes,
         0,
         nullptr);
@@ -519,13 +541,15 @@ void VolumetricClouds::Compute_VolumetricClouds(
         vkPipeline
     );
 
+    VkDescriptorSet vkLocalDescriptorSets[] = { gFrames[curIndex].vkDescriptor_FrameData, vkDescriptorSet_VolumetricClouds };
+
     vkCmdBindDescriptorSets(
         gFrames[curIndex].commandBuffer,
         VK_PIPELINE_BIND_POINT_COMPUTE,
         vkPipelineLayout,
         0,
-        1,
-        &vkDescriptorSet_VolumetricClouds,
+        2,
+        vkLocalDescriptorSets,
         0,
         nullptr
     );
