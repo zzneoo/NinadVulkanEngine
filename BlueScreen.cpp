@@ -149,6 +149,7 @@ ImageData imposterTextureData_blackAlder_Field_02_Normal;
 VkSampler vkSampler_LinearClampAniso = VK_NULL_HANDLE;//need mipmaps to be generated for aniso 
 VkSampler vkSampler_LinearClamp = VK_NULL_HANDLE;
 VkSampler vkSampler_LinearMipmapClamp = VK_NULL_HANDLE;
+VkSampler vkSampler_LinearMipmapRepeat = VK_NULL_HANDLE;
 VkSampler vkSampler_LinearRepeatAniso = VK_NULL_HANDLE;
 
 VkDescriptorPool vkDescriptorPool = VK_NULL_HANDLE;
@@ -2394,7 +2395,7 @@ void SetFinalQuadImage(ImageData imageData)
 {
     //Declare and initialize VkDescriptorImageInfo structure which will have information about the image.
     VkDescriptorImageInfo vkDescriptorImageInfo;
-    vkDescriptorImageInfo.sampler = vkSampler_LinearClamp; // sampler for the image
+    vkDescriptorImageInfo.sampler = imageData.vkSampler; // sampler for the image
     vkDescriptorImageInfo.imageView = imageData.vkImageView; // image view for the image
     vkDescriptorImageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL; // image layout for the image
 
@@ -3097,7 +3098,7 @@ VkResult initialize(void)
 
     //---------------------------------Test-----------------------------------
     //using descriptorSet SingleTexture to test final texture for RenderFullScreenQuad();
-    SetFinalQuadImage(clouds->GetImageData());
+    SetFinalQuadImage(clouds->GetImageData_Clouds());
 
     //-----------------------------------------------------------------------------
 
@@ -4811,6 +4812,32 @@ VkResult createSamplers(void)
         return vkResult;
     }
 
+    //vkSampler_LinearMipmapRepeat
+    samplerCreateInfo = {};
+    samplerCreateInfo.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
+    samplerCreateInfo.magFilter = VK_FILTER_LINEAR; // Magnification filter
+    samplerCreateInfo.minFilter = VK_FILTER_LINEAR; // Minification filter
+    samplerCreateInfo.addressModeU = VK_SAMPLER_ADDRESS_MODE_REPEAT; // U coordinate addressing mode
+    samplerCreateInfo.addressModeV = VK_SAMPLER_ADDRESS_MODE_REPEAT; // V coordinate addressing mode
+    samplerCreateInfo.addressModeW = VK_SAMPLER_ADDRESS_MODE_REPEAT; // W coordinate addressing mode
+    samplerCreateInfo.anisotropyEnable = VK_FALSE; // Disable anisotropic filtering
+    samplerCreateInfo.maxAnisotropy = 1.0f; // Maximum anisotropy level (1.0 means no anisotropic filtering)
+    samplerCreateInfo.borderColor = VK_BORDER_COLOR_INT_OPAQUE_BLACK; // Border color
+    samplerCreateInfo.unnormalizedCoordinates = VK_FALSE; // Use normalized coordinates
+    samplerCreateInfo.compareEnable = VK_FALSE; // No comparison
+    samplerCreateInfo.compareOp = VK_COMPARE_OP_ALWAYS; // Comparison operation (not used here)
+    samplerCreateInfo.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR; // Mipmap mode
+    samplerCreateInfo.mipLodBias = 0.0f; // Mipmap level of detail bias
+    samplerCreateInfo.minLod = 0.0f; // Minimum LOD
+    samplerCreateInfo.maxLod = 14.0f; // Maximum LOD (0 means no mipmaps)
+    vkResult = vkCreateSampler(gVulkanContext.vkDevice, &samplerCreateInfo, NULL, &vkSampler_LinearMipmapRepeat);
+    if (vkResult != VK_SUCCESS)
+    {
+        fprintf(gpFILE, "createSamplers() : vkCreateSampler() for vkSampler_LinearMipmapRepeat failed (%d).\n", vkResult);
+        return vkResult;
+    }
+
+
     //vkSampler_LinearRepeatAniso
     samplerCreateInfo = {};
     samplerCreateInfo.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
@@ -4859,6 +4886,11 @@ void destroySamplers(void)
     {
         vkDestroySampler(gVulkanContext.vkDevice, vkSampler_LinearMipmapClamp, NULL);
         vkSampler_LinearMipmapClamp = VK_NULL_HANDLE;
+    }
+    if (vkSampler_LinearMipmapRepeat)
+    {
+        vkDestroySampler(gVulkanContext.vkDevice, vkSampler_LinearMipmapRepeat, NULL);
+        vkSampler_LinearMipmapRepeat = VK_NULL_HANDLE;
     }
 
     if (vkSampler_LinearRepeatAniso)
@@ -8354,8 +8386,8 @@ VkResult buildCommandBuffers(uint32_t curIndex, uint32_t currentImageIndex)
 
     vkCmdBeginRendering(gFrames[curIndex].commandBuffer,&deferredRenderingInfo);
 
-    //RenderFullscreenQuad(curIndex); // Render the fullscreen quad
-    RenderFullscreenPBRQuad(curIndex, currentImageIndex); // Render the fullscreen quad
+    RenderFullscreenQuad(curIndex); // Render the fullscreen quad
+    //RenderFullscreenPBRQuad(curIndex, currentImageIndex); // Render the fullscreen quad
 
 
 #ifdef IMGUI_ENABLE

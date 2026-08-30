@@ -56,6 +56,8 @@ public:
 
 	//member functions
     uint32_t FindMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties);
+    VkCommandBuffer BeginSingleTimeCommands(VkDevice device, VkCommandPool commandPool);
+    void EndSingleTimeCommands(VkDevice device, VkCommandPool commandPool, VkQueue graphicsQueue, VkCommandBuffer commandBuffer);
 
     VkResult Initialize();
     void Shutdown();

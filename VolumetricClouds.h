@@ -1,11 +1,18 @@
 #pragma once
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
 #include "VK.h"
 #include "VulkanContext.h"
 #include "FrameContext.h"
 #include "DescriptorSetLayouts.h"
 #include <iostream>
+#include <sstream>  // Fixes: incomplete type "std::stringstream"
+#include <iomanip>  // Needed for std::setfill and std::setw
 
 extern VkDescriptorPool vkDescriptorPool;
+extern VkSampler vkSampler_LinearMipmapRepeat;
+extern VkSampler vkSampler_LinearMipmapClamp;
 
 class VolumetricClouds
 {
@@ -13,9 +20,14 @@ public:
 	VolumetricClouds();
 	~VolumetricClouds();
 
-	ImageData GetImageData(void)
+	ImageData GetImageData_Clouds(void)
 	{
 		return imageData_Clouds;
+	}
+
+	ImageData GetImageData_Noise3D(void)
+	{
+		return imageData_Noise3D;
 	}
 
 	void Compute_VolumetricClouds(
@@ -41,8 +53,21 @@ private:
 
 	VkResult CreateDescriptorSet_VolumetricClouds();
 
+	bool Load3DTextureWithMipmaps(
+		VkDevice device,
+		VkCommandPool commandPool,
+		VkQueue graphicsQueue,
+		const std::string& baseFolder,
+		const std::string& filePrefix,
+		const std::string& fileExtension,
+		uint32_t sliceCount,
+		uint32_t zeroPadding,
+		ImageData& outImageData,
+		uint32_t& outMipLevels);
+
 	VkResult vkResult;
 	ImageData imageData_Clouds{};
+	ImageData imageData_Noise3D{};
 	VkDescriptorSet vkDescriptorSet_VolumetricClouds;
 	uint32_t Width;
 	uint32_t Height;

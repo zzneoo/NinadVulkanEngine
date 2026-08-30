@@ -1,5 +1,5 @@
 #include "VolumetricClouds.h"
-
+#include "stb_image.h"
 
 VolumetricClouds::VolumetricClouds() 
 {
@@ -28,6 +28,28 @@ VolumetricClouds::VolumetricClouds()
     {
         fprintf(gpFILE, "VolumetricClouds() : InitialLayoutTransitions() failed (%d).\n", vkResult);
         vkResult = res;
+    }
+
+    //Noise3D
+    uint32_t mipLevels = 0;
+
+    bool success = Load3DTextureWithMipmaps(
+        gVulkanContext.vkDevice,         // Logical device handle
+        gVulkanContext.vkCommandPool,    // Command pool for single-time commands
+        gVulkanContext.vkGraphicsQueue,  // Graphics queue handle
+        "Resources/Noise/Nubis3D",      // Directory path containing slices
+        "NubisVoxelCloudNoise",        // Base file prefix
+        ".tga",                        // File extension
+        128,                           // Number of Z-slices (depth)
+        3,                             // Zero-padding width (e.g., 3 for .001, .002...)
+        imageData_Noise3D,                  // Output ImageData struct (populated by ref)
+        mipLevels                      // Output total calculated mip levels
+    );
+    imageData_Noise3D.vkSampler = vkSampler_LinearMipmapRepeat;
+
+    if (!success) {
+        fprintf(gpFILE, "VolumetricClouds() : Load3DTextureWithMipmaps() failed (%d).\n", vkResult);
+        vkResult = VK_ERROR_INITIALIZATION_FAILED;
     }
 }
 
@@ -135,6 +157,8 @@ VkResult VolumetricClouds::CreateCloudTexture(
 
     if (result != VK_SUCCESS)
         return result;
+
+    imageData.vkSampler = vkSampler_LinearMipmapClamp;
 
 
     return VK_SUCCESS;
@@ -433,13 +457,14 @@ VkResult VolumetricClouds::CreateDescriptorSet_VolumetricClouds()
 
     // Binding 0: Storage Image
     VkDescriptorImageInfo storageImageInfo{};
+    storageImageInfo.sampler = vkSampler_LinearMipmapClamp;
     storageImageInfo.imageView = imageData_Clouds.vkImageView;
     storageImageInfo.imageLayout = VK_IMAGE_LAYOUT_GENERAL;
 
     // Binding 1: Combined Image Sampler
     VkDescriptorImageInfo sampledImageInfo{};
-    //sampledImageInfo.sampler = imageData_Noise.vkSampler; // Provide your sampler handle here
-    //sampledImageInfo.imageView = imageData_Noise.vkImageView;
+    sampledImageInfo.sampler = imageData_Noise3D.vkSampler; // Provide your sampler handle here
+    sampledImageInfo.imageView = imageData_Noise3D.vkImageView;
     sampledImageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 
     VkWriteDescriptorSet writes[2]{};
@@ -518,5 +543,246 @@ void VolumetricClouds::Compute_VolumetricClouds(
         VK_IMAGE_LAYOUT_GENERAL,
         VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
     );
+}
+
+bool VolumetricClouds::Load3DTextureWithMipmaps(
+    VkDevice device,
+    VkCommandPool commandPool,
+    VkQueue graphicsQueue,
+    const std::string& baseFolder,
+    const std::string& filePrefix,
+    const std::string& fileExtension,
+    uint32_t sliceCount,
+    uint32_t zeroPadding,
+    ImageData& outImageData,
+    uint32_t& outMipLevels)
+{
+    if (sliceCount == 0) return false;
+
+    int width = 0, height = 0, channels = 0;
+    std::vector<stbi_uc*> loadedSlices(sliceCount, nullptr);
+    VkDeviceSize sliceSize = 0;
+
+    // 1. Load Slices from disk into CPU staging memory
+    for (uint32_t z = 0; z < sliceCount; ++z) {
+        std::stringstream ss;
+        // Produces: baseFolder/NubisVoxelCloudNoise.001.tga
+        ss << baseFolder << "/" << filePrefix << "."
+            << std::setfill('0') << std::setw(zeroPadding) << (z + 1) // 001, 002, ..., 128
+            << fileExtension;
+
+        std::string filename = ss.str();
+
+        int sWidth, sHeight, sChannels;
+        stbi_uc* pixels = stbi_load(filename.c_str(), &sWidth, &sHeight, &sChannels, STBI_rgb_alpha);
+        if (!pixels) {
+            std::cerr << "Failed to load slice texture: " << filename << std::endl;
+            for (uint32_t i = 0; i < z; ++i) stbi_image_free(loadedSlices[i]);
+            return false;
+        }
+
+        if (z == 0) {
+            width = sWidth;
+            height = sHeight;
+            channels = 4; // Forced to RGBA by STBI_rgb_alpha
+            sliceSize = static_cast<VkDeviceSize>(width * height * channels);
+        }
+        else if (sWidth != width || sHeight != height) {
+            std::cerr << "Slice dimension mismatch at file: " << filename << std::endl;
+            for (uint32_t i = 0; i <= z; ++i) stbi_image_free(loadedSlices[i]);
+            return false;
+        }
+
+        loadedSlices[z] = pixels;
+    }
+
+    VkDeviceSize depth = sliceCount;
+    VkDeviceSize volumeSize = sliceSize * depth;
+    outMipLevels = static_cast<uint32_t>(std::floor(std::log2((std::max)({ (uint32_t)width, (uint32_t)height, (uint32_t)depth })))) + 1;
+
+    // 2. Allocate and map Host-Visible Staging Buffer
+    VkBuffer stagingBuffer;
+    VkDeviceMemory stagingBufferMemory;
+
+    VkBufferCreateInfo bufferInfo{};
+    bufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
+    bufferInfo.size = volumeSize;
+    bufferInfo.usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
+    bufferInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+    vkCreateBuffer(device, &bufferInfo, nullptr, &stagingBuffer);
+
+    VkMemoryRequirements bufferMemReqs;
+    vkGetBufferMemoryRequirements(device, stagingBuffer, &bufferMemReqs);
+
+    VkMemoryAllocateInfo allocInfo{};
+    allocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
+    allocInfo.allocationSize = bufferMemReqs.size;
+    allocInfo.memoryTypeIndex = gVulkanContext.FindMemoryType(bufferMemReqs.memoryTypeBits,
+        VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+    vkAllocateMemory(device, &allocInfo, nullptr, &stagingBufferMemory);
+    vkBindBufferMemory(device, stagingBuffer, stagingBufferMemory, 0);
+
+    // 3. Copy slice memory into staging buffer contiguously and free STB pointers
+    void* mappedPtr = nullptr;
+    vkMapMemory(device, stagingBufferMemory, 0, volumeSize, 0, &mappedPtr);
+    for (uint32_t z = 0; z < depth; ++z) {
+        uint8_t* dst = static_cast<uint8_t*>(mappedPtr) + (z * sliceSize);
+        memcpy(dst, loadedSlices[z], sliceSize);
+        stbi_image_free(loadedSlices[z]);
+    }
+    vkUnmapMemory(device, stagingBufferMemory);
+
+    // 4. Create Optimal 3D VkImage
+    VkImageCreateInfo imageInfo{};
+    imageInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
+    imageInfo.imageType = VK_IMAGE_TYPE_3D;
+    imageInfo.extent = { static_cast<uint32_t>(width), static_cast<uint32_t>(height), static_cast<uint32_t>(depth) };
+    imageInfo.mipLevels = outMipLevels;
+    imageInfo.arrayLayers = 1;
+    imageInfo.format = VK_FORMAT_R8G8B8A8_UNORM;
+    imageInfo.tiling = VK_IMAGE_TILING_OPTIMAL;
+    imageInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+    imageInfo.usage = VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
+    imageInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+    imageInfo.samples = VK_SAMPLE_COUNT_1_BIT;
+
+    if (vkCreateImage(device, &imageInfo, nullptr, &outImageData.vkImage) != VK_SUCCESS) {
+        return false;
+    }
+
+    VkMemoryRequirements imgMemReqs;
+    vkGetImageMemoryRequirements(device, outImageData.vkImage, &imgMemReqs);
+
+    VkMemoryAllocateInfo imgAllocInfo{};
+    imgAllocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
+    imgAllocInfo.allocationSize = imgMemReqs.size;
+    imgAllocInfo.memoryTypeIndex = gVulkanContext.FindMemoryType(imgMemReqs.memoryTypeBits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+
+    if (vkAllocateMemory(device, &imgAllocInfo, nullptr, &outImageData.vkDeviceMemory) != VK_SUCCESS) {
+        return false;
+    }
+    vkBindImageMemory(device, outImageData.vkImage, outImageData.vkDeviceMemory, 0);
+
+    // 5. Begin Command Buffer for Transfer and Mip Generation
+    VkCommandBuffer cmd = gVulkanContext.BeginSingleTimeCommands(device, commandPool);
+
+    // Transition all mip levels to VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL
+    VkImageMemoryBarrier barrier{};
+    barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+    barrier.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+    barrier.newLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+    barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+    barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+    barrier.image = outImageData.vkImage;
+    barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+    barrier.subresourceRange.baseMipLevel = 0;
+    barrier.subresourceRange.levelCount = outMipLevels;
+    barrier.subresourceRange.baseArrayLayer = 0;
+    barrier.subresourceRange.layerCount = 1;
+    barrier.srcAccessMask = 0;
+    barrier.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+
+    vkCmdPipelineBarrier(cmd, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT,
+        0, 0, nullptr, 0, nullptr, 1, &barrier);
+
+    // Copy staging buffer to Mip Level 0
+    VkBufferImageCopy copyRegion{};
+    copyRegion.bufferOffset = 0;
+    copyRegion.bufferRowLength = 0;
+    copyRegion.bufferImageHeight = 0;
+    copyRegion.imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+    copyRegion.imageSubresource.mipLevel = 0;
+    copyRegion.imageSubresource.baseArrayLayer = 0;
+    copyRegion.imageSubresource.layerCount = 1;
+    copyRegion.imageOffset = { 0, 0, 0 };
+    copyRegion.imageExtent = imageInfo.extent;
+
+    vkCmdCopyBufferToImage(cmd, stagingBuffer, outImageData.vkImage, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &copyRegion);
+
+    // 6. Blit downsampling loop for 3D Volume Mip Generation
+    int32_t mipWidth = width;
+    int32_t mipHeight = height;
+    int32_t mipDepth = static_cast<int32_t>(depth);
+
+    for (uint32_t i = 1; i < outMipLevels; i++) {
+        // Transition mip (i - 1) to TRANSFER_SRC
+        barrier.subresourceRange.baseMipLevel = i - 1;
+        barrier.subresourceRange.levelCount = 1;
+        barrier.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+        barrier.newLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
+        barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+        barrier.dstAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
+
+        vkCmdPipelineBarrier(cmd, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT,
+            0, 0, nullptr, 0, nullptr, 1, &barrier);
+
+        // Blit calculation across X, Y, and Z
+        VkImageBlit blit{};
+        blit.srcSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+        blit.srcSubresource.mipLevel = i - 1;
+        blit.srcSubresource.baseArrayLayer = 0;
+        blit.srcSubresource.layerCount = 1;
+        blit.srcOffsets[0] = { 0, 0, 0 };
+        blit.srcOffsets[1] = { mipWidth, mipHeight, mipDepth };
+
+        blit.dstSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+        blit.dstSubresource.mipLevel = i;
+        blit.dstSubresource.baseArrayLayer = 0;
+        blit.dstSubresource.layerCount = 1;
+        blit.dstOffsets[0] = { 0, 0, 0 };
+        blit.dstOffsets[1] = {
+            mipWidth > 1 ? mipWidth / 2 : 1,
+            mipHeight > 1 ? mipHeight / 2 : 1,
+            mipDepth > 1 ? mipDepth / 2 : 1
+        };
+
+        vkCmdBlitImage(cmd,
+            outImageData.vkImage, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+            outImageData.vkImage, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+            1, &blit, VK_FILTER_LINEAR);
+
+        // Transition mip (i - 1) to SHADER_READ_ONLY
+        barrier.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
+        barrier.newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+        barrier.srcAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
+        barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+
+        vkCmdPipelineBarrier(cmd, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT | VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+            0, 0, nullptr, 0, nullptr, 1, &barrier);
+
+        if (mipWidth > 1) mipWidth /= 2;
+        if (mipHeight > 1) mipHeight /= 2;
+        if (mipDepth > 1) mipDepth /= 2;
+    }
+
+    // Transition the final mip level to SHADER_READ_ONLY
+    barrier.subresourceRange.baseMipLevel = outMipLevels - 1;
+    barrier.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+    barrier.newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+    barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+    barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+
+    vkCmdPipelineBarrier(cmd, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT | VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+        0, 0, nullptr, 0, nullptr, 1, &barrier);
+
+    gVulkanContext.EndSingleTimeCommands(device, commandPool, graphicsQueue, cmd);
+
+    // Clean up temporary staging buffer
+    vkDestroyBuffer(device, stagingBuffer, nullptr);
+    vkFreeMemory(device, stagingBufferMemory, nullptr);
+
+    // 7. Create 3D Image View
+    VkImageViewCreateInfo viewInfo{};
+    viewInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+    viewInfo.image = outImageData.vkImage;
+    viewInfo.viewType = VK_IMAGE_VIEW_TYPE_3D;
+    viewInfo.format = VK_FORMAT_R8G8B8A8_UNORM;
+    viewInfo.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+    viewInfo.subresourceRange.baseMipLevel = 0;
+    viewInfo.subresourceRange.levelCount = outMipLevels;
+    viewInfo.subresourceRange.baseArrayLayer = 0;
+    viewInfo.subresourceRange.layerCount = 1;
+
+    return vkCreateImageView(device, &viewInfo, nullptr, &outImageData.vkImageView) == VK_SUCCESS;
 }
 
