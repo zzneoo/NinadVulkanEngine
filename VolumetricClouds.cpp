@@ -24,7 +24,26 @@ VolumetricClouds::VolumetricClouds()
     imageData_Noise3D.vkSampler = vkSampler_LinearMipmapRepeat;
 
     if (!success) {
-        fprintf(gpFILE, "VolumetricClouds() : Load3DTextureWithMipmaps() failed (%d).\n", vkResult);
+        fprintf(gpFILE, "VolumetricClouds() : Load3DTextureWithMipmaps() for imageData_Noise3D  failed.\n");
+        vkResult = VK_ERROR_INITIALIZATION_FAILED;
+    }
+
+    //ModelingData
+    Load3DTexture(
+        gVulkanContext.vkDevice,
+        gVulkanContext.vkCommandPool,
+        gVulkanContext.vkGraphicsQueue,
+        "Resources/CloudData",
+        "modeling_data",
+        ".tga",
+        64,
+        3,
+        imageData_ModelingData3D
+    );
+
+    imageData_ModelingData3D.vkSampler = vkSampler_LinearClamp;
+    if (!success) {
+        fprintf(gpFILE, "VolumetricClouds() : Load3DTexture() for imageData_ModelingData failed.\n");
         vkResult = VK_ERROR_INITIALIZATION_FAILED;
     }
 
@@ -93,6 +112,23 @@ VolumetricClouds::~VolumetricClouds()
     {
         vkFreeMemory(gVulkanContext.vkDevice, imageData_Noise3D.vkDeviceMemory, nullptr);
         imageData_Noise3D.vkDeviceMemory = VK_NULL_HANDLE;
+    }
+
+    //Modeling Data 
+    if (imageData_ModelingData3D.vkImageView != VK_NULL_HANDLE)
+    {
+        vkDestroyImageView(gVulkanContext.vkDevice, imageData_ModelingData3D.vkImageView, nullptr);
+        imageData_ModelingData3D.vkImageView = VK_NULL_HANDLE;
+    }
+    if (imageData_ModelingData3D.vkImage != VK_NULL_HANDLE)
+    {
+        vkDestroyImage(gVulkanContext.vkDevice, imageData_ModelingData3D.vkImage, nullptr);
+        imageData_ModelingData3D.vkImage = VK_NULL_HANDLE;
+    }
+    if (imageData_ModelingData3D.vkDeviceMemory != VK_NULL_HANDLE)
+    {
+        vkFreeMemory(gVulkanContext.vkDevice, imageData_ModelingData3D.vkDeviceMemory, nullptr);
+        imageData_ModelingData3D.vkDeviceMemory = VK_NULL_HANDLE;
     }
 }
 
@@ -484,12 +520,18 @@ VkResult VolumetricClouds::CreateDescriptorSet_VolumetricClouds()
     storageImageInfo.imageLayout = VK_IMAGE_LAYOUT_GENERAL;
 
     // Binding 1: Combined Image Sampler
-    VkDescriptorImageInfo sampledImageInfo{};
-    sampledImageInfo.sampler = imageData_Noise3D.vkSampler; // Provide your sampler handle here
-    sampledImageInfo.imageView = imageData_Noise3D.vkImageView;
-    sampledImageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+    VkDescriptorImageInfo sampledImageInfo_Noise3D{};
+    sampledImageInfo_Noise3D.sampler = imageData_Noise3D.vkSampler; // Provide your sampler handle here
+    sampledImageInfo_Noise3D.imageView = imageData_Noise3D.vkImageView;
+    sampledImageInfo_Noise3D.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 
-    VkWriteDescriptorSet writes[2]{};
+    // Binding 2: Combined Image Sampler
+    VkDescriptorImageInfo sampledImageInfo_ModelingData3D{};
+    sampledImageInfo_ModelingData3D.sampler = imageData_ModelingData3D.vkSampler; // Provide your sampler handle here
+    sampledImageInfo_ModelingData3D.imageView = imageData_ModelingData3D.vkImageView;
+    sampledImageInfo_ModelingData3D.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+
+    VkWriteDescriptorSet writes[3]{};
 
     // Write for Binding 0
     writes[0].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
@@ -505,11 +547,19 @@ VkResult VolumetricClouds::CreateDescriptorSet_VolumetricClouds()
     writes[1].dstBinding = 1;
     writes[1].descriptorCount = 1;
     writes[1].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-    writes[1].pImageInfo = &sampledImageInfo;
+    writes[1].pImageInfo = &sampledImageInfo_Noise3D;
+
+    // Write for Binding 2
+    writes[2].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+    writes[2].dstSet = vkDescriptorSet_VolumetricClouds;
+    writes[2].dstBinding = 2;
+    writes[2].descriptorCount = 1;
+    writes[2].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+    writes[2].pImageInfo = &sampledImageInfo_ModelingData3D;
 
     vkUpdateDescriptorSets(
         gVulkanContext.vkDevice,
-        2,              // Count of writes updated
+        3,              // Count of writes updated
         writes,
         0,
         nullptr);
@@ -809,4 +859,559 @@ bool VolumetricClouds::Load3DTextureWithMipmaps(
 
     return vkCreateImageView(device, &viewInfo, nullptr, &outImageData.vkImageView) == VK_SUCCESS;
 }
+
+bool VolumetricClouds::Load3DTexture(
+    VkDevice device,
+    VkCommandPool commandPool,
+    VkQueue graphicsQueue,
+    const std::string& baseFolder,
+    const std::string& filePrefix,
+    const std::string& fileExtension,
+    uint32_t sliceCount,
+    uint32_t zeroPadding,
+    ImageData& outImageData)
+{
+    if (sliceCount == 0)
+        return false;
+
+        int width = 0;
+    int height = 0;
+
+    constexpr int channels = 4;
+
+    std::vector<stbi_uc*> loadedSlices(sliceCount, nullptr);
+    VkDeviceSize sliceSize = 0;
+
+    // ============================================================
+    // 1. Load all 2D slices
+    // ============================================================
+
+    for (uint32_t z = 0; z < sliceCount; ++z)
+    {
+        std::stringstream ss;
+
+        // Example:
+        // modeling_data.001.tga
+        // modeling_data.002.tga
+        // ...
+        // modeling_data.064.tga
+
+        ss << baseFolder << "/"
+            << filePrefix << "."
+            << std::setfill('0')
+            << std::setw(zeroPadding)
+            << (z + 1)
+            << fileExtension;
+
+        const std::string filename = ss.str();
+
+        int sliceWidth = 0;
+        int sliceHeight = 0;
+        int sliceChannels = 0;
+
+        stbi_uc* pixels = stbi_load(
+            filename.c_str(),
+            &sliceWidth,
+            &sliceHeight,
+            &sliceChannels,
+            STBI_rgb_alpha
+        );
+
+        if (!pixels)
+        {
+            std::cerr << "Failed to load 3D texture slice: "
+                << filename << std::endl;
+
+            for (uint32_t i = 0; i < z; ++i)
+            {
+                stbi_image_free(loadedSlices[i]);
+            }
+
+            return false;
+        }
+
+        // First slice determines dimensions
+        if (z == 0)
+        {
+            width = sliceWidth;
+            height = sliceHeight;
+
+            sliceSize =
+                static_cast<VkDeviceSize>(width) *
+                static_cast<VkDeviceSize>(height) *
+                channels;
+        }
+        else
+        {
+            // Every slice must have identical dimensions
+            if (sliceWidth != width ||
+                sliceHeight != height)
+            {
+                std::cerr << "3D texture dimension mismatch: "
+                    << filename << std::endl;
+
+                stbi_image_free(pixels);
+
+                for (uint32_t i = 0; i < z; ++i)
+                {
+                    stbi_image_free(loadedSlices[i]);
+                }
+
+                return false;
+            }
+        }
+
+        loadedSlices[z] = pixels;
+    }
+
+    const uint32_t depth = sliceCount;
+
+    const VkDeviceSize volumeSize =
+        sliceSize * static_cast<VkDeviceSize>(depth);
+
+    // ============================================================
+    // 2. Create staging buffer
+    // ============================================================
+
+    VkBuffer stagingBuffer = VK_NULL_HANDLE;
+    VkDeviceMemory stagingBufferMemory = VK_NULL_HANDLE;
+
+    VkBufferCreateInfo bufferInfo{};
+    bufferInfo.sType =
+        VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
+
+    bufferInfo.size = volumeSize;
+
+    bufferInfo.usage =
+        VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
+
+    bufferInfo.sharingMode =
+        VK_SHARING_MODE_EXCLUSIVE;
+
+    if (vkCreateBuffer(
+        device,
+        &bufferInfo,
+        nullptr,
+        &stagingBuffer) != VK_SUCCESS)
+    {
+        for (auto* slice : loadedSlices)
+        {
+            if (slice)
+                stbi_image_free(slice);
+        }
+
+        return false;
+    }
+
+    VkMemoryRequirements bufferMemoryRequirements{};
+
+    vkGetBufferMemoryRequirements(
+        device,
+        stagingBuffer,
+        &bufferMemoryRequirements
+    );
+
+    VkMemoryAllocateInfo bufferAllocInfo{};
+    bufferAllocInfo.sType =
+        VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
+
+    bufferAllocInfo.allocationSize =
+        bufferMemoryRequirements.size;
+
+    bufferAllocInfo.memoryTypeIndex =
+        gVulkanContext.FindMemoryType(
+            bufferMemoryRequirements.memoryTypeBits,
+            VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
+            VK_MEMORY_PROPERTY_HOST_COHERENT_BIT
+        );
+
+    if (vkAllocateMemory(
+        device,
+        &bufferAllocInfo,
+        nullptr,
+        &stagingBufferMemory) != VK_SUCCESS)
+    {
+        vkDestroyBuffer(
+            device,
+            stagingBuffer,
+            nullptr
+        );
+
+        for (auto* slice : loadedSlices)
+        {
+            if (slice)
+                stbi_image_free(slice);
+        }
+
+        return false;
+    }
+
+    vkBindBufferMemory(
+        device,
+        stagingBuffer,
+        stagingBufferMemory,
+        0
+    );
+
+    // ============================================================
+    // 3. Copy all slices into staging buffer
+    // ============================================================
+
+    void* mappedMemory = nullptr;
+
+    if (vkMapMemory(
+        device,
+        stagingBufferMemory,
+        0,
+        volumeSize,
+        0,
+        &mappedMemory) != VK_SUCCESS)
+    {
+        vkDestroyBuffer(device, stagingBuffer, nullptr);
+        vkFreeMemory(device, stagingBufferMemory, nullptr);
+
+        for (auto* slice : loadedSlices)
+        {
+            if (slice)
+                stbi_image_free(slice);
+        }
+
+        return false;
+    }
+
+    uint8_t* destination =
+        static_cast<uint8_t*>(mappedMemory);
+
+    for (uint32_t z = 0; z < depth; ++z)
+    {
+        memcpy(
+            destination + (z * sliceSize),
+            loadedSlices[z],
+            sliceSize
+        );
+
+        stbi_image_free(loadedSlices[z]);
+        loadedSlices[z] = nullptr;
+    }
+
+    vkUnmapMemory(
+        device,
+        stagingBufferMemory
+    );
+
+    // ============================================================
+    // 4. Create 3D image
+    //    Resolution: 512 x 512 x 64
+    //    Mip levels: 1
+    // ============================================================
+
+    VkImageCreateInfo imageInfo{};
+    imageInfo.sType =
+        VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
+
+    imageInfo.imageType =
+        VK_IMAGE_TYPE_3D;
+
+    imageInfo.extent =
+    {
+        static_cast<uint32_t>(width),
+        static_cast<uint32_t>(height),
+        depth
+    };
+
+    // IMPORTANT:
+    // Only one mip level
+    imageInfo.mipLevels = 1;
+
+    imageInfo.arrayLayers = 1;
+
+    imageInfo.format =
+        VK_FORMAT_R8G8B8A8_UNORM;
+
+    imageInfo.tiling =
+        VK_IMAGE_TILING_OPTIMAL;
+
+    imageInfo.initialLayout =
+        VK_IMAGE_LAYOUT_UNDEFINED;
+
+    imageInfo.usage =
+        VK_IMAGE_USAGE_TRANSFER_DST_BIT |
+        VK_IMAGE_USAGE_SAMPLED_BIT;
+
+    imageInfo.sharingMode =
+        VK_SHARING_MODE_EXCLUSIVE;
+
+    imageInfo.samples =
+        VK_SAMPLE_COUNT_1_BIT;
+
+    if (vkCreateImage(
+        device,
+        &imageInfo,
+        nullptr,
+        &outImageData.vkImage) != VK_SUCCESS)
+    {
+        vkDestroyBuffer(device, stagingBuffer, nullptr);
+        vkFreeMemory(device, stagingBufferMemory, nullptr);
+
+        return false;
+    }
+
+    // ============================================================
+    // 5. Allocate device-local image memory
+    // ============================================================
+
+    VkMemoryRequirements imageMemoryRequirements{};
+
+    vkGetImageMemoryRequirements(
+        device,
+        outImageData.vkImage,
+        &imageMemoryRequirements
+    );
+
+    VkMemoryAllocateInfo imageAllocInfo{};
+    imageAllocInfo.sType =
+        VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
+
+    imageAllocInfo.allocationSize =
+        imageMemoryRequirements.size;
+
+    imageAllocInfo.memoryTypeIndex =
+        gVulkanContext.FindMemoryType(
+            imageMemoryRequirements.memoryTypeBits,
+            VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT
+        );
+
+    if (vkAllocateMemory(
+        device,
+        &imageAllocInfo,
+        nullptr,
+        &outImageData.vkDeviceMemory) != VK_SUCCESS)
+    {
+        vkDestroyImage(
+            device,
+            outImageData.vkImage,
+            nullptr
+        );
+
+        vkDestroyBuffer(
+            device,
+            stagingBuffer,
+            nullptr
+        );
+
+        vkFreeMemory(
+            device,
+            stagingBufferMemory,
+            nullptr
+        );
+
+        return false;
+    }
+
+    vkBindImageMemory(
+        device,
+        outImageData.vkImage,
+        outImageData.vkDeviceMemory,
+        0
+    );
+
+    // ============================================================
+    // 6. Copy staging buffer -> 3D image
+    // ============================================================
+
+    VkCommandBuffer commandBuffer =
+        gVulkanContext.BeginSingleTimeCommands(
+            device,
+            commandPool
+        );
+
+    // ------------------------------------------------------------
+    // UNDEFINED -> TRANSFER_DST_OPTIMAL
+    // ------------------------------------------------------------
+
+    VkImageMemoryBarrier barrier{};
+    barrier.sType =
+        VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+
+    barrier.oldLayout =
+        VK_IMAGE_LAYOUT_UNDEFINED;
+
+    barrier.newLayout =
+        VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+
+    barrier.srcQueueFamilyIndex =
+        VK_QUEUE_FAMILY_IGNORED;
+
+    barrier.dstQueueFamilyIndex =
+        VK_QUEUE_FAMILY_IGNORED;
+
+    barrier.image =
+        outImageData.vkImage;
+
+    barrier.subresourceRange.aspectMask =
+        VK_IMAGE_ASPECT_COLOR_BIT;
+
+    barrier.subresourceRange.baseMipLevel = 0;
+    barrier.subresourceRange.levelCount = 1;
+
+    barrier.subresourceRange.baseArrayLayer = 0;
+    barrier.subresourceRange.layerCount = 1;
+
+    barrier.srcAccessMask = 0;
+
+    barrier.dstAccessMask =
+        VK_ACCESS_TRANSFER_WRITE_BIT;
+
+    vkCmdPipelineBarrier(
+        commandBuffer,
+        VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
+        VK_PIPELINE_STAGE_TRANSFER_BIT,
+        0,
+        0,
+        nullptr,
+        0,
+        nullptr,
+        1,
+        &barrier
+    );
+
+    // ------------------------------------------------------------
+    // Copy complete volume
+    // ------------------------------------------------------------
+
+    VkBufferImageCopy copyRegion{};
+
+    copyRegion.bufferOffset = 0;
+
+    // Tightly packed
+    copyRegion.bufferRowLength = 0;
+    copyRegion.bufferImageHeight = 0;
+
+    copyRegion.imageSubresource.aspectMask =
+        VK_IMAGE_ASPECT_COLOR_BIT;
+
+    copyRegion.imageSubresource.mipLevel = 0;
+
+    copyRegion.imageSubresource.baseArrayLayer = 0;
+
+    copyRegion.imageSubresource.layerCount = 1;
+
+    copyRegion.imageOffset =
+    {
+        0,
+        0,
+        0
+    };
+
+    copyRegion.imageExtent =
+    {
+        static_cast<uint32_t>(width),
+        static_cast<uint32_t>(height),
+        depth
+    };
+
+    vkCmdCopyBufferToImage(
+        commandBuffer,
+        stagingBuffer,
+        outImageData.vkImage,
+        VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+        1,
+        &copyRegion
+    );
+
+    // ------------------------------------------------------------
+    // TRANSFER_DST -> SHADER_READ_ONLY
+    // ------------------------------------------------------------
+
+    barrier.oldLayout =
+        VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+
+    barrier.newLayout =
+        VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+
+    barrier.srcAccessMask =
+        VK_ACCESS_TRANSFER_WRITE_BIT;
+
+    barrier.dstAccessMask =
+        VK_ACCESS_SHADER_READ_BIT;
+
+    vkCmdPipelineBarrier(
+        commandBuffer,
+        VK_PIPELINE_STAGE_TRANSFER_BIT,
+        VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT |
+        VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+        0,
+        0,
+        nullptr,
+        0,
+        nullptr,
+        1,
+        &barrier
+    );
+
+    gVulkanContext.EndSingleTimeCommands(
+        device,
+        commandPool,
+        graphicsQueue,
+        commandBuffer
+    );
+
+    // ============================================================
+    // 7. Destroy staging resources
+    // ============================================================
+
+    vkDestroyBuffer(
+        device,
+        stagingBuffer,
+        nullptr
+    );
+
+    vkFreeMemory(
+        device,
+        stagingBufferMemory,
+        nullptr
+    );
+
+    // ============================================================
+    // 8. Create 3D image view
+    // ============================================================
+
+    VkImageViewCreateInfo viewInfo{};
+    viewInfo.sType =
+        VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+
+    viewInfo.image =
+        outImageData.vkImage;
+
+    viewInfo.viewType =
+        VK_IMAGE_VIEW_TYPE_3D;
+
+    viewInfo.format =
+        VK_FORMAT_R8G8B8A8_UNORM;
+
+    viewInfo.subresourceRange.aspectMask =
+        VK_IMAGE_ASPECT_COLOR_BIT;
+
+    viewInfo.subresourceRange.baseMipLevel = 0;
+
+    // IMPORTANT:
+    // Only one mip level
+    viewInfo.subresourceRange.levelCount = 1;
+
+    viewInfo.subresourceRange.baseArrayLayer = 0;
+    viewInfo.subresourceRange.layerCount = 1;
+
+    if (vkCreateImageView(
+        device,
+        &viewInfo,
+        nullptr,
+        &outImageData.vkImageView) != VK_SUCCESS)
+    {
+        return false;
+    }
+
+    return true;
+
+}
+
 

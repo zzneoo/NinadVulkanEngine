@@ -31,6 +31,11 @@ public:
 		return imageData_Noise3D;
 	}
 
+	ImageData GetImageData_ModelingData3D(void)
+	{
+		return imageData_ModelingData3D;
+	}
+
 	void Compute_VolumetricClouds(
 		uint32_t curIndex,
 		VkPipeline vkPipeline,
@@ -66,9 +71,22 @@ private:
 		ImageData& outImageData,
 		uint32_t& outMipLevels);
 
+	bool Load3DTexture(
+		VkDevice device,
+		VkCommandPool commandPool,
+		VkQueue graphicsQueue,
+		const std::string& baseFolder,
+		const std::string& filePrefix,
+		const std::string& fileExtension,
+		uint32_t sliceCount,
+		uint32_t zeroPadding,
+		ImageData& outImageData);
+
 	VkResult vkResult;
 	ImageData imageData_Clouds{};
 	ImageData imageData_Noise3D{};
+	ImageData imageData_ModelingData3D{};
+
 	VkDescriptorSet vkDescriptorSet_VolumetricClouds;
 	uint32_t Width;
 	uint32_t Height;

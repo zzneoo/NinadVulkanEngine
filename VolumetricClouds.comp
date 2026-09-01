@@ -8,41 +8,167 @@ layout(local_size_x = 8, local_size_y = 8, local_size_z = 1) in;
 
 layout(set = 1, binding = 0, rgba8) uniform writeonly image2D outputImage;
 layout(set = 1, binding = 1) uniform sampler3D noise3D;
+layout(set = 1, binding = 2) uniform sampler3D modelingData3D;
 
 
-float sdSphere(vec3 p, float radius)
-{
-    return length(p) - radius;
-}
 
-bool IntersectSphere(
+bool IntersectAABB(
     vec3 rayOrigin,
     vec3 rayDir,
-    vec3 center,
-    float radius,
+    vec3 boxMin,
+    vec3 boxMax,
     out float tEnter,
     out float tExit)
 {
-    vec3 oc = rayOrigin - center;
+    vec3 invRayDir = 1.0 / rayDir;
 
-    float b = dot(oc, rayDir);
-    float c = dot(oc, oc) - radius * radius;
+    vec3 t0 =
+        (boxMin - rayOrigin) * invRayDir;
 
-    float discriminant = b * b - c;
+    vec3 t1 =
+        (boxMax - rayOrigin) * invRayDir;
 
-    if (discriminant < 0.0)
-        return false;
+    vec3 tMin =
+        min(t0, t1);
 
-    float s = sqrt(discriminant);
+    vec3 tMax =
+        max(t0, t1);
 
-    tEnter = -b - s;
-    tExit  = -b + s;
+    tEnter =
+        max(
+            max(tMin.x, tMin.y),
+            tMin.z);
 
-    // Camera starts inside sphere.
+    tExit =
+        min(
+            min(tMax.x, tMax.y),
+            tMax.z);
+
     tEnter = max(tEnter, 0.0);
 
-    return tExit > tEnter;
+    return tExit >= tEnter;
 }
+
+float SampleDensity(
+    vec3 worldPos,
+    vec3 sphereCenter,
+    float sphereRadius)
+{
+    vec3 volumeUV = (worldPos - sphereCenter) / (2.0 * sphereRadius) + 0.5;
+
+    float density = texture(noise3D, volumeUV).r;
+
+    // Normalize distance between 0.0 and 1.0 relative to sphere radius
+    float distNorm = distance(worldPos, sphereCenter) / sphereRadius;
+    float falloff = smoothstep(1.0, 0.4, distNorm);
+
+    return density * falloff;
+}
+
+const vec3 VOLUME_MIN  = vec3(-256.0, -256.0, -32.0);
+const vec3 VOLUME_SIZE = vec3(512.0, 512.0, 64.0);
+const vec3 VOLUME_MAX  = VOLUME_MIN + VOLUME_SIZE;
+
+float SampleDensityLow(vec3 worldPos)
+{
+    vec3 volumeUV =
+        (worldPos - VOLUME_MIN) /
+        (VOLUME_MAX - VOLUME_MIN);
+
+    // Safety check.
+    if (any(lessThan(volumeUV, vec3(0.0))) ||
+        any(greaterThan(volumeUV, vec3(1.0))))
+    {
+        return 0.0;
+    }
+
+    return texture(
+        modelingData3D,
+        volumeUV).r;
+}
+
+float SampleSunTransmittance(
+    vec3 worldPos,
+    vec3 sunDir)
+{
+    float tEnter;
+    float tExit;
+
+    if (!IntersectAABB(
+            worldPos,
+            sunDir,
+            VOLUME_MIN,
+            VOLUME_MAX,
+            tEnter,
+            tExit))
+    {
+        return 1.0;
+    }
+
+    const float LIGHT_STEP_SIZE = 2.0;
+    const int LIGHT_MAX_STEPS = 16;
+
+    const float DENSITY_SCALE = 20.0;
+
+    float lightTransmittance = 1.0;
+
+    float t = 0.0;
+
+    for (int i = 0;
+         i < LIGHT_MAX_STEPS && t < tExit;
+         ++i)
+    {
+        float currentStep =
+            min(
+                LIGHT_STEP_SIZE,
+                tExit - t);
+
+        vec3 samplePos =
+            worldPos +
+            sunDir *
+            (t + currentStep * 0.5);
+
+        // IMPORTANT: samplePos, not worldPos
+        float density =
+            SampleDensityLow(samplePos);
+
+        float sigmaT =
+            density * DENSITY_SCALE;
+
+        float stepTransmittance =
+            exp(-sigmaT * currentStep);
+
+        lightTransmittance *=
+            stepTransmittance;
+
+        if (lightTransmittance < 0.01)
+            break;
+
+        t += currentStep;
+    }
+
+    return lightTransmittance;
+}
+
+
+
+float PhaseHenyeyGreenstein(
+    float cosTheta,
+    float g)
+{
+    const float INV_4PI = 0.0795774715;
+
+    float g2 = g * g;
+
+    float denom =
+        1.0 + g2 - 2.0 * g * cosTheta;
+
+    return INV_4PI *
+           (1.0 - g2) /
+           pow(denom, 1.5);
+}
+
+
 
 void main()
 {
@@ -75,64 +201,87 @@ void main()
         normalize(worldFar.xyz - rayOrigin);
 
 
-    // --------------------------------------------------
-    // Sphere volume
-    // --------------------------------------------------
-
-    vec3 sphereCenter = vec3(0.0);
-    float sphereRadius = 2.0;
-
     float tEnter;
     float tExit;
 
     float transmittance = 1.0;
+    vec3 scattering = vec3(0.0);
 
-    // --------------------------------------------------
-    // Ray / sphere intersection
-    // --------------------------------------------------
-
-    if (IntersectSphere(
+    if (IntersectAABB(
             rayOrigin,
             rayDir,
-            sphereCenter,
-            sphereRadius,
+            VOLUME_MIN,
+            VOLUME_MAX,
             tEnter,
             tExit))
     {
-        const float STEP_SIZE = 0.03;
-        const int MAX_STEPS = 128;
+        const float STEP_SIZE = 0.5;
+        const int MAX_STEPS = 512;
+        const float DENSITY_SCALE = 20.0;
 
-        float t = tEnter;
-
-
+        float t =
+            tEnter + STEP_SIZE * 0.5;
 
         for (int i = 0;
              i < MAX_STEPS && t < tExit;
              ++i)
         {
-            vec3 worldPos = rayOrigin + rayDir * t;
+            vec3 worldPos =
+                rayOrigin + rayDir * t;
 
-            vec3 volumeUV =
-                (worldPos - sphereCenter) /
-                (2.0 * sphereRadius) +
-                0.5;
+            float density =
+                SampleDensityLow(worldPos);
 
-            float density =  texture(noise3D, volumeUV).r * smoothstep(1.0,0.4,distance(worldPos,sphereCenter));
+            // Empty space
+            if (density > 0.0001)
+            {
+                float sigmaT =
+                    density * DENSITY_SCALE;
 
-            // Density -> extinction coefficient
-            float sigmaT = density * 2.0;
+                float sunTransmittance =
+                    SampleSunTransmittance(
+                        worldPos,
+                        normalize(global.sunDir));
 
-            // Beer-Lambert
-            float stepTransmittance =
-                exp(-sigmaT * STEP_SIZE);
+                float cosTheta =
+                    dot(
+                        rayDir,
+                        normalize(global.sunDir));
 
-            transmittance *= stepTransmittance;
+                float phase =
+                    PhaseHenyeyGreenstein(
+                        cosTheta,
+                        0.6);
 
-            t += STEP_SIZE;
+                float sigmaS =
+                    sigmaT;
 
-            // Early termination
+                vec3 S =
+                    vec3(15.0) *
+                    sigmaS *
+                    sunTransmittance *
+                    phase;
+
+                float deltaTrans =
+                    exp(-sigmaT * STEP_SIZE);
+
+                float sintWeight =
+                    (1.0 - deltaTrans) /
+                    max(sigmaT, 1e-6);
+
+                scattering +=
+                    transmittance *
+                    S *
+                    sintWeight;
+
+                transmittance *=
+                    deltaTrans;
+            }
+
             if (transmittance < 0.01)
                 break;
+
+            t += STEP_SIZE;
         }
     }
 
@@ -149,6 +298,6 @@ void main()
     imageStore(
         outputImage,
         pixel,
-        vec4(vec3(result), 1.0)
+        vec4(vec3(scattering), 1.0)
     );
 }
