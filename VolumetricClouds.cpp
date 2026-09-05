@@ -608,6 +608,22 @@ void VolumetricClouds::Compute_VolumetricClouds(
         nullptr
     );
 
+    CloudPushConstants cloudPushConstants{};
+    cloudPushConstants.fFactor = fCloudFactor;
+    cloudPushConstants.v3Color = fLightColor;
+    cloudPushConstants.fIntensity = glm::vec4(fLightIntensity,0.0f,0.0f,0.0f);
+
+    // Push the model matrix
+    vkCmdPushConstants(
+        gFrames[curIndex].commandBuffer,
+        gpComputePipelines->VolumetricClouds.vkPipelineLayout,
+        VK_SHADER_STAGE_COMPUTE_BIT, // stages where the push constant will be used
+        0,                                      // offset
+        sizeof(CloudPushConstants),                  // size
+        &cloudPushConstants                          // pointer to our data
+    );
+
+
     vkCmdDispatch(
         gFrames[curIndex].commandBuffer,
         (WIN_WIDTH + 31) / 32,

@@ -4,11 +4,20 @@
 
 #include "common.glsl"
 
+#define saturate(x) clamp(x, 0.0, 1.0)
+
 layout(local_size_x = 32, local_size_y = 32, local_size_z = 1) in;
 
 layout(set = 1, binding = 0, rgba8) uniform writeonly image2D outputImage;
 layout(set = 1, binding = 1) uniform sampler3D noise3D;
 layout(set = 1, binding = 2) uniform sampler3D modelingData3D;
+
+layout(push_constant) uniform PushConstants 
+{
+	vec3 v3LightColor;
+	float fCloudFactor;
+	vec4 fIntensity;
+} pc;
 
 // ------------------------------------------------------------
 // Value Remap
@@ -187,6 +196,7 @@ float SampleDensity(
 const vec3 VOLUME_MIN  = vec3(-256.0, -256.0, -32.0);
 const vec3 VOLUME_SIZE = vec3(512.0, 512.0, 64.0);
 const vec3 VOLUME_MAX  = VOLUME_MIN + VOLUME_SIZE;
+const float DENSITY_SCALE = 1.0;
 
 float SampleDensityLow(vec3 worldPos)
 {
@@ -197,12 +207,28 @@ float SampleDensityLow(vec3 worldPos)
 
     vec3 modelingData = texture(modelingData3D,volumeUV).xyz;
 
-    vec4 noise = texture(noise3D, worldPos * 0.05).xyzw;
+    vec4 noise = texture(noise3D, worldPos * 0.1).xyzw;
 
     // Define wispy noise
 	float wispy_noise = mix(noise.r, noise.g, modelingData.r);
 
-    float uprezzed_density = ValueErosion(modelingData.r, wispy_noise);
+    // Define billowy noise 
+    float billowy_type_gradient = pow(modelingData.r, 0.25);
+    float billowy_noise = mix(noise.b * 0.3, noise.a * 0.3, billowy_type_gradient);
+
+    // Define Noise composite - blend to wispy as the density scale decreases.
+    float noise_composite = mix(wispy_noise, billowy_noise, modelingData.g);
+
+
+    float uprezzed_density = ValueErosion(modelingData.r, noise_composite);
+
+    // Apply User Density Scale Data to Result
+    float powered_density_scale = pow(saturate(modelingData.b),4.0);
+
+    uprezzed_density *= powered_density_scale;
+
+    // Sharpen result and lower Density close to camera to both add details and reduce undersampling noise
+    uprezzed_density = pow(uprezzed_density, mix(0.3, 0.6, max(1e-6, powered_density_scale)));
 
 
     return uprezzed_density;
@@ -229,38 +255,23 @@ float SampleSunTransmittance(
     const float LIGHT_STEP_SIZE = 2.0;
     const int LIGHT_MAX_STEPS = 32;
 
-    const float DENSITY_SCALE = 10.0;
+
 
     float lightTransmittance = 1.0;
 
     float t = 0.0;
 
-    for (int i = 0;
-         i < LIGHT_MAX_STEPS && t < tExit;
-         ++i)
+    for (int i = 0; i < LIGHT_MAX_STEPS && t < tExit; ++i)
     {
-        float currentStep =
-            min(
-                LIGHT_STEP_SIZE,
-                tExit - t);
-
-        vec3 samplePos =
-            worldPos +
-            sunDir *
-            (t + currentStep * 0.5);
+        float currentStep = min( LIGHT_STEP_SIZE, tExit - t);
+        vec3 samplePos = worldPos + sunDir * (t + currentStep * 0.5);
 
         // IMPORTANT: samplePos, not worldPos
-        float density =
-            SampleDensityLow(samplePos);
+        float density = SampleDensityLow(samplePos);
+        float sigmaT = density * DENSITY_SCALE;
+        float stepTransmittance = exp(-sigmaT * currentStep);
 
-        float sigmaT =
-            density * DENSITY_SCALE;
-
-        float stepTransmittance =
-            exp(-sigmaT * currentStep);
-
-        lightTransmittance *=
-            stepTransmittance;
+        lightTransmittance *= stepTransmittance;
 
         if (lightTransmittance < 0.01)
             break;
@@ -287,6 +298,16 @@ float PhaseHenyeyGreenstein(
     return INV_4PI *
            (1.0 - g2) /
            pow(denom, 1.5);
+}
+
+vec3 TonemapACES(vec3 x)
+{
+	const float a = 2.51;
+	const float b = 0.03;
+	const float c = 2.43;
+	const float d = 0.59;
+	const float e = 0.14;
+	return clamp((x * (a * x + b)) / (x * (c * x + d) + e), 0.0, 1.0);
 }
 
 
@@ -338,65 +359,36 @@ void main()
     {
         const float STEP_SIZE = 0.25;
         const int MAX_STEPS = 512;
-        const float DENSITY_SCALE = 10.0;
 
-        float t =
-            tEnter + STEP_SIZE * 0.5;
+        float t = tEnter + STEP_SIZE * 0.5;
 
-        for (int i = 0;
-             i < MAX_STEPS && t < tExit;
-             ++i)
+        for (int i = 0; i < MAX_STEPS && t < tExit; ++i)
         {
-            vec3 worldPos =
-                rayOrigin + rayDir * t;
-
-            float density =
-                SampleDensityLow(worldPos);
+            vec3 worldPos = rayOrigin + rayDir * t;
+            float density = SampleDensityLow(worldPos);
 
             // Empty space
             if (density > 0.0001)
             {
-                float sigmaT =
-                    density * DENSITY_SCALE;
+                float sigmaT = density * DENSITY_SCALE;
+                float sunTransmittance = SampleSunTransmittance(worldPos,normalize(global.sunDir));
+                float cosTheta = dot(rayDir, normalize(global.sunDir));
+                float phase = PhaseHenyeyGreenstein(cosTheta,0.6);
+                float sigmaS = sigmaT;
 
-                float sunTransmittance =
-                    SampleSunTransmittance(
-                        worldPos,
-                        normalize(global.sunDir));
+                // Isotropic phase function for uniform sky light (1.0 / 4PI)
+                float ambientPhase = 0.079577;
+                float ambientOcclusion = exp(-density * pc.fCloudFactor *10.0);
 
-                float cosTheta =
-                    dot(
-                        rayDir,
-                        normalize(global.sunDir));
+                vec3 directLight = pc.v3LightColor * pc.fIntensity.x * sunTransmittance * phase;
+                vec3 ambientLight = pc.v3LightColor * ambientOcclusion * ambientPhase; // Ambient light contribution
 
-                float phase =
-                    PhaseHenyeyGreenstein(
-                        cosTheta,
-                        0.6);
+                vec3 S =  sigmaS * (directLight + ambientLight);
 
-                float sigmaS =
-                    sigmaT;
-
-                vec3 S =
-                    vec3(12.0) *
-                    sigmaS *
-                    sunTransmittance *
-                    phase;
-
-                float deltaTrans =
-                    exp(-sigmaT * STEP_SIZE);
-
-                float sintWeight =
-                    (1.0 - deltaTrans) /
-                    max(sigmaT, 1e-6);
-
-                scattering +=
-                    transmittance *
-                    S *
-                    sintWeight;
-
-                transmittance *=
-                    deltaTrans;
+                float deltaTrans = exp(-sigmaT * STEP_SIZE);
+                float sintWeight = (1.0 - deltaTrans) / max(sigmaT, 1e-6);
+                scattering += transmittance * S * sintWeight;
+                transmittance *= deltaTrans;
             }
 
             if (transmittance < 0.01)
@@ -412,13 +404,10 @@ void main()
     // --------------------------------------------------
 
     float opacity = 1.0 - transmittance;
+    opacity = clamp(opacity, 0.0, 1.0);
 
-    float result =
-        clamp(opacity, 0.0, 1.0);
+    scattering = TonemapACES(scattering);
 
-    imageStore(
-        outputImage,
-        pixel,
-        vec4(vec3(scattering), 1.0)
+    imageStore(outputImage, pixel, vec4(vec3(scattering), 1.0)
     );
 }

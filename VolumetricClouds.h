@@ -9,8 +9,8 @@
 #include <iostream>
 #include <sstream>  // Fixes: incomplete type "std::stringstream"
 #include <iomanip>  // Needed for std::setfill and std::setw
-#include "DescriptorSetLayouts.h"
 #include <tinyddsloader.h>
+#include "ComputePipelines.h"
 
 extern VkDescriptorPool vkDescriptorPool;
 extern VkSampler vkSampler_LinearMipmapRepeat;
@@ -41,6 +41,10 @@ public:
 		uint32_t curIndex,
 		VkPipeline vkPipeline,
 		VkPipelineLayout vkPipelineLayout);
+
+	glm::vec3 fLightColor = glm::vec3(1.0f, 1.0f, 1.0f);
+	float fCloudFactor = 1.0f;
+	float fLightIntensity = 10.0f;
 
 
 private:

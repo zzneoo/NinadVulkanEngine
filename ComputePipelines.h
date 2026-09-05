@@ -56,3 +56,4 @@ private:
 
 };
 
+extern ComputePipelines* gpComputePipelines;

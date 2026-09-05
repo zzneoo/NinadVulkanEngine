@@ -91,6 +91,13 @@ struct BasicPushConstants
 	glm::uvec4 materialIDs;
 };
 
+struct CloudPushConstants
+{
+	glm::vec3 v3Color;
+	float fFactor;
+	glm::vec4 fIntensity;
+};
+
 
 struct MeshletPushConstants
 {

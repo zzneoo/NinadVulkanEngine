@@ -83,7 +83,7 @@ ImGuiIO* g_io = nullptr;
 static float fFactor = 0.0f;
 static float fSunAzimuth = 90.0f;
 static float fSunElevation = 20.0f;
-static glm::vec3 v3Color = glm::vec3(0.0f);
+static glm::vec3 v3LightColor = glm::vec3(0.0f);
 #endif // IMGUI_ENABLE
 
 // global variable declarations
@@ -173,7 +173,7 @@ VkRect2D vkRect2D_Scissor;
 
 //All pipelines
 GraphicsPipelines* gpGraphicsPipelines = NULL;
-ComputePipelines* gpComputePipelines = NULL;
+
 
 ImageData computeGradientTexture;
 VkDescriptorSet vkDescriptorSet_ComputeStorageImage = VK_NULL_HANDLE;
@@ -7176,7 +7176,11 @@ VkResult Render_ImGui(uint32_t curIndex)
         ImGui::SliderFloat("fFactor", &fFactor, 0.0f, 1.0f);            // Edit 1 float using a slider from 0.0f to 1.0f
         ImGui::SliderFloat("sunAzimuth", &fSunAzimuth, 0.0f, 360.0f);            // Edit 1 float using a slider from 0.0f to 1.0f
         ImGui::SliderFloat("sunElevation", &fSunElevation, 0.0f, 90.0f);            // Edit 1 float using a slider from 0.0f to 1.0f
-        ImGui::ColorEdit3("v3Color", (float*)&v3Color); // Edit 3 floats representing a color
+        ImGui::ColorEdit3("v3LightColor", (float*)&v3LightColor); // Edit 3 floats representing a color
+
+        ImGui::Text("Volumetric Clouds"); 
+        ImGui::SliderFloat("fCloudFactor", &clouds->fCloudFactor, 0.0f, 1.0f);
+        ImGui::SliderFloat("fCloudLightIntensity", &clouds->fLightIntensity, 1.0f, 20.0f);
 
         //if (ImGui::Button("Button"))                            // Buttons return true when clicked (most widgets return true when edited/activated)
         //    counter++;
@@ -7242,7 +7246,7 @@ void RenderColoredTriangle(uint32_t curIndex)
     pushConstants.model = glm::translate(glm::mat4(1.0f), glm::vec3(15.0f, -3.0f, 0.0f)) * glm::rotate(glm::mat4(1.0f), glm::radians(fAngle), glm::vec3(0.0f, 0.0f, 1.0f));
 
 #ifdef IMGUI_ENABLE
-    pushConstants.v3Color = v3Color;
+    pushConstants.v3Color = v3LightColor;
     pushConstants.fFactor = fFactor;
 #else
     pushConstants.v3Color = glm::vec3(1.0);
@@ -7310,7 +7314,7 @@ void RenderImpostor(uint32_t curIndex)
     //ushConstants.model = glm::mat4(1.0f); // Identity matrix for no transformation
 
 #ifdef IMGUI_ENABLE
-    pushConstants.v3Color = v3Color;
+    pushConstants.v3Color = v3LightColor;
     pushConstants.fFactor = fFactor;
 #else
     pushConstants.v3Color = glm::vec3(1.0);
@@ -7349,7 +7353,7 @@ void RenderCube(uint32_t curIndex)
     //ushConstants.model = glm::mat4(1.0f); // Identity matrix for no transformation
 
 #ifdef IMGUI_ENABLE
-    pushConstants.v3Color = v3Color;
+    pushConstants.v3Color = v3LightColor;
     pushConstants.fFactor = fFactor;
 #else
     pushConstants.v3Color = glm::vec3(1.0);
@@ -7393,7 +7397,7 @@ void RenderSuzanne(uint32_t curIndex)
     //ushConstants.model = glm::mat4(1.0f); // Identity matrix for no transformation
 
 #ifdef IMGUI_ENABLE
-    pushConstants.v3Color = v3Color;
+    pushConstants.v3Color = v3LightColor;
     pushConstants.fFactor = fFactor;
 #else
     pushConstants.v3Color = glm::vec3(1.0);
@@ -7437,7 +7441,7 @@ void RenderPBR_Sphere(uint32_t curIndex)
     //ushConstants.model = glm::mat4(1.0f); // Identity matrix for no transformation
 
 #ifdef IMGUI_ENABLE
-    pushConstants.v3Color = v3Color;
+    pushConstants.v3Color = v3LightColor;
     pushConstants.fFactor = fFactor;
 #else
     pushConstants.v3Color = glm::vec3(1.0);
@@ -7484,7 +7488,7 @@ void RenderPBR_Static_Ganesha(uint32_t curIndex)
     pushConstants.materialIDs = pModel_Static_Ganesha->GetPBR_MaterialGlobalIDs();
 
 #ifdef IMGUI_ENABLE
-    pushConstants.v3Color = v3Color;
+    pushConstants.v3Color = v3LightColor;
     pushConstants.fFactor = fFactor;
 #else
     pushConstants.v3Color = glm::vec3(1.0);
@@ -7546,7 +7550,7 @@ void RenderPBR_Skinned_RAT(uint32_t curIndex)
     pushConstants.materialIDs = pModel_Rat->GetPBR_MaterialGlobalIDs();
 
 #ifdef IMGUI_ENABLE
-    pushConstants.v3Color = v3Color;
+    pushConstants.v3Color = v3LightColor;
     pushConstants.fFactor = fFactor;
 #else
     pushConstants.v3Color = glm::vec3(1.0);

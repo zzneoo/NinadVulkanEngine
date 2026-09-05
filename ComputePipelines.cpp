@@ -1,5 +1,6 @@
 #include "ComputePipelines.h"
 
+ComputePipelines* gpComputePipelines = NULL;
 
 ComputePipelines::ComputePipelines()
 {
@@ -424,7 +425,7 @@ VkResult ComputePipelines::createComputePipeline_VolumetricClouds(
 	VkPushConstantRange vkPushConstantRange{};
 	vkPushConstantRange.offset = 0;
 	vkPushConstantRange.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
-	vkPushConstantRange.size = 0;
+	vkPushConstantRange.size = sizeof(CloudPushConstants);
 
 
 	vkResult = createPipelineLayout(
