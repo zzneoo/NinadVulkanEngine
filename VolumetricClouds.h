@@ -10,6 +10,7 @@
 #include <sstream>  // Fixes: incomplete type "std::stringstream"
 #include <iomanip>  // Needed for std::setfill and std::setw
 #include "DescriptorSetLayouts.h"
+#include <tinyddsloader.h>
 
 extern VkDescriptorPool vkDescriptorPool;
 extern VkSampler vkSampler_LinearMipmapRepeat;
@@ -81,6 +82,10 @@ private:
 		uint32_t sliceCount,
 		uint32_t zeroPadding,
 		ImageData& outImageData);
+
+	VkResult loadTextureData_dds_bc6_3d(
+		const char* filename,
+		ImageData* imageData);
 
 	VkResult vkResult;
 	ImageData imageData_Clouds{};

@@ -802,6 +802,7 @@ Result DDSFile::Load(std::vector<uint8_t>&& dds) {
 
     m_height = header->m_height;
     m_width = header->m_width;
+    m_depth = header->m_depth;
     m_texDim = TextureDimension::Unknown;
     m_arraySize = 1;
     m_format = DXGIFormat::Unknown;

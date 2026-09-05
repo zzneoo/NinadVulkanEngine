@@ -1,6 +1,8 @@
 #include "VolumetricClouds.h"
 #include "stb_image.h"
 
+using namespace tinyddsloader;
+
 VolumetricClouds::VolumetricClouds() 
 {
     VkResult res = VK_SUCCESS;
@@ -40,6 +42,8 @@ VolumetricClouds::VolumetricClouds()
         3,
         imageData_ModelingData3D
     );
+
+    //loadTextureData_dds_bc6_3d("Resources/CloudData/Modeling_data.dds", &imageData_ModelingData3D);
 
     imageData_ModelingData3D.vkSampler = vkSampler_LinearClamp;
     if (!success) {
@@ -606,8 +610,8 @@ void VolumetricClouds::Compute_VolumetricClouds(
 
     vkCmdDispatch(
         gFrames[curIndex].commandBuffer,
-        (WIN_WIDTH + 7) / 8,
-        (WIN_HEIGHT + 7) / 8,
+        (WIN_WIDTH + 31) / 32,
+        (WIN_HEIGHT + 31) / 32,
         1
     );
 
@@ -1414,4 +1418,990 @@ bool VolumetricClouds::Load3DTexture(
 
 }
 
+
+VkResult VolumetricClouds::loadTextureData_dds_bc6_3d(
+    const char* filename,
+    ImageData* imageData)
+{
+    if (!filename || !imageData)
+    {
+        return VK_ERROR_INITIALIZATION_FAILED;
+    }
+
+
+    // ============================================================
+    // Load DDS
+    // ============================================================
+
+    DDSFile dds;
+    tinyddsloader::Result ddsResult = dds.Load(filename);
+
+    if (!ddsResult == tinyddsloader::Success)
+    {
+        fprintf(
+            gpFILE,
+            "loadTextureData_dds_bc6_3d(): "
+            "Failed to load DDS: %s\n",
+            filename
+        );
+
+        return VK_ERROR_INITIALIZATION_FAILED;
+    }
+
+
+    // ============================================================
+    // Validate DDS properties
+    // ============================================================
+
+    const uint32_t width =
+        dds.GetWidth();
+
+    const uint32_t height =
+        dds.GetHeight();
+
+    const uint32_t depth =
+        dds.GetDepth();
+
+    const uint32_t mipCount =
+        dds.GetMipCount();
+
+    const uint32_t arrayCount =
+        dds.GetArraySize();
+
+
+    fprintf(
+        gpFILE,
+        "\nBC6H 3D DDS:\n"
+        "  File: %s\n"
+        "  Width: %u\n"
+        "  Height: %u\n"
+        "  Depth: %u\n"
+        "  Mips: %u\n"
+        "  Arrays: %u\n",
+        filename,
+        width,
+        height,
+        depth,
+        mipCount,
+        arrayCount
+    );
+
+
+    // ============================================================
+    // Expected dimensions
+    // ============================================================
+
+    if (
+        width != 512 ||
+        height != 512 ||
+        depth != 64
+        )
+    {
+        fprintf(
+            gpFILE,
+            "ERROR: Expected 512x512x64 DDS.\n"
+        );
+
+        return VK_ERROR_INITIALIZATION_FAILED;
+    }
+
+
+    // ============================================================
+    // NO MIPMAPS
+    // ============================================================
+
+    if (mipCount != 1)
+    {
+        fprintf(
+            gpFILE,
+            "ERROR: DDS must contain exactly "
+            "one mip level. Found: %u\n",
+            mipCount
+        );
+
+        return VK_ERROR_INITIALIZATION_FAILED;
+    }
+
+
+    // ============================================================
+    // 3D DDS should not be a texture array
+    // ============================================================
+
+    if (arrayCount != 1)
+    {
+        fprintf(
+            gpFILE,
+            "ERROR: Expected one array layer. "
+            "Found: %u\n",
+            arrayCount
+        );
+
+        return VK_ERROR_INITIALIZATION_FAILED;
+    }
+
+
+    // ============================================================
+    // Vulkan BC6H format
+    //
+    // BC6H_UF16 -> VK_FORMAT_BC6H_UFLOAT_BLOCK
+    // ============================================================
+
+    const VkFormat format =
+        VK_FORMAT_BC6H_UFLOAT_BLOCK;
+
+
+    // ============================================================
+    // Get DDS image data
+    //
+    // Only:
+    // Mip    = 0
+    // Layer  = 0
+    // ============================================================
+
+    const DDSFile::ImageData* img =
+        dds.GetImageData(
+            0,
+            0
+        );
+
+    if (!img)
+    {
+        fprintf(
+            gpFILE,
+            "ERROR: DDS image data is null.\n"
+        );
+
+        return VK_ERROR_INITIALIZATION_FAILED;
+    }
+
+    if (!img->m_mem)
+    {
+        fprintf(
+            gpFILE,
+            "ERROR: DDS image memory is null.\n"
+        );
+
+        return VK_ERROR_INITIALIZATION_FAILED;
+    }
+
+
+    // ============================================================
+    // Calculate BC6H compressed data size
+    //
+    // BC6H uses 4x4 blocks.
+    // Each block = 16 bytes.
+    //
+    // For a 3D texture:
+    //
+    // ceil(width / 4)
+    // *
+    // ceil(height / 4)
+    // *
+    // depth
+    // *
+    // 16
+    // ============================================================
+
+    const uint32_t blockWidth =
+        (width + 3) / 4;
+
+    const uint32_t blockHeight =
+        (height + 3) / 4;
+
+    const VkDeviceSize imageSize =
+        static_cast<VkDeviceSize>(
+            blockWidth
+            )
+        *
+        static_cast<VkDeviceSize>(
+            blockHeight
+            )
+        *
+        static_cast<VkDeviceSize>(
+            depth
+            )
+        *
+        16;
+
+
+    fprintf(
+        gpFILE,
+        "  Compressed Size: %llu bytes\n",
+        static_cast<unsigned long long>(
+            imageSize
+            )
+    );
+
+
+    // ============================================================
+    // Create staging buffer
+    // ============================================================
+
+    VkBuffer stagingBuffer =
+        VK_NULL_HANDLE;
+
+    VkDeviceMemory stagingMemory =
+        VK_NULL_HANDLE;
+
+
+    VkBufferCreateInfo bufferInfo = {};
+
+    bufferInfo.sType =
+        VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
+
+    bufferInfo.size =
+        imageSize;
+
+    bufferInfo.usage =
+        VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
+
+    bufferInfo.sharingMode =
+        VK_SHARING_MODE_EXCLUSIVE;
+
+
+    VkResult result =
+        vkCreateBuffer(
+            gVulkanContext.vkDevice,
+            &bufferInfo,
+            nullptr,
+            &stagingBuffer
+        );
+
+    if (result != VK_SUCCESS)
+    {
+        fprintf(
+            gpFILE,
+            "ERROR: Failed to create "
+            "BC6H staging buffer.\n"
+        );
+
+        return result;
+    }
+
+
+    // ============================================================
+    // Allocate staging memory
+    // ============================================================
+
+    VkMemoryRequirements stagingMemoryRequirements = {};
+
+    vkGetBufferMemoryRequirements(
+        gVulkanContext.vkDevice,
+        stagingBuffer,
+        &stagingMemoryRequirements
+    );
+
+
+    VkMemoryAllocateInfo stagingAllocateInfo = {};
+
+    stagingAllocateInfo.sType =
+        VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
+
+    stagingAllocateInfo.allocationSize =
+        stagingMemoryRequirements.size;
+
+    stagingAllocateInfo.memoryTypeIndex =
+       gVulkanContext.FindMemoryType(
+            stagingMemoryRequirements.memoryTypeBits,
+            VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
+            VK_MEMORY_PROPERTY_HOST_COHERENT_BIT
+        );
+
+
+    if (
+        stagingAllocateInfo.memoryTypeIndex
+        ==
+        UINT32_MAX
+        )
+    {
+        vkDestroyBuffer(
+            gVulkanContext.vkDevice,
+            stagingBuffer,
+            nullptr
+        );
+
+        return VK_ERROR_MEMORY_MAP_FAILED;
+    }
+
+
+    result =
+        vkAllocateMemory(
+            gVulkanContext.vkDevice,
+            &stagingAllocateInfo,
+            nullptr,
+            &stagingMemory
+        );
+
+    if (result != VK_SUCCESS)
+    {
+        vkDestroyBuffer(
+            gVulkanContext.vkDevice,
+            stagingBuffer,
+            nullptr
+        );
+
+        return result;
+    }
+
+
+    result =
+        vkBindBufferMemory(
+            gVulkanContext.vkDevice,
+            stagingBuffer,
+            stagingMemory,
+            0
+        );
+
+    if (result != VK_SUCCESS)
+    {
+        vkFreeMemory(
+            gVulkanContext.vkDevice,
+            stagingMemory,
+            nullptr
+        );
+
+        vkDestroyBuffer(
+            gVulkanContext.vkDevice,
+            stagingBuffer,
+            nullptr
+        );
+
+        return result;
+    }
+
+
+    // ============================================================
+    // Copy DDS compressed data to staging buffer
+    // ============================================================
+
+    void* mappedData = nullptr;
+
+    result =
+        vkMapMemory(
+            gVulkanContext.vkDevice,
+            stagingMemory,
+            0,
+            imageSize,
+            0,
+            &mappedData
+        );
+
+    if (result != VK_SUCCESS)
+    {
+        vkFreeMemory(
+            gVulkanContext.vkDevice,
+            stagingMemory,
+            nullptr
+        );
+
+        vkDestroyBuffer(
+            gVulkanContext.vkDevice,
+            stagingBuffer,
+            nullptr
+        );
+
+        return result;
+    }
+
+
+    memcpy(
+        mappedData,
+        img->m_mem,
+        static_cast<size_t>(
+            imageSize
+            )
+    );
+
+
+    vkUnmapMemory(
+        gVulkanContext.vkDevice,
+        stagingMemory
+    );
+
+
+    // ============================================================
+    // Create 3D Vulkan image
+    //
+    // IMPORTANT:
+    //
+    // VK_IMAGE_TYPE_3D
+    // 512 x 512 x 64
+    // 1 mip level
+    // ============================================================
+
+    VkImageCreateInfo imageInfo = {};
+
+    imageInfo.sType =
+        VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
+
+    imageInfo.imageType =
+        VK_IMAGE_TYPE_3D;
+
+    imageInfo.format =
+        format;
+
+    imageInfo.extent.width =
+        width;
+
+    imageInfo.extent.height =
+        height;
+
+    imageInfo.extent.depth =
+        depth;
+
+    // NO MIPMAPS
+    imageInfo.mipLevels =
+        1;
+
+    imageInfo.arrayLayers =
+        1;
+
+    imageInfo.samples =
+        VK_SAMPLE_COUNT_1_BIT;
+
+    imageInfo.tiling =
+        VK_IMAGE_TILING_OPTIMAL;
+
+    imageInfo.usage =
+        VK_IMAGE_USAGE_TRANSFER_DST_BIT |
+        VK_IMAGE_USAGE_SAMPLED_BIT;
+
+    imageInfo.sharingMode =
+        VK_SHARING_MODE_EXCLUSIVE;
+
+    imageInfo.initialLayout =
+        VK_IMAGE_LAYOUT_UNDEFINED;
+
+
+    result =
+        vkCreateImage(
+            gVulkanContext.vkDevice,
+            &imageInfo,
+            nullptr,
+            &imageData->vkImage
+        );
+
+    if (result != VK_SUCCESS)
+    {
+        vkFreeMemory(
+            gVulkanContext.vkDevice,
+            stagingMemory,
+            nullptr
+        );
+
+        vkDestroyBuffer(
+            gVulkanContext.vkDevice,
+            stagingBuffer,
+            nullptr
+        );
+
+        return result;
+    }
+
+
+    // ============================================================
+    // Allocate device-local image memory
+    // ============================================================
+
+    VkMemoryRequirements imageMemoryRequirements = {};
+
+    vkGetImageMemoryRequirements(
+        gVulkanContext.vkDevice,
+        imageData->vkImage,
+        &imageMemoryRequirements
+    );
+
+
+    VkMemoryAllocateInfo imageAllocateInfo = {};
+
+    imageAllocateInfo.sType =
+        VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
+
+    imageAllocateInfo.allocationSize =
+        imageMemoryRequirements.size;
+
+    imageAllocateInfo.memoryTypeIndex =
+        gVulkanContext.FindMemoryType(
+            imageMemoryRequirements.memoryTypeBits,
+            VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT
+        );
+
+
+    if (
+        imageAllocateInfo.memoryTypeIndex
+        ==
+        UINT32_MAX
+        )
+    {
+        vkDestroyImage(
+            gVulkanContext.vkDevice,
+            imageData->vkImage,
+            nullptr
+        );
+
+        vkFreeMemory(
+            gVulkanContext.vkDevice,
+            stagingMemory,
+            nullptr
+        );
+
+        vkDestroyBuffer(
+            gVulkanContext.vkDevice,
+            stagingBuffer,
+            nullptr
+        );
+
+        return VK_ERROR_MEMORY_MAP_FAILED;
+    }
+
+
+    result =
+        vkAllocateMemory(
+            gVulkanContext.vkDevice,
+            &imageAllocateInfo,
+            nullptr,
+            &imageData->vkDeviceMemory
+        );
+
+    if (result != VK_SUCCESS)
+    {
+        vkDestroyImage(
+            gVulkanContext.vkDevice,
+            imageData->vkImage,
+            nullptr
+        );
+
+        vkFreeMemory(
+            gVulkanContext.vkDevice,
+            stagingMemory,
+            nullptr
+        );
+
+        vkDestroyBuffer(
+            gVulkanContext.vkDevice,
+            stagingBuffer,
+            nullptr
+        );
+
+        return result;
+    }
+
+
+    result =
+        vkBindImageMemory(
+            gVulkanContext.vkDevice,
+            imageData->vkImage,
+            imageData->vkDeviceMemory,
+            0
+        );
+
+    if (result != VK_SUCCESS)
+    {
+        vkFreeMemory(
+            gVulkanContext.vkDevice,
+            imageData->vkDeviceMemory,
+            nullptr
+        );
+
+        vkDestroyImage(
+            gVulkanContext.vkDevice,
+            imageData->vkImage,
+            nullptr
+        );
+
+        vkFreeMemory(
+            gVulkanContext.vkDevice,
+            stagingMemory,
+            nullptr
+        );
+
+        vkDestroyBuffer(
+            gVulkanContext.vkDevice,
+            stagingBuffer,
+            nullptr
+        );
+
+        return result;
+    }
+
+
+    // ============================================================
+    // Create temporary command buffer
+    // ============================================================
+
+    VkCommandBufferAllocateInfo commandAllocateInfo = {};
+
+    commandAllocateInfo.sType =
+        VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+
+    commandAllocateInfo.commandPool =
+        gVulkanContext.vkCommandPool;
+
+    commandAllocateInfo.level =
+        VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+
+    commandAllocateInfo.commandBufferCount =
+        1;
+
+
+    VkCommandBuffer commandBuffer =
+        VK_NULL_HANDLE;
+
+
+    result =
+        vkAllocateCommandBuffers(
+            gVulkanContext.vkDevice,
+            &commandAllocateInfo,
+            &commandBuffer
+        );
+
+    if (result != VK_SUCCESS)
+    {
+        return result;
+    }
+
+
+    // ============================================================
+    // Begin command buffer
+    // ============================================================
+
+    VkCommandBufferBeginInfo beginInfo = {};
+
+    beginInfo.sType =
+        VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+
+    beginInfo.flags =
+        VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
+
+
+    result =
+        vkBeginCommandBuffer(
+            commandBuffer,
+            &beginInfo
+        );
+
+    if (result != VK_SUCCESS)
+    {
+        return result;
+    }
+
+
+    // ============================================================
+    // Layout transition
+    //
+    // UNDEFINED
+    //
+    // ->
+    //
+    // TRANSFER_DST_OPTIMAL
+    // ============================================================
+
+    VkImageMemoryBarrier barrier = {};
+
+    barrier.sType =
+        VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+
+    barrier.oldLayout =
+        VK_IMAGE_LAYOUT_UNDEFINED;
+
+    barrier.newLayout =
+        VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+
+    barrier.srcQueueFamilyIndex =
+        VK_QUEUE_FAMILY_IGNORED;
+
+    barrier.dstQueueFamilyIndex =
+        VK_QUEUE_FAMILY_IGNORED;
+
+    barrier.image =
+        imageData->vkImage;
+
+    barrier.subresourceRange.aspectMask =
+        VK_IMAGE_ASPECT_COLOR_BIT;
+
+    barrier.subresourceRange.baseMipLevel =
+        0;
+
+    // NO MIPMAPS
+    barrier.subresourceRange.levelCount =
+        1;
+
+    barrier.subresourceRange.baseArrayLayer =
+        0;
+
+    barrier.subresourceRange.layerCount =
+        1;
+
+    barrier.srcAccessMask =
+        0;
+
+    barrier.dstAccessMask =
+        VK_ACCESS_TRANSFER_WRITE_BIT;
+
+
+    vkCmdPipelineBarrier(
+        commandBuffer,
+
+        VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
+        VK_PIPELINE_STAGE_TRANSFER_BIT,
+
+        0,
+
+        0,
+        nullptr,
+
+        0,
+        nullptr,
+
+        1,
+        &barrier
+    );
+
+
+    // ============================================================
+    // Copy compressed BC6H data
+    // ============================================================
+
+    VkBufferImageCopy copyRegion = {};
+
+    copyRegion.bufferOffset =
+        0;
+
+    // For compressed textures, zero means tightly packed.
+    copyRegion.bufferRowLength =
+        0;
+
+    copyRegion.bufferImageHeight =
+        0;
+
+    copyRegion.imageSubresource.aspectMask =
+        VK_IMAGE_ASPECT_COLOR_BIT;
+
+    copyRegion.imageSubresource.mipLevel =
+        0;
+
+    copyRegion.imageSubresource.baseArrayLayer =
+        0;
+
+    copyRegion.imageSubresource.layerCount =
+        1;
+
+    copyRegion.imageOffset =
+    { 0, 0, 0 };
+
+    copyRegion.imageExtent =
+    {
+        width,
+        height,
+        depth
+    };
+
+
+    vkCmdCopyBufferToImage(
+        commandBuffer,
+
+        stagingBuffer,
+
+        imageData->vkImage,
+
+        VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+
+        1,
+
+        &copyRegion
+    );
+
+
+    // ============================================================
+    // Layout transition
+    //
+    // TRANSFER_DST_OPTIMAL
+    //
+    // ->
+    //
+    // SHADER_READ_ONLY_OPTIMAL
+    // ============================================================
+
+    barrier.oldLayout =
+        VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+
+    barrier.newLayout =
+        VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+
+    barrier.srcAccessMask =
+        VK_ACCESS_TRANSFER_WRITE_BIT;
+
+    barrier.dstAccessMask =
+        VK_ACCESS_SHADER_READ_BIT;
+
+
+    vkCmdPipelineBarrier(
+        commandBuffer,
+
+        VK_PIPELINE_STAGE_TRANSFER_BIT,
+        VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT |
+        VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+
+        0,
+
+        0,
+        nullptr,
+
+        0,
+        nullptr,
+
+        1,
+        &barrier
+    );
+
+
+    // ============================================================
+    // Submit commands
+    // ============================================================
+
+    result =
+        vkEndCommandBuffer(
+            commandBuffer
+        );
+
+    if (result != VK_SUCCESS)
+    {
+        return result;
+    }
+
+
+    VkSubmitInfo submitInfo = {};
+
+    submitInfo.sType =
+        VK_STRUCTURE_TYPE_SUBMIT_INFO;
+
+    submitInfo.commandBufferCount =
+        1;
+
+    submitInfo.pCommandBuffers =
+        &commandBuffer;
+
+
+    result =
+        vkQueueSubmit(
+            gVulkanContext.vkGraphicsQueue,
+            1,
+            &submitInfo,
+            VK_NULL_HANDLE
+        );
+
+    if (result != VK_SUCCESS)
+    {
+        return result;
+    }
+
+
+    result =
+        vkQueueWaitIdle(
+            gVulkanContext.vkGraphicsQueue
+        );
+
+    if (result != VK_SUCCESS)
+    {
+        return result;
+    }
+
+
+    // ============================================================
+    // Temporary command buffer no longer required
+    // ============================================================
+
+    vkFreeCommandBuffers(
+        gVulkanContext.vkDevice,
+        gVulkanContext.vkCommandPool,
+        1,
+        &commandBuffer
+    );
+
+
+    // ============================================================
+    // Destroy staging resources
+    // ============================================================
+
+    vkDestroyBuffer(
+        gVulkanContext.vkDevice,
+        stagingBuffer,
+        nullptr
+    );
+
+    vkFreeMemory(
+        gVulkanContext.vkDevice,
+        stagingMemory,
+        nullptr
+    );
+
+
+    // ============================================================
+    // Create 3D image view
+    // ============================================================
+
+    VkImageViewCreateInfo viewInfo = {};
+
+    viewInfo.sType =
+        VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+
+    viewInfo.image =
+        imageData->vkImage;
+
+    viewInfo.viewType =
+        VK_IMAGE_VIEW_TYPE_3D;
+
+    viewInfo.format =
+        VK_FORMAT_BC6H_UFLOAT_BLOCK;
+
+    viewInfo.subresourceRange.aspectMask =
+        VK_IMAGE_ASPECT_COLOR_BIT;
+
+    viewInfo.subresourceRange.baseMipLevel =
+        0;
+
+    // NO MIPMAPS
+    viewInfo.subresourceRange.levelCount =
+        1;
+
+    viewInfo.subresourceRange.baseArrayLayer =
+        0;
+
+    viewInfo.subresourceRange.layerCount =
+        1;
+
+
+    result =
+        vkCreateImageView(
+            gVulkanContext.vkDevice,
+            &viewInfo,
+            nullptr,
+            &imageData->vkImageView
+        );
+
+    if (result != VK_SUCCESS)
+    {
+        return result;
+    }
+
+
+    // ============================================================
+    // Success
+    // ============================================================
+
+    fprintf(
+        gpFILE,
+        "\nLoaded BC6H 3D texture:\n"
+        "  %u x %u x %u\n"
+        "  Format: VK_FORMAT_BC6H_UFLOAT_BLOCK\n"
+        "  Mips: 1\n\n",
+
+        width,
+        height,
+        depth
+    );
+
+
+    return VK_SUCCESS;
+}
 

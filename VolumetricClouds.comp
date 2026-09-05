@@ -4,13 +4,132 @@
 
 #include "common.glsl"
 
-layout(local_size_x = 8, local_size_y = 8, local_size_z = 1) in;
+layout(local_size_x = 32, local_size_y = 32, local_size_z = 1) in;
 
 layout(set = 1, binding = 0, rgba8) uniform writeonly image2D outputImage;
 layout(set = 1, binding = 1) uniform sampler3D noise3D;
 layout(set = 1, binding = 2) uniform sampler3D modelingData3D;
 
+// ------------------------------------------------------------
+// Value Remap
+// Maps a value from [oldMin, oldMax] to [newMin, newMax]
+// The normalized value is clamped to [0, 1]
+// ------------------------------------------------------------
 
+float ValueRemap(
+    float inValue,
+    float inOldMin,
+    float inOldMax,
+    float inMin,
+    float inMax)
+{
+    float oldMinMaxRange =
+        inOldMax - inOldMin;
+
+    float normalized =
+        clamp(
+            (inValue - inOldMin) /
+            oldMinMaxRange,
+            0.0,
+            1.0);
+
+    return inMin +
+        normalized *
+        (inMax - inMin);
+}
+
+
+vec2 ValueRemap(
+    vec2 inValue,
+    vec2 inOldMin,
+    vec2 inOldMax,
+    vec2 inMin,
+    vec2 inMax)
+{
+    vec2 oldMinMaxRange =
+        inOldMax - inOldMin;
+
+    vec2 normalized =
+        clamp(
+            (inValue - inOldMin) /
+            oldMinMaxRange,
+            vec2(0.0),
+            vec2(1.0));
+
+    return inMin +
+        normalized *
+        (inMax - inMin);
+}
+
+
+vec3 ValueRemap(
+    vec3 inValue,
+    vec3 inOldMin,
+    vec3 inOldMax,
+    vec3 inMin,
+    vec3 inMax)
+{
+    vec3 oldMinMaxRange =
+        inOldMax - inOldMin;
+
+    vec3 normalized =
+        clamp(
+            (inValue - inOldMin) /
+            oldMinMaxRange,
+            vec3(0.0),
+            vec3(1.0));
+
+    return inMin +
+        normalized *
+        (inMax - inMin);
+}
+
+
+vec4 ValueRemap(
+    vec4 inValue,
+    vec4 inOldMin,
+    vec4 inOldMax,
+    vec4 inMin,
+    vec4 inMax)
+{
+    vec4 oldMinMaxRange =
+        inOldMax - inOldMin;
+
+    vec4 normalized =
+        clamp(
+            (inValue - inOldMin) /
+            oldMinMaxRange,
+            vec4(0.0),
+            vec4(1.0));
+
+    return inMin +
+        normalized *
+        (inMax - inMin);
+}
+
+
+// ------------------------------------------------------------
+// Value Erosion
+// Positive inOldMin = erosion
+// Negative inOldMin = inflation
+// ------------------------------------------------------------
+
+float ValueErosion(
+    float inValue,
+    float inOldMin)
+{
+    float oldMinMaxRange =
+        1.0 - inOldMin;
+
+    float normalized =
+        clamp(
+            (inValue - inOldMin) /
+            oldMinMaxRange,
+            0.0,
+            1.0);
+
+    return normalized;
+}
 
 bool IntersectAABB(
     vec3 rayOrigin,
@@ -75,16 +194,18 @@ float SampleDensityLow(vec3 worldPos)
         (worldPos - VOLUME_MIN) /
         (VOLUME_MAX - VOLUME_MIN);
 
-    // Safety check.
-    if (any(lessThan(volumeUV, vec3(0.0))) ||
-        any(greaterThan(volumeUV, vec3(1.0))))
-    {
-        return 0.0;
-    }
 
-    return texture(
-        modelingData3D,
-        volumeUV).r;
+    vec3 modelingData = texture(modelingData3D,volumeUV).xyz;
+
+    vec4 noise = texture(noise3D, worldPos * 0.05).xyzw;
+
+    // Define wispy noise
+	float wispy_noise = mix(noise.r, noise.g, modelingData.r);
+
+    float uprezzed_density = ValueErosion(modelingData.r, wispy_noise);
+
+
+    return uprezzed_density;
 }
 
 float SampleSunTransmittance(
@@ -106,9 +227,9 @@ float SampleSunTransmittance(
     }
 
     const float LIGHT_STEP_SIZE = 2.0;
-    const int LIGHT_MAX_STEPS = 16;
+    const int LIGHT_MAX_STEPS = 32;
 
-    const float DENSITY_SCALE = 20.0;
+    const float DENSITY_SCALE = 10.0;
 
     float lightTransmittance = 1.0;
 
@@ -215,9 +336,9 @@ void main()
             tEnter,
             tExit))
     {
-        const float STEP_SIZE = 0.5;
+        const float STEP_SIZE = 0.25;
         const int MAX_STEPS = 512;
-        const float DENSITY_SCALE = 20.0;
+        const float DENSITY_SCALE = 10.0;
 
         float t =
             tEnter + STEP_SIZE * 0.5;
@@ -257,7 +378,7 @@ void main()
                     sigmaT;
 
                 vec3 S =
-                    vec3(15.0) *
+                    vec3(12.0) *
                     sigmaS *
                     sunTransmittance *
                     phase;
