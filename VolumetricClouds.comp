@@ -4,6 +4,13 @@
 
 #include "common.glsl"
 
+struct VoxelCloudDensitySamples
+{
+    float mProfile;
+    float mFull;
+
+};
+
 #define saturate(x) clamp(x, 0.0, 1.0)
 
 layout(local_size_x = 32, local_size_y = 32, local_size_z = 1) in;
@@ -198,7 +205,7 @@ const vec3 VOLUME_SIZE = vec3(512.0, 512.0, 64.0);
 const vec3 VOLUME_MAX  = VOLUME_MIN + VOLUME_SIZE;
 const float DENSITY_SCALE = 1.0;
 
-float SampleDensityLow(vec3 worldPos)
+VoxelCloudDensitySamples SampleDensityLow(vec3 worldPos)
 {
     vec3 volumeUV =
         (worldPos - VOLUME_MIN) /
@@ -206,32 +213,44 @@ float SampleDensityLow(vec3 worldPos)
 
 
     vec3 modelingData = texture(modelingData3D,volumeUV).xyz;
+   	VoxelCloudDensitySamples density_samples;
 
-    vec4 noise = texture(noise3D, worldPos * 0.1).xyzw;
+    if(modelingData.r>0.0)
+    {
+        density_samples.mProfile = modelingData.r * modelingData.b;
 
-    // Define wispy noise
-	float wispy_noise = mix(noise.r, noise.g, modelingData.r);
+        vec4 noise = texture(noise3D, worldPos * 0.1).xyzw;
 
-    // Define billowy noise 
-    float billowy_type_gradient = pow(modelingData.r, 0.25);
-    float billowy_noise = mix(noise.b * 0.3, noise.a * 0.3, billowy_type_gradient);
+        // Define wispy noise
+	    float wispy_noise = mix(noise.r, noise.g, modelingData.r);
 
-    // Define Noise composite - blend to wispy as the density scale decreases.
-    float noise_composite = mix(wispy_noise, billowy_noise, modelingData.g);
+        // Define billowy noise 
+        float billowy_type_gradient = pow(modelingData.r, 0.25);
+        float billowy_noise = mix(noise.b * 0.3, noise.a * 0.3, billowy_type_gradient);
 
-
-    float uprezzed_density = ValueErosion(modelingData.r, noise_composite);
-
-    // Apply User Density Scale Data to Result
-    float powered_density_scale = pow(saturate(modelingData.b),4.0);
-
-    uprezzed_density *= powered_density_scale;
-
-    // Sharpen result and lower Density close to camera to both add details and reduce undersampling noise
-    uprezzed_density = pow(uprezzed_density, mix(0.3, 0.6, max(1e-6, powered_density_scale)));
+        // Define Noise composite - blend to wispy as the density scale decreases.
+        float noise_composite = mix(wispy_noise, billowy_noise, modelingData.g);
 
 
-    return uprezzed_density;
+        float uprezzed_density = ValueErosion(modelingData.r, noise_composite);
+
+        // Apply User Density Scale Data to Result
+        float powered_density_scale = pow(saturate(modelingData.b),4.0);
+
+        uprezzed_density *= powered_density_scale;
+
+        // Sharpen result and lower Density close to camera to both add details and reduce undersampling noise
+        uprezzed_density = pow(uprezzed_density, mix(0.3, 0.6, max(1e-6, powered_density_scale)));
+
+        density_samples.mFull = uprezzed_density;
+    }
+    else
+    {
+        density_samples.mFull = density_samples.mProfile = 0.0;
+    }
+
+
+    return density_samples;
 }
 
 float SampleSunTransmittance(
@@ -252,8 +271,8 @@ float SampleSunTransmittance(
         return 1.0;
     }
 
-    const float LIGHT_STEP_SIZE = 2.0;
-    const int LIGHT_MAX_STEPS = 32;
+    const float LIGHT_STEP_SIZE = 1.0;
+    const int LIGHT_MAX_STEPS = 16;
 
 
 
@@ -267,7 +286,9 @@ float SampleSunTransmittance(
         vec3 samplePos = worldPos + sunDir * (t + currentStep * 0.5);
 
         // IMPORTANT: samplePos, not worldPos
-        float density = SampleDensityLow(samplePos);
+        VoxelCloudDensitySamples density_samples = SampleDensityLow(samplePos);
+
+        float density = density_samples.mFull;
         float sigmaT = density * DENSITY_SCALE;
         float stepTransmittance = exp(-sigmaT * currentStep);
 
@@ -280,6 +301,60 @@ float SampleSunTransmittance(
     }
 
     return lightTransmittance;
+}
+
+float SampleSunTransmittance2(
+    vec3 worldPos,
+    vec3 sunDir)
+{
+    float tEnter;
+    float tExit;
+
+    if (!IntersectAABB(
+            worldPos,
+            sunDir,
+            VOLUME_MIN,
+            VOLUME_MAX,
+            tEnter,
+            tExit))
+    {
+        return 1.0;
+    }
+
+    const float LIGHT_STEP_SIZE = 1.0;
+    const int LIGHT_MAX_STEPS = 16;
+
+    // Accumulate total optical depth instead of calculating exp() per step
+    float accumulatedOpticalDepth = 0.0;
+
+    // Threshold equivalent to lightTransmittance < 0.01 (-ln(0.01) ≈ 4.605)
+    const float MAX_OPTICAL_DEPTH = 4.60517;
+
+    float t = 0.0;
+
+    for (int i = 0; i < LIGHT_MAX_STEPS && t < tExit; ++i)
+    {
+        float currentStep = min(LIGHT_STEP_SIZE, tExit - t);
+        vec3 samplePos = worldPos + sunDir * (t + currentStep * 0.5);
+
+        // IMPORTANT: samplePos, not worldPos
+        VoxelCloudDensitySamples density_samples = SampleDensityLow(samplePos);
+
+        float density = density_samples.mFull;
+        float sigmaT = density * DENSITY_SCALE;
+
+        // Fast float addition per step
+        accumulatedOpticalDepth += sigmaT * currentStep;
+
+        // Early break equivalent to lightTransmittance < 0.01
+        if (accumulatedOpticalDepth > MAX_OPTICAL_DEPTH)
+            break;
+
+        t += currentStep;
+    }
+
+    // Evaluate Beer's Law ONCE at the end
+    return exp(-accumulatedOpticalDepth);
 }
 
 
@@ -365,20 +440,22 @@ void main()
         for (int i = 0; i < MAX_STEPS && t < tExit; ++i)
         {
             vec3 worldPos = rayOrigin + rayDir * t;
-            float density = SampleDensityLow(worldPos);
+            VoxelCloudDensitySamples density_samples = SampleDensityLow(worldPos);
+
+            float density = density_samples.mFull;
 
             // Empty space
             if (density > 0.0001)
             {
                 float sigmaT = density * DENSITY_SCALE;
-                float sunTransmittance = SampleSunTransmittance(worldPos,normalize(global.sunDir));
+                float sunTransmittance = SampleSunTransmittance2(worldPos,normalize(global.sunDir));
                 float cosTheta = dot(rayDir, normalize(global.sunDir));
                 float phase = PhaseHenyeyGreenstein(cosTheta,0.6);
                 float sigmaS = sigmaT;
 
                 // Isotropic phase function for uniform sky light (1.0 / 4PI)
                 float ambientPhase = 0.079577;
-                float ambientOcclusion = exp(-density * pc.fCloudFactor *10.0);
+                float ambientOcclusion = exp(-density * 0.132 *10.0);
 
                 vec3 directLight = pc.v3LightColor * pc.fIntensity.x * sunTransmittance * phase;
                 vec3 ambientLight = pc.v3LightColor * ambientOcclusion * ambientPhase; // Ambient light contribution
