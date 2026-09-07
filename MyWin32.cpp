@@ -21,7 +21,7 @@
 	//vmath::mat4 MyWin32::gInvViewMatrix = vmath::mat4::identity();
 	
 	//vmath::vec3 MyWin32::gPrevCameraPosition = vmath::vec3(0.0);
-	glm::vec2 MyWin32::gNearFarFrustum = glm::vec2(0.01f,1000.0f);
+	glm::vec2 MyWin32::gNearFarFrustum = glm::vec2(0.5f,6000.0f);
 	float MyWin32::fovY = 80.0f;
 	float MyWin32::fDeltaTime = 0.0f;
 	double MyWin32::dTotalElapsedTime = 0.0;

@@ -8,6 +8,7 @@ struct VoxelCloudDensitySamples
 {
     float mProfile;
     float mFull;
+    float mDimensionalProfile;
 
 };
 
@@ -25,6 +26,12 @@ layout(push_constant) uniform PushConstants
 	float fCloudFactor;
 	vec4 fIntensity;
 } pc;
+
+const vec3 VOLUME_MIN  = vec3(-2048.0, -2048.0, -256.0);
+const vec3 VOLUME_SIZE = vec3(4096.0, 4096.0, 512.0);
+const vec3 VOLUME_MAX  = VOLUME_MIN + VOLUME_SIZE;
+const float DENSITY_SCALE = 1.0;
+
 
 // ------------------------------------------------------------
 // Value Remap
@@ -184,28 +191,8 @@ bool IntersectAABB(
     return tExit >= tEnter;
 }
 
-float SampleDensity(
-    vec3 worldPos,
-    vec3 sphereCenter,
-    float sphereRadius)
-{
-    vec3 volumeUV = (worldPos - sphereCenter) / (2.0 * sphereRadius) + 0.5;
 
-    float density = texture(noise3D, volumeUV).r;
-
-    // Normalize distance between 0.0 and 1.0 relative to sphere radius
-    float distNorm = distance(worldPos, sphereCenter) / sphereRadius;
-    float falloff = smoothstep(1.0, 0.4, distNorm);
-
-    return density * falloff;
-}
-
-const vec3 VOLUME_MIN  = vec3(-256.0, -256.0, -32.0);
-const vec3 VOLUME_SIZE = vec3(512.0, 512.0, 64.0);
-const vec3 VOLUME_MAX  = VOLUME_MIN + VOLUME_SIZE;
-const float DENSITY_SCALE = 1.0;
-
-VoxelCloudDensitySamples SampleDensityLow(vec3 worldPos)
+VoxelCloudDensitySamples SampleDensity(vec3 worldPos)
 {
     vec3 volumeUV =
         (worldPos - VOLUME_MIN) /
@@ -218,8 +205,10 @@ VoxelCloudDensitySamples SampleDensityLow(vec3 worldPos)
     if(modelingData.r>0.0)
     {
         density_samples.mProfile = modelingData.r * modelingData.b;
+        density_samples.mDimensionalProfile = modelingData.r;
 
-        vec4 noise = texture(noise3D, worldPos * 0.1).xyzw;
+
+        vec4 noise = texture(noise3D, worldPos * 0.01).xyzw;
 
         // Define wispy noise
 	    float wispy_noise = mix(noise.r, noise.g, modelingData.r);
@@ -253,6 +242,8 @@ VoxelCloudDensitySamples SampleDensityLow(vec3 worldPos)
     return density_samples;
 }
 
+
+
 float SampleSunTransmittance(
     vec3 worldPos,
     vec3 sunDir)
@@ -271,57 +262,7 @@ float SampleSunTransmittance(
         return 1.0;
     }
 
-    const float LIGHT_STEP_SIZE = 1.0;
-    const int LIGHT_MAX_STEPS = 16;
-
-
-
-    float lightTransmittance = 1.0;
-
-    float t = 0.0;
-
-    for (int i = 0; i < LIGHT_MAX_STEPS && t < tExit; ++i)
-    {
-        float currentStep = min( LIGHT_STEP_SIZE, tExit - t);
-        vec3 samplePos = worldPos + sunDir * (t + currentStep * 0.5);
-
-        // IMPORTANT: samplePos, not worldPos
-        VoxelCloudDensitySamples density_samples = SampleDensityLow(samplePos);
-
-        float density = density_samples.mFull;
-        float sigmaT = density * DENSITY_SCALE;
-        float stepTransmittance = exp(-sigmaT * currentStep);
-
-        lightTransmittance *= stepTransmittance;
-
-        if (lightTransmittance < 0.01)
-            break;
-
-        t += currentStep;
-    }
-
-    return lightTransmittance;
-}
-
-float SampleSunTransmittance2(
-    vec3 worldPos,
-    vec3 sunDir)
-{
-    float tEnter;
-    float tExit;
-
-    if (!IntersectAABB(
-            worldPos,
-            sunDir,
-            VOLUME_MIN,
-            VOLUME_MAX,
-            tEnter,
-            tExit))
-    {
-        return 1.0;
-    }
-
-    const float LIGHT_STEP_SIZE = 1.0;
+    const float LIGHT_STEP_SIZE = 4.0;
     const int LIGHT_MAX_STEPS = 16;
 
     // Accumulate total optical depth instead of calculating exp() per step
@@ -338,7 +279,7 @@ float SampleSunTransmittance2(
         vec3 samplePos = worldPos + sunDir * (t + currentStep * 0.5);
 
         // IMPORTANT: samplePos, not worldPos
-        VoxelCloudDensitySamples density_samples = SampleDensityLow(samplePos);
+        VoxelCloudDensitySamples density_samples = SampleDensity(samplePos);
 
         float density = density_samples.mFull;
         float sigmaT = density * DENSITY_SCALE;
@@ -368,11 +309,18 @@ float PhaseHenyeyGreenstein(
     float g2 = g * g;
 
     float denom =
-        1.0 + g2 - 2.0 * g * cosTheta;
+        1.0 + g2 -
+        2.0 * g * cosTheta;
 
-    return INV_4PI *
-           (1.0 - g2) /
-           pow(denom, 1.5);
+    float invSqrtDenom =
+        inversesqrt(denom);
+
+    return
+        INV_4PI *
+        (1.0 - g2) *
+        invSqrtDenom *
+        invSqrtDenom *
+        invSqrtDenom;
 }
 
 vec3 TonemapACES(vec3 x)
@@ -432,7 +380,7 @@ void main()
             tEnter,
             tExit))
     {
-        const float STEP_SIZE = 0.25;
+        const float STEP_SIZE = 2.0;
         const int MAX_STEPS = 512;
 
         float t = tEnter + STEP_SIZE * 0.5;
@@ -440,7 +388,7 @@ void main()
         for (int i = 0; i < MAX_STEPS && t < tExit; ++i)
         {
             vec3 worldPos = rayOrigin + rayDir * t;
-            VoxelCloudDensitySamples density_samples = SampleDensityLow(worldPos);
+            VoxelCloudDensitySamples density_samples = SampleDensity(worldPos);
 
             float density = density_samples.mFull;
 
@@ -448,17 +396,18 @@ void main()
             if (density > 0.0001)
             {
                 float sigmaT = density * DENSITY_SCALE;
-                float sunTransmittance = SampleSunTransmittance2(worldPos,normalize(global.sunDir));
+                float sunTransmittance = SampleSunTransmittance(worldPos,normalize(global.sunDir));
                 float cosTheta = dot(rayDir, normalize(global.sunDir));
                 float phase = PhaseHenyeyGreenstein(cosTheta,0.6);
                 float sigmaS = sigmaT;
 
                 // Isotropic phase function for uniform sky light (1.0 / 4PI)
                 float ambientPhase = 0.079577;
-                float ambientOcclusion = exp(-density * 0.132 *10.0);
+                float ambientOcclusion = exp(-density * 0.132 *10.0);//skipped for now
 
                 vec3 directLight = pc.v3LightColor * pc.fIntensity.x * sunTransmittance * phase;
-                vec3 ambientLight = pc.v3LightColor * ambientOcclusion * ambientPhase; // Ambient light contribution
+                //vec3 ambientLight = pc.v3LightColor * ambientOcclusion * ambientPhase; // Ambient light contribution
+                float ambientLight = sqrt(max(1.0 -density_samples.mDimensionalProfile,0.0)) * ambientPhase;
 
                 vec3 S =  sigmaS * (directLight + ambientLight);
 
