@@ -21,7 +21,6 @@ ComputePipelines::ComputePipelines()
 	}
 }
 
-
 ComputePipelines::~ComputePipelines()
 {
 	destroyPipelines();
@@ -153,6 +152,22 @@ VkResult ComputePipelines::createShaderModules()
 		fprintf(
 			gpFILE,
 			"createShaders() -> createShaderModule() for VolumetricClouds compute shader failed.\n"
+		);
+
+		return vkResult;
+	}
+
+	// Accumulated Optical Depth Compute Shader
+	vkResult = createShaderModule(
+		&AccumulatedOpticalDepth.vkComputeShaderModule,
+		"AccumulatedOpticalDepth.comp.spv"
+	);
+
+	if (vkResult != VK_SUCCESS)
+	{
+		fprintf(
+			gpFILE,
+			"createShaders() -> createShaderModule() for accumulated optical depth compute shader failed.\n"
 		);
 
 		return vkResult;
@@ -548,6 +563,61 @@ VkResult ComputePipelines::createComputePipeline_VolumetricClouds(
 
 //--------------------------------------------------------------------------------------------
 
+VkResult ComputePipelines::createComputePipeline_AccumulatedOpticalDepth(
+	VkPipelineLayoutCreateInfo vkPipelineLayoutCreateInfo
+)
+{
+	VkPushConstantRange pushConstantRange{};
+	VkResult result = createPipelineLayout(
+		vkPipelineLayoutCreateInfo,
+		&AccumulatedOpticalDepth.vkPipelineLayout,
+		pushConstantRange);
+
+	if (result != VK_SUCCESS)
+		return result;
+
+	VkPipelineShaderStageCreateInfo shaderStage{};
+	shaderStage.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+	shaderStage.stage = VK_SHADER_STAGE_COMPUTE_BIT;
+	shaderStage.module = AccumulatedOpticalDepth.vkComputeShaderModule;
+	shaderStage.pName = "main";
+
+	VkPipelineCacheCreateInfo cacheInfo{};
+	cacheInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_CACHE_CREATE_INFO;
+
+	result = vkCreatePipelineCache(
+		gVulkanContext.vkDevice,
+		&cacheInfo,
+		nullptr,
+		&AccumulatedOpticalDepth.vkPipelineCache);
+
+	if (result != VK_SUCCESS)
+		return result;
+
+	vkPipelineCacheList.push_back(AccumulatedOpticalDepth.vkPipelineCache);
+
+	VkComputePipelineCreateInfo pipelineInfo{};
+	pipelineInfo.sType = VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO;
+	pipelineInfo.stage = shaderStage;
+	pipelineInfo.layout = AccumulatedOpticalDepth.vkPipelineLayout;
+	pipelineInfo.basePipelineIndex = -1;
+
+	result = vkCreateComputePipelines(
+		gVulkanContext.vkDevice,
+		AccumulatedOpticalDepth.vkPipelineCache,
+		1,
+		&pipelineInfo,
+		nullptr,
+		&AccumulatedOpticalDepth.vkPipeline);
+
+	if (result == VK_SUCCESS)
+		vkPipelineList.push_back(AccumulatedOpticalDepth.vkPipeline);
+
+	return result;
+}
+
+//--------------------------------------------------------------------------------------------
+
 VkResult ComputePipelines::createPipelines(void)
 {
 	// local variables
@@ -626,6 +696,22 @@ VkResult ComputePipelines::createPipelines(void)
 
 
 	vkPipelineList.push_back(VolumetricClouds.vkPipeline);
+
+	// Accumulated optical depth
+	vkDescriptorSetLayouts = {
+		gpDescriptorSetLayouts->vkDescriptorSetLayout_frameData,
+		gpDescriptorSetLayouts->vkDescriptorSetLayout_VolumetricClouds
+	};
+	vkPipelineLayoutCreateInfo = {};
+	vkPipelineLayoutCreateInfo.setLayoutCount = static_cast<uint32_t>(vkDescriptorSetLayouts.size());
+	vkPipelineLayoutCreateInfo.pSetLayouts = vkDescriptorSetLayouts.data();
+
+	vkResult = createComputePipeline_AccumulatedOpticalDepth(vkPipelineLayoutCreateInfo);
+	if (vkResult != VK_SUCCESS)
+	{
+		fprintf(gpFILE, "createPipelines() : createComputePipeline_AccumulatedOpticalDepth() failed: %d.\n", vkResult);
+		return vkResult;
+	}
 
 
 	//--------------------------------------------------------------------------------------------

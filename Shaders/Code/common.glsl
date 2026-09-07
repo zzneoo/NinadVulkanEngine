@@ -17,4 +17,6 @@ layout(set = 0, binding = 0, std140) uniform FrameData
     vec4 frustumPlanes[6];
 } global;
 
+#define saturate(x) clamp(x, 0.0, 1.0)
+
 #endif

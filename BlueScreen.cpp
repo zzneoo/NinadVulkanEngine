@@ -2475,11 +2475,12 @@ VkResult initialize(void)
     //compileShaderVS_FS("Phong");
     //compileShaderVS_FS("PBR");
     //compileShaderVS_FS("PBR_Skinned");
-    compileShaderVS_FS("PreviewImage");
-    compileShaderVS_FS("DeferredPBR");
-    compileShaderTS_MS_FS("Meshlet");
+    //compileShaderVS_FS("PreviewImage");
+    //compileShaderVS_FS("DeferredPBR");
+    //compileShaderTS_MS_FS("Meshlet");
     //compileShaderCS("TextureGradient");
     compileShaderCS("VolumetricClouds");
+    compileShaderCS("AccumulatedOpticalDepth");
 
 
 	vkResult = gVulkanContext.Initialize();
@@ -8190,6 +8191,11 @@ VkResult buildCommandBuffers(uint32_t curIndex, uint32_t currentImageIndex)
 
     //ComputePipeline
     //Compute_TextureGradient(curIndex);
+    clouds->Compute_AccumulatedOpticalDepth(
+        curIndex,
+        gpComputePipelines->AccumulatedOpticalDepth.vkPipeline,
+        gpComputePipelines->AccumulatedOpticalDepth.vkPipelineLayout);
+
     clouds->Compute_VolumetricClouds(
         curIndex,
         gpComputePipelines->VolumetricClouds.vkPipeline,

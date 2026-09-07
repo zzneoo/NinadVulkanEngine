@@ -25,6 +25,7 @@ public:
 
 	PipelineData TextureGradient;
 	PipelineData VolumetricClouds;
+	PipelineData AccumulatedOpticalDepth;
 
 	VkResult vkResult;
 
@@ -52,6 +53,7 @@ private:
 
 	VkResult createComputePipeline_TextureGradient(VkPipelineLayoutCreateInfo vkPipelineLayoutCreateInfo);
 	VkResult createComputePipeline_VolumetricClouds(VkPipelineLayoutCreateInfo vkPipelineLayoutCreateInfo);
+	VkResult createComputePipeline_AccumulatedOpticalDepth(VkPipelineLayoutCreateInfo vkPipelineLayoutCreateInfo);
 
 
 };

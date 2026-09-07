@@ -349,5 +349,8 @@
     <None Include="DeferredPBR.vert">
       <Filter>Shaders</Filter>
     </None>
+    <None Include="AccumulatedOpticalDepth.comp">
+      <Filter>Shaders</Filter>
+    </None>
   </ItemGroup>
 </Project>

@@ -319,7 +319,7 @@ VkResult DescriptorSetLayouts::createDescriptorSetLayout_VolumetricClouds(void)
 
     // variable declarations
     VkResult vkResult = VK_SUCCESS;
-    VkDescriptorSetLayoutBinding vkDescriptorSetLayoutBinding_Array[3]{};
+    VkDescriptorSetLayoutBinding vkDescriptorSetLayoutBinding_Array[4]{};
     vkDescriptorSetLayoutBinding_Array[0].binding = 0; // binding index
     vkDescriptorSetLayoutBinding_Array[0].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE; // descriptor type
     vkDescriptorSetLayoutBinding_Array[0].descriptorCount = 1; // number of descriptors
@@ -337,12 +337,18 @@ VkResult DescriptorSetLayouts::createDescriptorSetLayout_VolumetricClouds(void)
     vkDescriptorSetLayoutBinding_Array[2].descriptorCount = 1; // number of descriptors
     vkDescriptorSetLayoutBinding_Array[2].stageFlags = VK_SHADER_STAGE_COMPUTE_BIT; // stage flags for the descriptor set layout binding
     vkDescriptorSetLayoutBinding_Array[2].pImmutableSamplers = NULL; // no immutable samplers
+
+    vkDescriptorSetLayoutBinding_Array[3].binding = 3; // binding index
+    vkDescriptorSetLayoutBinding_Array[3].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER; // descriptor type
+    vkDescriptorSetLayoutBinding_Array[3].descriptorCount = 1; // number of descriptors
+    vkDescriptorSetLayoutBinding_Array[3].stageFlags = VK_SHADER_STAGE_COMPUTE_BIT; // stage flags for the descriptor set layout binding
+    vkDescriptorSetLayoutBinding_Array[3].pImmutableSamplers = NULL; // no immutable samplers
     // code
     VkDescriptorSetLayoutCreateInfo vkDescriptorSetLayoutCreateInfo{};
     vkDescriptorSetLayoutCreateInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
     vkDescriptorSetLayoutCreateInfo.pNext = NULL;
     vkDescriptorSetLayoutCreateInfo.flags = 0;
-    vkDescriptorSetLayoutCreateInfo.bindingCount = 3;
+    vkDescriptorSetLayoutCreateInfo.bindingCount = 4;
     vkDescriptorSetLayoutCreateInfo.pBindings = vkDescriptorSetLayoutBinding_Array; // pointer to the descriptor set layout binding array
     vkResult = vkCreateDescriptorSetLayout(gVulkanContext.vkDevice, &vkDescriptorSetLayoutCreateInfo, NULL, &vkDescriptorSetLayout_VolumetricClouds);
     if (vkResult != VK_SUCCESS)

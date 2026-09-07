@@ -37,7 +37,17 @@ public:
 		return imageData_ModelingData3D;
 	}
 
+	ImageData GetImageData_AccumulatedOpticalDepth(void)
+	{
+		return imageData_AccumulatedOpticalDepth;
+	}
+
 	void Compute_VolumetricClouds(
+		uint32_t curIndex,
+		VkPipeline vkPipeline,
+		VkPipelineLayout vkPipelineLayout);
+
+	void Compute_AccumulatedOpticalDepth(
 		uint32_t curIndex,
 		VkPipeline vkPipeline,
 		VkPipelineLayout vkPipelineLayout);
@@ -62,7 +72,15 @@ private:
 		VkFormat format,
 		ImageData& imageData);
 
+	VkResult CreateAccumulatedOpticalDepthTexture(
+		uint32_t width,
+		uint32_t height,
+		uint32_t depth,
+		VkFormat format,
+		ImageData& imageData);
+
 	VkResult CreateDescriptorSet_VolumetricClouds();
+	VkResult CreateDescriptorSet_AccumulatedOpticalDepth();
 
 	bool Load3DTextureWithMipmaps(
 		VkDevice device,
@@ -95,8 +113,10 @@ private:
 	ImageData imageData_Clouds{};
 	ImageData imageData_Noise3D{};
 	ImageData imageData_ModelingData3D{};
+	ImageData imageData_AccumulatedOpticalDepth{};
 
 	VkDescriptorSet vkDescriptorSet_VolumetricClouds;
+	VkDescriptorSet vkDescriptorSet_AccumulatedOpticalDepth;
 	uint32_t Width;
 	uint32_t Height;
 

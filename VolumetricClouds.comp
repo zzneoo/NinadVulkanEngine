@@ -14,11 +14,12 @@ struct VoxelCloudDensitySamples
 
 #define saturate(x) clamp(x, 0.0, 1.0)
 
-layout(local_size_x = 32, local_size_y = 32, local_size_z = 1) in;
+layout(local_size_x = 16, local_size_y = 16, local_size_z = 1) in;
 
 layout(set = 1, binding = 0, rgba8) uniform writeonly image2D outputImage;
 layout(set = 1, binding = 1) uniform sampler3D noise3D;
 layout(set = 1, binding = 2) uniform sampler3D modelingData3D;
+layout(set = 1, binding = 3) uniform sampler3D accumulatedOpticalDepth3D;
 
 layout(push_constant) uniform PushConstants 
 {
@@ -154,6 +155,12 @@ float ValueErosion(
     return normalized;
 }
 
+vec3 WorldToVolumeUV(vec3 worldPos, vec3 VolumeMin, vec3 VolumeMax)
+{
+    // Remap world position from range [VolumeMin, VolumeMax] -> [0.0, 1.0]
+    return (worldPos - VolumeMin) / (VolumeMax - VolumeMin);
+}
+
 bool IntersectAABB(
     vec3 rayOrigin,
     vec3 rayDir,
@@ -164,30 +171,14 @@ bool IntersectAABB(
 {
     vec3 invRayDir = 1.0 / rayDir;
 
-    vec3 t0 =
-        (boxMin - rayOrigin) * invRayDir;
+    vec3 t0 = (boxMin - rayOrigin) * invRayDir;
+    vec3 t1 = (boxMax - rayOrigin) * invRayDir;
+    vec3 tMin = min(t0, t1);
+    vec3 tMax = max(t0, t1);
 
-    vec3 t1 =
-        (boxMax - rayOrigin) * invRayDir;
-
-    vec3 tMin =
-        min(t0, t1);
-
-    vec3 tMax =
-        max(t0, t1);
-
-    tEnter =
-        max(
-            max(tMin.x, tMin.y),
-            tMin.z);
-
-    tExit =
-        min(
-            min(tMax.x, tMax.y),
-            tMax.z);
-
+    tEnter = max(max(tMin.x, tMin.y), tMin.z);
+    tExit = min( min(tMax.x, tMax.y), tMax.z);
     tEnter = max(tEnter, 0.0);
-
     return tExit >= tEnter;
 }
 
@@ -261,8 +252,7 @@ float SampleSunTransmittance(
     {
         return 1.0;
     }
-
-    const float LIGHT_STEP_SIZE = 4.0;
+    const float LIGHT_STEP_SIZE = 2.0;
     const int LIGHT_MAX_STEPS = 16;
 
     // Accumulate total optical depth instead of calculating exp() per step
@@ -294,8 +284,12 @@ float SampleSunTransmittance(
         t += currentStep;
     }
 
+    vec3 volumeUV = WorldToVolumeUV(worldPos, VOLUME_MIN, VOLUME_MAX);
+
+    float farOpticalDepth = texture(accumulatedOpticalDepth3D,volumeUV).r;
+
     // Evaluate Beer's Law ONCE at the end
-    return exp(-accumulatedOpticalDepth);
+    return exp(-(accumulatedOpticalDepth + farOpticalDepth));
 }
 
 
@@ -348,22 +342,14 @@ void main()
     // Reconstruct world-space ray
     // --------------------------------------------------
 
-    vec2 uv =
-        (vec2(pixel) + 0.5) /
-        vec2(size);
-
+    vec2 uv = (vec2(pixel) + 0.5) / vec2(size);
     vec2 ndc = uv * 2.0 - 1.0;
 
-    vec4 worldFar =
-        global.inverseViewProj *
-        vec4(ndc, 1.0, 1.0);
-
+    vec4 worldFar = global.inverseViewProj * vec4(ndc, 1.0, 1.0);
     worldFar.xyz /= worldFar.w;
 
     vec3 rayOrigin = global.cameraPos;
-
-    vec3 rayDir =
-        normalize(worldFar.xyz - rayOrigin);
+    vec3 rayDir = normalize(worldFar.xyz - rayOrigin);
 
 
     float tEnter;
@@ -384,6 +370,8 @@ void main()
         const int MAX_STEPS = 512;
 
         float t = tEnter + STEP_SIZE * 0.5;
+        // Precompute outside the loop to free instruction slots and registers
+        vec3 sunDir = normalize(global.sunDir);
 
         for (int i = 0; i < MAX_STEPS && t < tExit; ++i)
         {
@@ -396,8 +384,8 @@ void main()
             if (density > 0.0001)
             {
                 float sigmaT = density * DENSITY_SCALE;
-                float sunTransmittance = SampleSunTransmittance(worldPos,normalize(global.sunDir));
-                float cosTheta = dot(rayDir, normalize(global.sunDir));
+                float sunTransmittance = SampleSunTransmittance(worldPos,sunDir);
+                float cosTheta = dot(rayDir, sunDir);
                 float phase = PhaseHenyeyGreenstein(cosTheta,0.6);
                 float sigmaS = sigmaT;
 

@@ -61,6 +61,24 @@ VolumetricClouds::VolumetricClouds()
         fprintf(gpFILE, "VolumetricClouds() : CreateCloudTexture() failed (%d).\n", vkResult);
         vkResult = res;
     }
+    res = CreateAccumulatedOpticalDepthTexture(
+        256,
+        256,
+        32,
+        VK_FORMAT_R16_SFLOAT,
+        imageData_AccumulatedOpticalDepth);
+    if (res != VK_SUCCESS)
+    {
+        fprintf(gpFILE, "VolumetricClouds() : CreateAccumulatedOpticalDepthTexture() failed (%d).\n", res);
+        vkResult = res;
+    }
+
+    res = CreateDescriptorSet_AccumulatedOpticalDepth();
+    if (res != VK_SUCCESS)
+    {
+        fprintf(gpFILE, "VolumetricClouds() : CreateDescriptorSet_AccumulatedOpticalDepth() failed (%d).\n", res);
+        vkResult = res;
+    }
 
     res = CreateDescriptorSet_VolumetricClouds();
     if (res != VK_SUCCESS)
@@ -133,6 +151,23 @@ VolumetricClouds::~VolumetricClouds()
     {
         vkFreeMemory(gVulkanContext.vkDevice, imageData_ModelingData3D.vkDeviceMemory, nullptr);
         imageData_ModelingData3D.vkDeviceMemory = VK_NULL_HANDLE;
+    }
+
+    // Accumulated optical depth texture
+    if (imageData_AccumulatedOpticalDepth.vkImageView != VK_NULL_HANDLE)
+    {
+        vkDestroyImageView(gVulkanContext.vkDevice, imageData_AccumulatedOpticalDepth.vkImageView, nullptr);
+        imageData_AccumulatedOpticalDepth.vkImageView = VK_NULL_HANDLE;
+    }
+    if (imageData_AccumulatedOpticalDepth.vkImage != VK_NULL_HANDLE)
+    {
+        vkDestroyImage(gVulkanContext.vkDevice, imageData_AccumulatedOpticalDepth.vkImage, nullptr);
+        imageData_AccumulatedOpticalDepth.vkImage = VK_NULL_HANDLE;
+    }
+    if (imageData_AccumulatedOpticalDepth.vkDeviceMemory != VK_NULL_HANDLE)
+    {
+        vkFreeMemory(gVulkanContext.vkDevice, imageData_AccumulatedOpticalDepth.vkDeviceMemory, nullptr);
+        imageData_AccumulatedOpticalDepth.vkDeviceMemory = VK_NULL_HANDLE;
     }
 }
 
@@ -224,6 +259,193 @@ VkResult VolumetricClouds::CreateCloudTexture(
 
 
     return VK_SUCCESS;
+}
+
+VkResult VolumetricClouds::CreateDescriptorSet_AccumulatedOpticalDepth()
+{
+    VkDescriptorSetAllocateInfo allocInfo{
+        VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO
+    };
+    allocInfo.descriptorPool = vkDescriptorPool;
+    allocInfo.descriptorSetCount = 1;
+    allocInfo.pSetLayouts = &gpDescriptorSetLayouts->vkDescriptorSetLayout_VolumetricClouds;
+
+    VkResult result = vkAllocateDescriptorSets(
+        gVulkanContext.vkDevice,
+        &allocInfo,
+        &vkDescriptorSet_AccumulatedOpticalDepth);
+
+    if (result != VK_SUCCESS)
+        return result;
+
+    VkDescriptorImageInfo storageImageInfo{};
+    storageImageInfo.imageView = imageData_AccumulatedOpticalDepth.vkImageView;
+    storageImageInfo.imageLayout = VK_IMAGE_LAYOUT_GENERAL;
+
+    VkDescriptorImageInfo noiseImageInfo{};
+    noiseImageInfo.sampler = imageData_Noise3D.vkSampler;
+    noiseImageInfo.imageView = imageData_Noise3D.vkImageView;
+    noiseImageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+
+    VkDescriptorImageInfo modelingDataImageInfo{};
+    modelingDataImageInfo.sampler = imageData_ModelingData3D.vkSampler;
+    modelingDataImageInfo.imageView = imageData_ModelingData3D.vkImageView;
+    modelingDataImageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+
+    VkWriteDescriptorSet writes[3]{};
+    for (VkWriteDescriptorSet& write : writes)
+        write.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+
+    writes[0].dstSet = vkDescriptorSet_AccumulatedOpticalDepth;
+    writes[0].dstBinding = 0;
+    writes[0].descriptorCount = 1;
+    writes[0].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
+    writes[0].pImageInfo = &storageImageInfo;
+
+    writes[1].dstSet = vkDescriptorSet_AccumulatedOpticalDepth;
+    writes[1].dstBinding = 1;
+    writes[1].descriptorCount = 1;
+    writes[1].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+    writes[1].pImageInfo = &noiseImageInfo;
+
+    writes[2].dstSet = vkDescriptorSet_AccumulatedOpticalDepth;
+    writes[2].dstBinding = 2;
+    writes[2].descriptorCount = 1;
+    writes[2].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+    writes[2].pImageInfo = &modelingDataImageInfo;
+
+    vkUpdateDescriptorSets(gVulkanContext.vkDevice, 3, writes, 0, nullptr);
+    return VK_SUCCESS;
+}
+
+VkResult VolumetricClouds::CreateAccumulatedOpticalDepthTexture(
+    uint32_t width,
+    uint32_t height,
+    uint32_t depth,
+    VkFormat format,
+    ImageData& imageData)
+{
+    imageData = {};
+
+    VkImageCreateInfo imageInfo{};
+    imageInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
+    imageInfo.imageType = VK_IMAGE_TYPE_3D;
+    imageInfo.format = format;
+    imageInfo.extent = { width, height, depth };
+    imageInfo.mipLevels = 1;
+    imageInfo.arrayLayers = 1;
+    imageInfo.samples = VK_SAMPLE_COUNT_1_BIT;
+    imageInfo.tiling = VK_IMAGE_TILING_OPTIMAL;
+    imageInfo.usage = VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
+    imageInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+    imageInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+
+    VkResult result = vkCreateImage(
+        gVulkanContext.vkDevice,
+        &imageInfo,
+        nullptr,
+        &imageData.vkImage);
+
+    if (result != VK_SUCCESS)
+        return result;
+
+    VkMemoryRequirements memReq{};
+    vkGetImageMemoryRequirements(
+        gVulkanContext.vkDevice,
+        imageData.vkImage,
+        &memReq);
+
+    VkMemoryAllocateInfo allocInfo{};
+    allocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
+    allocInfo.allocationSize = memReq.size;
+    allocInfo.memoryTypeIndex = gVulkanContext.FindMemoryType(
+        memReq.memoryTypeBits,
+        VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+
+    result = vkAllocateMemory(
+        gVulkanContext.vkDevice,
+        &allocInfo,
+        nullptr,
+        &imageData.vkDeviceMemory);
+
+    if (result != VK_SUCCESS)
+        return result;
+
+    result = vkBindImageMemory(
+        gVulkanContext.vkDevice,
+        imageData.vkImage,
+        imageData.vkDeviceMemory,
+        0);
+
+    if (result != VK_SUCCESS)
+        return result;
+
+    VkImageViewCreateInfo viewInfo{};
+    viewInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+    viewInfo.image = imageData.vkImage;
+    viewInfo.viewType = VK_IMAGE_VIEW_TYPE_3D;
+    viewInfo.format = format;
+    viewInfo.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+    viewInfo.subresourceRange.baseMipLevel = 0;
+    viewInfo.subresourceRange.levelCount = 1;
+    viewInfo.subresourceRange.baseArrayLayer = 0;
+    viewInfo.subresourceRange.layerCount = 1;
+
+    result = vkCreateImageView(
+        gVulkanContext.vkDevice,
+        &viewInfo,
+        nullptr,
+        &imageData.vkImageView);
+
+    if (result != VK_SUCCESS)
+        return result;
+
+    imageData.vkSampler = vkSampler_LinearClamp;
+    return VK_SUCCESS;
+}
+
+void VolumetricClouds::Compute_AccumulatedOpticalDepth(
+    uint32_t curIndex,
+    VkPipeline vkPipeline,
+    VkPipelineLayout vkPipelineLayout)
+{
+    TransitionImageLayout(
+        gFrames[curIndex].commandBuffer,
+        imageData_AccumulatedOpticalDepth.vkImage,
+        VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+        VK_IMAGE_LAYOUT_GENERAL);
+
+    vkCmdBindPipeline(
+        gFrames[curIndex].commandBuffer,
+        VK_PIPELINE_BIND_POINT_COMPUTE,
+        vkPipeline);
+
+    VkDescriptorSet descriptorSets[] = {
+        gFrames[curIndex].vkDescriptor_FrameData,
+        vkDescriptorSet_AccumulatedOpticalDepth
+    };
+
+    vkCmdBindDescriptorSets(
+        gFrames[curIndex].commandBuffer,
+        VK_PIPELINE_BIND_POINT_COMPUTE,
+        vkPipelineLayout,
+        0,
+        2,
+        descriptorSets,
+        0,
+        nullptr);
+
+    vkCmdDispatch(
+        gFrames[curIndex].commandBuffer,
+        32,
+        32,
+        8);
+
+    TransitionImageLayout(
+        gFrames[curIndex].commandBuffer,
+        imageData_AccumulatedOpticalDepth.vkImage,
+        VK_IMAGE_LAYOUT_GENERAL,
+        VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 }
 
 void VolumetricClouds::TransitionImageLayout(
@@ -477,6 +699,13 @@ VkResult VolumetricClouds::InitialLayoutTransitions(void)
         VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
     );
 
+    TransitionImageLayout(
+        commandBuffer,
+        imageData_AccumulatedOpticalDepth.vkImage,
+        VK_IMAGE_LAYOUT_UNDEFINED,
+        VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
+    );
+
     // End command buffer recording
     vkResult = vkEndCommandBuffer(commandBuffer);
     if (vkResult != VK_SUCCESS)
@@ -535,7 +764,13 @@ VkResult VolumetricClouds::CreateDescriptorSet_VolumetricClouds()
     sampledImageInfo_ModelingData3D.imageView = imageData_ModelingData3D.vkImageView;
     sampledImageInfo_ModelingData3D.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 
-    VkWriteDescriptorSet writes[3]{};
+    // Binding 3: Accumulated optical depth sampler
+    VkDescriptorImageInfo sampledImageInfo_AccumulatedOpticalDepth{};
+    sampledImageInfo_AccumulatedOpticalDepth.sampler = imageData_AccumulatedOpticalDepth.vkSampler;
+    sampledImageInfo_AccumulatedOpticalDepth.imageView = imageData_AccumulatedOpticalDepth.vkImageView;
+    sampledImageInfo_AccumulatedOpticalDepth.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+
+    VkWriteDescriptorSet writes[4]{};
 
     // Write for Binding 0
     writes[0].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
@@ -561,9 +796,17 @@ VkResult VolumetricClouds::CreateDescriptorSet_VolumetricClouds()
     writes[2].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
     writes[2].pImageInfo = &sampledImageInfo_ModelingData3D;
 
+    // Write for Binding 3
+    writes[3].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+    writes[3].dstSet = vkDescriptorSet_VolumetricClouds;
+    writes[3].dstBinding = 3;
+    writes[3].descriptorCount = 1;
+    writes[3].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+    writes[3].pImageInfo = &sampledImageInfo_AccumulatedOpticalDepth;
+
     vkUpdateDescriptorSets(
         gVulkanContext.vkDevice,
-        3,              // Count of writes updated
+        4,              // Count of writes updated
         writes,
         0,
         nullptr);
@@ -576,7 +819,6 @@ void VolumetricClouds::Compute_VolumetricClouds(
     VkPipeline vkPipeline,
     VkPipelineLayout vkPipelineLayout)
 {
-
     //-------------------------------------------------------------------------
 // Compute Texture
 //-------------------------------------------------------------------------
@@ -626,8 +868,8 @@ void VolumetricClouds::Compute_VolumetricClouds(
 
     vkCmdDispatch(
         gFrames[curIndex].commandBuffer,
-        (WIN_WIDTH + 31) / 32,
-        (WIN_HEIGHT + 31) / 32,
+        (WIN_WIDTH + 15) / 16,
+        (WIN_HEIGHT + 15) / 16,
         1
     );
 
