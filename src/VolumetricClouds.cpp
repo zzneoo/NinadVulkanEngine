@@ -61,6 +61,10 @@ VolumetricClouds::VolumetricClouds()
         fprintf(gpFILE, "VolumetricClouds() : CreateCloudTexture() failed (%d).\n", vkResult);
         vkResult = res;
     }
+
+
+    //Accumulated Optical Depth Pipeline
+
     res = CreateAccumulatedOpticalDepthTexture(
         256,
         256,
@@ -80,13 +84,13 @@ VolumetricClouds::VolumetricClouds()
         vkResult = res;
     }
 
+    //Volumetric Clouds Pipeline
     res = CreateDescriptorSet_VolumetricClouds();
     if (res != VK_SUCCESS)
     {
         fprintf(gpFILE, "VolumetricClouds() : CreateDescriptorSet_VolumetricClouds() failed (%d).\n", vkResult);
         vkResult = res;
     }
-
 
     //Initial Layout transitions
     res = InitialLayoutTransitions();

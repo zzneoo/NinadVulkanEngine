@@ -626,24 +626,24 @@ int file_exists(const char* path) {
 }
 
 // compile shader using build.bat
-static void compileShaderVS_FS(const char* shaderName)
+static void compileShaderVS_FS(std::string shaderName)
 {
     STARTUPINFOA si = { sizeof(si) };
     PROCESS_INFORMATION pi{};
 
-    char command[256];
+    std::string command;
 
     // Build the command line: cmd.exe /c "build.bat Impostor"
-    snprintf(command, sizeof(command), "cmd.exe /c \"build.bat %s\"", shaderName);
+    command = "cmd.exe /c \"build.bat " + shaderName + "\"";
 
     BOOL success = CreateProcessA(
-        NULL,           // App name (null if included in command line)
-        (LPSTR)command, // Command line (must be mutable)
-        NULL, NULL,     // Process/thread security
-        FALSE,          // Inherit handles
-        0,              // Creation flags
-        NULL,           // Environment
-        NULL,           // Current directory
+        NULL,                    // App name (null if included in command line)
+        (LPSTR)command.c_str(),  // Command line (must be mutable)
+        NULL, NULL,              // Process/thread security
+        FALSE,                   // Inherit handles
+        0,                       // Creation flags
+        NULL,                    // Environment
+        NULL,                    // Current directory
         &si, &pi
     );
 
@@ -659,55 +659,93 @@ static void compileShaderVS_FS(const char* shaderName)
     CloseHandle(pi.hThread);
 
 
-    //------------verify if shader files exist----------------
-    char filename[256];
-    snprintf(filename, sizeof(filename), "%s.vert.spv", shaderName);
-    if (!file_exists(filename))
+    //------------verify if vertex shader file exists----------------
+
+    std::string filename;
+    std::string filepath = "Shaders/Binary/";
+
+    filename = filepath + shaderName + ".vert.spv";
+
+    if (!file_exists(filename.c_str()))
     {
         STARTUPINFOA sInfo = { sizeof(sInfo) };
         PROCESS_INFORMATION pInfo;
-        snprintf(command, sizeof(command), "notepad.exe \"%s\"", "vsCompileLog.txt");
-        CreateProcessA(NULL, command, NULL, NULL, FALSE, 0, NULL, NULL, &sInfo, &pInfo);
+
+        command = "notepad.exe \"Shaders/Log/" + shaderName + ".vsCompileLog.txt\"";
+
+        CreateProcessA(
+            NULL,
+            (LPSTR)command.c_str(),
+            NULL, NULL,
+            FALSE,
+            0,
+            NULL,
+            NULL,
+            &sInfo,
+            &pInfo
+        );
+
         // Wait until the process exits
         WaitForSingleObject(pInfo.hProcess, INFINITE);
         CloseHandle(pInfo.hProcess);
         CloseHandle(pInfo.hThread);
+
         exit(EXIT_FAILURE);
     }
-    snprintf(filename, sizeof(filename), "%s.frag.spv", shaderName);
-    if (!file_exists(filename))
+
+
+    //------------verify if fragment shader file exists----------------
+
+    filename = filepath + shaderName + ".frag.spv";
+
+    if (!file_exists(filename.c_str()))
     {
         STARTUPINFOA sInfo = { sizeof(sInfo) };
         PROCESS_INFORMATION pInfo;
-        snprintf(command, sizeof(command), "notepad.exe \"%s\"", "fsCompileLog.txt");
-        CreateProcessA(NULL, command, NULL, NULL, FALSE, 0, NULL, NULL, &sInfo, &pInfo);
+
+        command = "notepad.exe \"Shaders/Log/" + shaderName + ".fsCompileLog.txt\"";
+
+        CreateProcessA(
+            NULL,
+            (LPSTR)command.c_str(),
+            NULL, NULL,
+            FALSE,
+            0,
+            NULL,
+            NULL,
+            &sInfo,
+            &pInfo
+        );
+
         // Wait until the process exits
         WaitForSingleObject(pInfo.hProcess, INFINITE);
         CloseHandle(pInfo.hProcess);
         CloseHandle(pInfo.hThread);
+
         exit(EXIT_FAILURE);
     }
 }
+
 
 // compile shader using buildMesh.bat
-void compileShaderTS_MS_FS(const char* shaderName)
+void compileShaderTS_MS_FS(std::string shaderName)
 {
     STARTUPINFOA si = { sizeof(si) };
     PROCESS_INFORMATION pi{};
 
-    char command[256];
+    std::string command;
 
-    // Build the command line: cmd.exe /c "build.bat Impostor"
-    snprintf(command, sizeof(command), "cmd.exe /c \"BuildMesh.bat %s\"", shaderName);
+    // Build the command line: cmd.exe /c "BuildMesh.bat Impostor"
+    command = "cmd.exe /c \"BuildMesh.bat " + shaderName + "\"";
 
     BOOL success = CreateProcessA(
-        NULL,           // App name (null if included in command line)
-        (LPSTR)command, // Command line (must be mutable)
-        NULL, NULL,     // Process/thread security
-        FALSE,          // Inherit handles
-        0,              // Creation flags
-        NULL,           // Environment
-        NULL,           // Current directory
+        NULL,                    // App name (null if included in command line)
+        (LPSTR)command.c_str(),  // Command line (must be mutable)
+        NULL, NULL,              // Process/thread security
+        FALSE,                   // Inherit handles
+        0,                       // Creation flags
+        NULL,                    // Environment
+        NULL,                    // Current directory
         &si, &pi
     );
 
@@ -724,68 +762,121 @@ void compileShaderTS_MS_FS(const char* shaderName)
 
 
     //------------verify if shader files exist----------------
-    char filename[256];
-    snprintf(filename, sizeof(filename), "%s.task.spv", shaderName);
-    if (!file_exists(filename))
-    {
-        STARTUPINFOA sInfo = { sizeof(sInfo) };
-        PROCESS_INFORMATION pInfo;
-        snprintf(command, sizeof(command), "notepad.exe \"%s\"", "taskCompileLog.txt");
 
-        if (CreateProcessA(NULL, command, NULL, NULL, FALSE, 0, NULL, NULL, &sInfo, &pInfo))
-        {
-            // Wait until the process exits
-            WaitForSingleObject(pInfo.hProcess, INFINITE);
-            CloseHandle(pInfo.hProcess);
-            CloseHandle(pInfo.hThread);
-        }
-        exit(EXIT_FAILURE);
-    }
-    snprintf(filename, sizeof(filename), "%s.mesh.spv", shaderName);
-    if (!file_exists(filename))
+    std::string filename;
+    std::string filepath = "Shaders/Binary/";
+
+
+    //------------verify if task shader file exists----------------
+
+    filename = filepath + shaderName + ".task.spv";
+
+    if (!file_exists(filename.c_str()))
     {
         STARTUPINFOA sInfo = { sizeof(sInfo) };
         PROCESS_INFORMATION pInfo;
-        snprintf(command, sizeof(command), "notepad.exe \"%s\"", "meshCompileLog.txt");
-        if (CreateProcessA(NULL, command, NULL, NULL, FALSE, 0, NULL, NULL, &sInfo, &pInfo))
+
+        command = "notepad.exe \"Shaders/Log/" + shaderName + ".taskCompileLog.txt\"";
+
+        if (CreateProcessA(
+            NULL,
+            (LPSTR)command.c_str(),
+            NULL, NULL,
+            FALSE,
+            0,
+            NULL,
+            NULL,
+            &sInfo,
+            &pInfo))
         {
             // Wait until the process exits
             WaitForSingleObject(pInfo.hProcess, INFINITE);
             CloseHandle(pInfo.hProcess);
             CloseHandle(pInfo.hThread);
         }
+
         exit(EXIT_FAILURE);
     }
-    snprintf(filename, sizeof(filename), "%s.frag.spv", shaderName);
-    if (!file_exists(filename))
+
+
+    //------------verify if mesh shader file exists----------------
+
+    filename = filepath + shaderName + ".mesh.spv";
+
+    if (!file_exists(filename.c_str()))
     {
         STARTUPINFOA sInfo = { sizeof(sInfo) };
         PROCESS_INFORMATION pInfo;
-        snprintf(command, sizeof(command), "notepad.exe \"%s\"", "fragCompileLog.txt");
-        if (CreateProcessA(NULL, command, NULL, NULL, FALSE, 0, NULL, NULL, &sInfo, &pInfo))
+
+        command = "notepad.exe \"Shaders/Log/" + shaderName + ".meshCompileLog.txt\"";
+
+        if (CreateProcessA(
+            NULL,
+            (LPSTR)command.c_str(),
+            NULL, NULL,
+            FALSE,
+            0,
+            NULL,
+            NULL,
+            &sInfo,
+            &pInfo))
         {
             // Wait until the process exits
             WaitForSingleObject(pInfo.hProcess, INFINITE);
             CloseHandle(pInfo.hProcess);
             CloseHandle(pInfo.hThread);
         }
+
+        exit(EXIT_FAILURE);
+    }
+
+
+    //------------verify if fragment shader file exists----------------
+
+    filename = filepath + shaderName + ".frag.spv";
+
+    if (!file_exists(filename.c_str()))
+    {
+        STARTUPINFOA sInfo = { sizeof(sInfo) };
+        PROCESS_INFORMATION pInfo;
+
+        command = "notepad.exe \"Shaders/Log/" + shaderName + ".fragCompileLog.txt\"";
+
+        if (CreateProcessA(
+            NULL,
+            (LPSTR)command.c_str(),
+            NULL, NULL,
+            FALSE,
+            0,
+            NULL,
+            NULL,
+            &sInfo,
+            &pInfo))
+        {
+            // Wait until the process exits
+            WaitForSingleObject(pInfo.hProcess, INFINITE);
+            CloseHandle(pInfo.hProcess);
+            CloseHandle(pInfo.hThread);
+        }
+
         exit(EXIT_FAILURE);
     }
 }
 
-static void compileShaderCS(const char* shaderName)
+
+static void compileShaderCS(std::string shaderName)
 {
     STARTUPINFOA si = { sizeof(si) };
     PROCESS_INFORMATION pi{};
 
-    char command[256];
+    std::string command;
 
     // Build the command line: cmd.exe /c "build.bat Impostor"
-    snprintf(command, sizeof(command), "cmd.exe /c \"buildCompute.bat %s\"", shaderName);
+    command = "cmd.exe /c \"buildCompute.bat " + shaderName + "\"";
 
     BOOL success = CreateProcessA(
         NULL,           // App name (null if included in command line)
-        (LPSTR)command, // Command line (must be mutable)
+        (LPSTR)command.c_str(), // Command line (must be mutable)
         NULL, NULL,     // Process/thread security
         FALSE,          // Inherit handles
         0,              // Creation flags
@@ -806,14 +897,17 @@ static void compileShaderCS(const char* shaderName)
     CloseHandle(pi.hThread);
 
     //------------verify if compute shader file exists----------------
-    char filename[256];
-    snprintf(filename, sizeof(filename), "%s.comp.spv", shaderName);
-    if (!file_exists(filename))
+    std::string filename;
+    std::string filepath = "Shaders/Binary/";
+
+    filename = filepath + std::string(shaderName) + ".comp.spv";
+
+    if (!file_exists(filename.c_str()))
     {
         STARTUPINFOA sInfo = { sizeof(sInfo) };
         PROCESS_INFORMATION pInfo;
-        snprintf(command, sizeof(command), "notepad.exe \"%s\"", "csCompileLog.txt");
-        CreateProcessA(NULL, command, NULL, NULL, FALSE, 0, NULL, NULL, &sInfo, &pInfo);
+        command = "notepad.exe \"Shaders/Log/" + shaderName + ".csCompileLog.txt\"";
+        CreateProcessA(NULL, (LPSTR)command.c_str(), NULL, NULL, FALSE, 0, NULL, NULL, &sInfo, &pInfo);
 
         // Wait until the process exits
         WaitForSingleObject(pInfo.hProcess, INFINITE);

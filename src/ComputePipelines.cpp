@@ -32,7 +32,7 @@ ComputePipelines::~ComputePipelines()
 
 //------------------------------Shader Modules------------------------------------------------
 
-VkResult ComputePipelines::createShaderModule(VkShaderModule* shaderModule, const char* fileName)
+VkResult ComputePipelines::createShaderModule(VkShaderModule* shaderModule, std::string fileName)
 {
 	// local variables
 	VkResult vkResult = VK_SUCCESS;
@@ -40,7 +40,9 @@ VkResult ComputePipelines::createShaderModule(VkShaderModule* shaderModule, cons
 	FILE* fp = NULL;
 	size_t size = 0;
 
-	errno_t err = fopen_s(&fp, fileName, "rb");
+	std::string fullPath = "Shaders/Binary/" + fileName;
+
+	errno_t err = fopen_s(&fp, fullPath.c_str(), "rb");
 
 	if (err != 0)
 	{
@@ -234,13 +236,12 @@ VkResult ComputePipelines::createPipelineLayout(
 	VkResult vkResult = VK_SUCCESS;
 
 
-	vkPipelineLayoutCreateInfo.sType =
-		VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
+	vkPipelineLayoutCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
 
 	vkPipelineLayoutCreateInfo.pNext = NULL;
 	vkPipelineLayoutCreateInfo.flags = 0;
 
-	vkPipelineLayoutCreateInfo.pushConstantRangeCount = 0;
+	vkPipelineLayoutCreateInfo.pushConstantRangeCount = vkPushConstantRange.size > 0 ? 1 : 0;;
 	vkPipelineLayoutCreateInfo.pPushConstantRanges =&vkPushConstantRange;
 
 
@@ -568,6 +569,7 @@ VkResult ComputePipelines::createComputePipeline_AccumulatedOpticalDepth(
 )
 {
 	VkPushConstantRange pushConstantRange{};
+
 	VkResult result = createPipelineLayout(
 		vkPipelineLayoutCreateInfo,
 		&AccumulatedOpticalDepth.vkPipelineLayout,

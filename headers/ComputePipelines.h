@@ -5,6 +5,7 @@
 #include <vector>
 #include "VulkanContext.h"
 #include "SwapchainContext.h"
+#include <string>
 
 //extern VkDevice vkDevice;
 extern DescriptorSetLayouts* gpDescriptorSetLayouts;
@@ -39,7 +40,7 @@ private:
 	std::vector<VkPipeline> vkPipelineList;
 	std::vector<VkPipelineCache> vkPipelineCacheList;
 
-	VkResult createShaderModule(VkShaderModule* shaderModule, const char* fileName);
+	VkResult createShaderModule(VkShaderModule* shaderModule,  std::string fileName);
 
 	VkResult createPipelineLayout(VkPipelineLayoutCreateInfo vkPipelineLayoutCreateInfo, VkPipelineLayout* vkPipelineLayout, VkPushConstantRange vkPushConstantRange);
 	void destroyPipelineLayouts(void);

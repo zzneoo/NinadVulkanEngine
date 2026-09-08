@@ -30,7 +30,7 @@ GraphicsPipelines::~GraphicsPipelines()
 
 }
 
-VkResult GraphicsPipelines::createShaderModule(VkShaderModule* shaderModule, const char* fileName)
+VkResult GraphicsPipelines::createShaderModule(VkShaderModule* shaderModule, std::string fileName)
 {
     // local variables
     VkResult vkResult = VK_SUCCESS;
@@ -38,7 +38,9 @@ VkResult GraphicsPipelines::createShaderModule(VkShaderModule* shaderModule, con
     FILE* fp = NULL;
     size_t size = 0;
 
-    errno_t err = fopen_s(&fp, fileName, "rb");
+    std::string fullPath = "Shaders/Binary/" + fileName;
+
+    errno_t err = fopen_s(&fp, fullPath.c_str(), "rb");
 
     if (err != 0)
     {

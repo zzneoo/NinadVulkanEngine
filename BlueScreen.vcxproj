@@ -104,7 +104,7 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>_DEBUG;_WINDOWS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
-      <AdditionalIncludeDirectories>$(SolutionDir)imgui;$(SolutionDir)Vulkan\Include;$(SolutionDir)assimp\include;$(SolutionDir);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(SolutionDir)imgui;$(SolutionDir)Vulkan\Include;$(SolutionDir)assimp\include;$(SolutionDir);$(SolutionDir)headers</AdditionalIncludeDirectories>
       <LanguageStandard>stdcpp20</LanguageStandard>
     </ClCompile>
     <Link>
@@ -125,7 +125,7 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>NDEBUG;_WINDOWS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
-      <AdditionalIncludeDirectories>$(SolutionDir)imgui;$(SolutionDir)Vulkan\Include;$(SolutionDir)assimp\include;$(SolutionDir);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(SolutionDir)imgui;$(SolutionDir)Vulkan\Include;$(SolutionDir)assimp\include;$(SolutionDir);$(SolutionDir)headers</AdditionalIncludeDirectories>
       <LanguageStandard>stdcpp20</LanguageStandard>
     </ClCompile>
     <Link>
@@ -141,14 +141,30 @@
     </PreBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClInclude Include="AnimatedModel.h" />
-    <ClInclude Include="BlueScreen.h" />
-    <ClInclude Include="Camera.h" />
-    <ClInclude Include="ComputePipelines.h" />
-    <ClInclude Include="DescriptorSetLayouts.h" />
-    <ClInclude Include="FrameContext.h" />
-    <ClInclude Include="framework.h" />
-    <ClInclude Include="GraphicsPipelines.h" />
+    <ClInclude Include="headers\AnimatedModel.h" />
+    <ClInclude Include="headers\BlueScreen.h" />
+    <ClInclude Include="headers\Camera.h" />
+    <ClInclude Include="headers\ComputePipelines.h" />
+    <ClInclude Include="headers\DescriptorSetLayouts.h" />
+    <ClInclude Include="headers\FrameContext.h" />
+    <ClInclude Include="headers\framework.h" />
+    <ClInclude Include="headers\GraphicsPipelines.h" />
+    <ClInclude Include="headers\Material_BasicPBR.h" />
+    <ClInclude Include="headers\MeshletScene.h" />
+    <ClInclude Include="headers\MyWin32.h" />
+    <ClInclude Include="headers\Renderer.h" />
+    <ClInclude Include="headers\Resource.h" />
+    <ClInclude Include="headers\StaticMeshletModel.h" />
+    <ClInclude Include="headers\StaticModel.h" />
+    <ClInclude Include="headers\stb_image.h" />
+    <ClInclude Include="headers\SwapchainContext.h" />
+    <ClInclude Include="headers\targetver.h" />
+    <ClInclude Include="headers\tinyddsloader.h" />
+    <ClInclude Include="headers\VK.h" />
+    <ClInclude Include="headers\vmath.h" />
+    <ClInclude Include="headers\VolumetricClouds.h" />
+    <ClInclude Include="headers\VulkanContext.h" />
+    <ClInclude Include="headers\Win32Window.h" />
     <ClInclude Include="imgui\imconfig.h" />
     <ClInclude Include="imgui\imgui.h" />
     <ClInclude Include="imgui\imgui_impl_vulkan.h" />
@@ -157,38 +173,15 @@
     <ClInclude Include="imgui\imstb_rectpack.h" />
     <ClInclude Include="imgui\imstb_textedit.h" />
     <ClInclude Include="imgui\imstb_truetype.h" />
-    <ClInclude Include="Material_BasicPBR.h" />
-    <ClInclude Include="MeshletScene.h" />
     <ClInclude Include="MeshOptimizer\meshoptimizer.h" />
-    <ClInclude Include="MyWin32.h" />
-    <ClInclude Include="Renderer.h" />
-    <ClInclude Include="Resource.h" />
-    <ClInclude Include="StaticMeshletModel.h" />
-    <ClInclude Include="StaticModel.h" />
-    <ClInclude Include="stb_image.h" />
-    <ClInclude Include="SwapchainContext.h" />
-    <ClInclude Include="targetver.h" />
-    <ClInclude Include="VK.h" />
-    <ClInclude Include="VolumetricClouds.h" />
-    <ClInclude Include="VulkanContext.h" />
-    <ClInclude Include="Win32Window.h" />
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="AnimatedModel.cpp" />
-    <ClCompile Include="BlueScreen.cpp" />
-    <ClCompile Include="Camera.cpp" />
-    <ClCompile Include="ComputePipelines.cpp" />
-    <ClCompile Include="DescriptorSetLayouts.cpp" />
-    <ClCompile Include="FrameContext.cpp" />
-    <ClCompile Include="GraphicsPipelines.cpp" />
     <ClCompile Include="imgui\imgui.cpp" />
     <ClCompile Include="imgui\imgui_draw.cpp" />
     <ClCompile Include="imgui\imgui_impl_vulkan.cpp" />
     <ClCompile Include="imgui\imgui_impl_win32.cpp" />
     <ClCompile Include="imgui\imgui_tables.cpp" />
     <ClCompile Include="imgui\imgui_widgets.cpp" />
-    <ClCompile Include="Material_BasicPBR.cpp" />
-    <ClCompile Include="MeshletScene.cpp" />
     <ClCompile Include="MeshOptimizer\allocator.cpp" />
     <ClCompile Include="MeshOptimizer\clusterizer.cpp" />
     <ClCompile Include="MeshOptimizer\indexanalyzer.cpp" />
@@ -210,14 +203,23 @@
     <ClCompile Include="MeshOptimizer\vertexcodec.cpp" />
     <ClCompile Include="MeshOptimizer\vertexfilter.cpp" />
     <ClCompile Include="MeshOptimizer\vfetchoptimizer.cpp" />
-    <ClCompile Include="MyWin32.cpp" />
-    <ClCompile Include="Renderer.cpp" />
-    <ClCompile Include="StaticMeshletModel.cpp" />
-    <ClCompile Include="StaticModel.cpp" />
-    <ClCompile Include="SwapchainContext.cpp" />
-    <ClCompile Include="VolumetricClouds.cpp" />
-    <ClCompile Include="VulkanContext.cpp" />
-    <ClCompile Include="Win32Window.cpp" />
+    <ClCompile Include="src\AnimatedModel.cpp" />
+    <ClCompile Include="src\BlueScreen.cpp" />
+    <ClCompile Include="src\Camera.cpp" />
+    <ClCompile Include="src\ComputePipelines.cpp" />
+    <ClCompile Include="src\DescriptorSetLayouts.cpp" />
+    <ClCompile Include="src\FrameContext.cpp" />
+    <ClCompile Include="src\GraphicsPipelines.cpp" />
+    <ClCompile Include="src\Material_BasicPBR.cpp" />
+    <ClCompile Include="src\MeshletScene.cpp" />
+    <ClCompile Include="src\MyWin32.cpp" />
+    <ClCompile Include="src\Renderer.cpp" />
+    <ClCompile Include="src\StaticMeshletModel.cpp" />
+    <ClCompile Include="src\StaticModel.cpp" />
+    <ClCompile Include="src\SwapchainContext.cpp" />
+    <ClCompile Include="src\VolumetricClouds.cpp" />
+    <ClCompile Include="src\VulkanContext.cpp" />
+    <ClCompile Include="src\Win32Window.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="BlueScreen.rc" />
@@ -229,37 +231,37 @@
   <ItemGroup>
     <None Include=".github\upgrades\scenarios\cppbuildtoolsupgrade\assessment.md" />
     <None Include=".github\upgrades\scenarios\cppbuildtoolsupgrade\scenario-instructions.md" />
-    <None Include="AccumulatedOpticalDepth.comp" />
     <None Include="build.bat" />
     <None Include="BuildCompute.bat" />
     <None Include="BuildMesh.bat" />
-    <None Include="DeferredPBR.frag" />
-    <None Include="DeferredPBR.vert" />
-    <None Include="Impostor.frag" />
-    <None Include="Impostor.vert" />
-    <None Include="Meshlet.frag" />
-    <None Include="Meshlet.mesh" />
-    <None Include="Meshlet.task" />
-    <None Include="PBR.frag" />
-    <None Include="PBR.vert" />
-    <None Include="PBR_Skinned.frag" />
-    <None Include="PBR_Skinned.vert" />
-    <None Include="Phong.frag" />
-    <None Include="Phong.vert" />
-    <None Include="PreviewImage.frag" />
-    <None Include="PreviewImage.vert" />
-    <None Include="shader.frag" />
-    <None Include="shader.vert" />
+    <None Include="Shaders\Code\AccumulatedOpticalDepth.comp" />
     <None Include="Shaders\Code\common.glsl">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
       </ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
       </ExcludedFromBuild>
     </None>
-    <None Include="TextureGradient.comp" />
-    <None Include="VolumetricClouds.comp" />
-    <None Include="WhiteVertex.frag" />
-    <None Include="WhiteVertex.vert" />
+    <None Include="Shaders\Code\DeferredPBR.frag" />
+    <None Include="Shaders\Code\DeferredPBR.vert" />
+    <None Include="Shaders\Code\Impostor.frag" />
+    <None Include="Shaders\Code\Impostor.vert" />
+    <None Include="Shaders\Code\Meshlet.frag" />
+    <None Include="Shaders\Code\Meshlet.mesh" />
+    <None Include="Shaders\Code\Meshlet.task" />
+    <None Include="Shaders\Code\PBR.frag" />
+    <None Include="Shaders\Code\PBR.vert" />
+    <None Include="Shaders\Code\PBR_Skinned.frag" />
+    <None Include="Shaders\Code\PBR_Skinned.vert" />
+    <None Include="Shaders\Code\Phong.frag" />
+    <None Include="Shaders\Code\Phong.vert" />
+    <None Include="Shaders\Code\PreviewImage.frag" />
+    <None Include="Shaders\Code\PreviewImage.vert" />
+    <None Include="Shaders\Code\shader.frag" />
+    <None Include="Shaders\Code\shader.vert" />
+    <None Include="Shaders\Code\TextureGradient.comp" />
+    <None Include="Shaders\Code\VolumetricClouds.comp" />
+    <None Include="Shaders\Code\WhiteVertex.frag" />
+    <None Include="Shaders\Code\WhiteVertex.vert" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
