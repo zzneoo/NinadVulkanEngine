@@ -264,8 +264,8 @@ float AccumulateToSunDensity(vec3 worldPos, vec3 sunDir)
     {
         return 1.0;
     }
-    const float LIGHT_STEP_SIZE = 2.0;
-    const int LIGHT_MAX_STEPS = 16;
+    const float LIGHT_STEP_SIZE = 4.0* pc.fCloudFactor;
+    const int LIGHT_MAX_STEPS = 8;
 
     // Accumulate total optical depth instead of calculating exp() per step
     float accumulatedOpticalDepth = 0.0;
@@ -369,6 +369,7 @@ void main()
     float transmittance = 1.0;
     vec3 scattering = vec3(0.0);
 
+
     if (IntersectAABB(
             rayOrigin,
             rayDir,
@@ -377,19 +378,27 @@ void main()
             tEnter,
             tExit))
     {
-        const float STEP_SIZE = 1.5;
-        const int MAX_STEPS = 768;
+        const float STEP_SIZE = 1.0;
+        const int MAX_STEPS = 512;
 
         float t = tEnter + STEP_SIZE * 0.5;
         // Precompute outside the loop to free instruction slots and registers
         vec3 sunDir = normalize(global.sunDir);
+        vec3 worldPos = rayOrigin + rayDir * t;
 
         for (int i = 0; i < MAX_STEPS && t < tExit; ++i)
         {
-            vec3 worldPos = rayOrigin + rayDir * t;
-            VoxelCloudDensitySamples density_samples = SampleDensity(worldPos);
+
             float cloud_distance = texture(tSampler_fieldData3D, WorldToVolumeUV(worldPos, VOLUME_MIN, VOLUME_MAX)).r; //8 bit low precision
             float cloudDistanceInMeters = mix(-256.0, 4096.0,cloud_distance);
+            float distanceFromCamera = length(worldPos - rayOrigin);
+
+            float adaptiveStepSize = max(1.0,max(sqrt(distanceFromCamera), 1e-6) * 0.08);
+            float stepSize = max(cloudDistanceInMeters,adaptiveStepSize);
+
+            VoxelCloudDensitySamples density_samples = SampleDensity(worldPos);
+
+            worldPos += rayDir * stepSize;
 
             float density = density_samples.mFull;
 
@@ -422,7 +431,7 @@ void main()
                 //vec3 S =  sigmaS * ( vec3(directLight + ambientLight));
                 vec3 S =  sigmaS * (directLight + ms_volume+ ambientLight);//mix(vec3(0.0),ms_volume,pc.fCloudFactor)
 
-                float deltaTrans = exp(-sigmaT * STEP_SIZE);
+                float deltaTrans = exp(-sigmaT * stepSize);
                 float sintWeight = (1.0 - deltaTrans) / max(sigmaT, 1e-6);
                 scattering += transmittance * S * sintWeight;
                 transmittance *= deltaTrans;
@@ -431,7 +440,7 @@ void main()
             if (transmittance < 0.01)
                 break;
 
-            t += STEP_SIZE;
+            t += stepSize;
         }
     }
 

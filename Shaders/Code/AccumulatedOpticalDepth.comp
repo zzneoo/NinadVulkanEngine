@@ -21,8 +21,8 @@ const vec3 VOLUME_MIN  = vec3(-2048.0, -2048.0, -256.0);
 const vec3 VOLUME_SIZE = vec3(4096.0, 4096.0, 512.0);
 const vec3 VOLUME_MAX  = VOLUME_MIN + VOLUME_SIZE;
 
-const float MAIN_PASS_LIGHT_STEP_SIZE = 2.0;
-const int   MAIN_PASS_LIGHT_MAX_STEPS = 16;
+const float MAIN_PASS_LIGHT_STEP_SIZE = 4.0;
+const int   MAIN_PASS_LIGHT_MAX_STEPS = 8;
 const float MAIN_PASS_OFFSET = float(MAIN_PASS_LIGHT_MAX_STEPS) * MAIN_PASS_LIGHT_STEP_SIZE;
 
 const float LIGHT_STEP_SIZE = 16.0;
