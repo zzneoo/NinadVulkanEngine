@@ -40,7 +40,8 @@ VolumetricClouds::VolumetricClouds()
         ".tga",
         64,
         3,
-        imageData_ModelingData3D
+        imageData_ModelingData3D,
+        VK_FORMAT_R8G8B8A8_UNORM
     );
 
     //loadTextureData_dds_bc6_3d("Resources/CloudData/Modeling_data.dds", &imageData_ModelingData3D);
@@ -48,6 +49,27 @@ VolumetricClouds::VolumetricClouds()
     imageData_ModelingData3D.vkSampler = vkSampler_LinearClamp;
     if (!success) {
         fprintf(gpFILE, "VolumetricClouds() : Load3DTexture() for imageData_ModelingData failed.\n");
+        vkResult = VK_ERROR_INITIALIZATION_FAILED;
+    }
+
+    //FieldData3D
+    Load3DTexture(
+        gVulkanContext.vkDevice,
+        gVulkanContext.vkCommandPool,
+        gVulkanContext.vkGraphicsQueue,
+        "Resources/CloudData",
+        "field_data",
+        ".tga",
+        64,
+        3,
+        imageData_FieldData3D,
+        VK_FORMAT_R8_UNORM
+    );
+
+
+    imageData_FieldData3D.vkSampler = vkSampler_LinearClamp;
+    if (!success) {
+        fprintf(gpFILE, "VolumetricClouds() : Load3DTexture() for imageData_FieldData3D failed.\n");
         vkResult = VK_ERROR_INITIALIZATION_FAILED;
     }
 
@@ -70,12 +92,15 @@ VolumetricClouds::VolumetricClouds()
         256,
         32,
         VK_FORMAT_R16_SFLOAT,
-        imageData_AccumulatedOpticalDepth);
+        imageData_AccumulatedOpticalDepth3D);
     if (res != VK_SUCCESS)
     {
         fprintf(gpFILE, "VolumetricClouds() : CreateAccumulatedOpticalDepthTexture() failed (%d).\n", res);
         vkResult = res;
     }
+
+    //Descriptor sets
+    //Accumulated Optical Depth Pipeline
 
     res = CreateDescriptorSet_AccumulatedOpticalDepth();
     if (res != VK_SUCCESS)
@@ -157,21 +182,38 @@ VolumetricClouds::~VolumetricClouds()
         imageData_ModelingData3D.vkDeviceMemory = VK_NULL_HANDLE;
     }
 
+    //Field Data 
+    if (imageData_FieldData3D.vkImageView != VK_NULL_HANDLE)
+    {
+        vkDestroyImageView(gVulkanContext.vkDevice, imageData_FieldData3D.vkImageView, nullptr);
+        imageData_FieldData3D.vkImageView = VK_NULL_HANDLE;
+    }
+    if (imageData_FieldData3D.vkImage != VK_NULL_HANDLE)
+    {
+        vkDestroyImage(gVulkanContext.vkDevice, imageData_FieldData3D.vkImage, nullptr);
+        imageData_FieldData3D.vkImage = VK_NULL_HANDLE;
+    }
+    if (imageData_FieldData3D.vkDeviceMemory != VK_NULL_HANDLE)
+    {
+        vkFreeMemory(gVulkanContext.vkDevice, imageData_FieldData3D.vkDeviceMemory, nullptr);
+        imageData_FieldData3D.vkDeviceMemory = VK_NULL_HANDLE;
+    }
+
     // Accumulated optical depth texture
-    if (imageData_AccumulatedOpticalDepth.vkImageView != VK_NULL_HANDLE)
+    if (imageData_AccumulatedOpticalDepth3D.vkImageView != VK_NULL_HANDLE)
     {
-        vkDestroyImageView(gVulkanContext.vkDevice, imageData_AccumulatedOpticalDepth.vkImageView, nullptr);
-        imageData_AccumulatedOpticalDepth.vkImageView = VK_NULL_HANDLE;
+        vkDestroyImageView(gVulkanContext.vkDevice, imageData_AccumulatedOpticalDepth3D.vkImageView, nullptr);
+        imageData_AccumulatedOpticalDepth3D.vkImageView = VK_NULL_HANDLE;
     }
-    if (imageData_AccumulatedOpticalDepth.vkImage != VK_NULL_HANDLE)
+    if (imageData_AccumulatedOpticalDepth3D.vkImage != VK_NULL_HANDLE)
     {
-        vkDestroyImage(gVulkanContext.vkDevice, imageData_AccumulatedOpticalDepth.vkImage, nullptr);
-        imageData_AccumulatedOpticalDepth.vkImage = VK_NULL_HANDLE;
+        vkDestroyImage(gVulkanContext.vkDevice, imageData_AccumulatedOpticalDepth3D.vkImage, nullptr);
+        imageData_AccumulatedOpticalDepth3D.vkImage = VK_NULL_HANDLE;
     }
-    if (imageData_AccumulatedOpticalDepth.vkDeviceMemory != VK_NULL_HANDLE)
+    if (imageData_AccumulatedOpticalDepth3D.vkDeviceMemory != VK_NULL_HANDLE)
     {
-        vkFreeMemory(gVulkanContext.vkDevice, imageData_AccumulatedOpticalDepth.vkDeviceMemory, nullptr);
-        imageData_AccumulatedOpticalDepth.vkDeviceMemory = VK_NULL_HANDLE;
+        vkFreeMemory(gVulkanContext.vkDevice, imageData_AccumulatedOpticalDepth3D.vkDeviceMemory, nullptr);
+        imageData_AccumulatedOpticalDepth3D.vkDeviceMemory = VK_NULL_HANDLE;
     }
 }
 
@@ -272,7 +314,7 @@ VkResult VolumetricClouds::CreateDescriptorSet_AccumulatedOpticalDepth()
     };
     allocInfo.descriptorPool = vkDescriptorPool;
     allocInfo.descriptorSetCount = 1;
-    allocInfo.pSetLayouts = &gpDescriptorSetLayouts->vkDescriptorSetLayout_VolumetricClouds;
+    allocInfo.pSetLayouts = &gpDescriptorSetLayouts->vkDescriptorSetLayout_AccumOpticalDepth;
 
     VkResult result = vkAllocateDescriptorSets(
         gVulkanContext.vkDevice,
@@ -283,7 +325,7 @@ VkResult VolumetricClouds::CreateDescriptorSet_AccumulatedOpticalDepth()
         return result;
 
     VkDescriptorImageInfo storageImageInfo{};
-    storageImageInfo.imageView = imageData_AccumulatedOpticalDepth.vkImageView;
+    storageImageInfo.imageView = imageData_AccumulatedOpticalDepth3D.vkImageView;
     storageImageInfo.imageLayout = VK_IMAGE_LAYOUT_GENERAL;
 
     VkDescriptorImageInfo noiseImageInfo{};
@@ -415,7 +457,7 @@ void VolumetricClouds::Compute_AccumulatedOpticalDepth(
 {
     TransitionImageLayout(
         gFrames[curIndex].commandBuffer,
-        imageData_AccumulatedOpticalDepth.vkImage,
+        imageData_AccumulatedOpticalDepth3D.vkImage,
         VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
         VK_IMAGE_LAYOUT_GENERAL);
 
@@ -447,7 +489,7 @@ void VolumetricClouds::Compute_AccumulatedOpticalDepth(
 
     TransitionImageLayout(
         gFrames[curIndex].commandBuffer,
-        imageData_AccumulatedOpticalDepth.vkImage,
+        imageData_AccumulatedOpticalDepth3D.vkImage,
         VK_IMAGE_LAYOUT_GENERAL,
         VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 }
@@ -705,7 +747,7 @@ VkResult VolumetricClouds::InitialLayoutTransitions(void)
 
     TransitionImageLayout(
         commandBuffer,
-        imageData_AccumulatedOpticalDepth.vkImage,
+        imageData_AccumulatedOpticalDepth3D.vkImage,
         VK_IMAGE_LAYOUT_UNDEFINED,
         VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
     );
@@ -770,11 +812,17 @@ VkResult VolumetricClouds::CreateDescriptorSet_VolumetricClouds()
 
     // Binding 3: Accumulated optical depth sampler
     VkDescriptorImageInfo sampledImageInfo_AccumulatedOpticalDepth{};
-    sampledImageInfo_AccumulatedOpticalDepth.sampler = imageData_AccumulatedOpticalDepth.vkSampler;
-    sampledImageInfo_AccumulatedOpticalDepth.imageView = imageData_AccumulatedOpticalDepth.vkImageView;
+    sampledImageInfo_AccumulatedOpticalDepth.sampler = imageData_AccumulatedOpticalDepth3D.vkSampler;
+    sampledImageInfo_AccumulatedOpticalDepth.imageView = imageData_AccumulatedOpticalDepth3D.vkImageView;
     sampledImageInfo_AccumulatedOpticalDepth.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 
-    VkWriteDescriptorSet writes[4]{};
+    // Binding 3: Accumulated optical depth sampler
+    VkDescriptorImageInfo sampledImageInfo_FieldData3D{};
+    sampledImageInfo_FieldData3D.sampler = imageData_FieldData3D.vkSampler;
+    sampledImageInfo_FieldData3D.imageView = imageData_FieldData3D.vkImageView;
+    sampledImageInfo_FieldData3D.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+
+    VkWriteDescriptorSet writes[5]{};
 
     // Write for Binding 0
     writes[0].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
@@ -808,9 +856,17 @@ VkResult VolumetricClouds::CreateDescriptorSet_VolumetricClouds()
     writes[3].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
     writes[3].pImageInfo = &sampledImageInfo_AccumulatedOpticalDepth;
 
+    // Write for Binding 4
+    writes[4].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+    writes[4].dstSet = vkDescriptorSet_VolumetricClouds;
+    writes[4].dstBinding = 4;
+    writes[4].descriptorCount = 1;
+    writes[4].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+    writes[4].pImageInfo = &sampledImageInfo_FieldData3D;
+
     vkUpdateDescriptorSets(
         gVulkanContext.vkDevice,
-        4,              // Count of writes updated
+        5,              // Count of writes updated
         writes,
         0,
         nullptr);
@@ -1135,32 +1191,48 @@ bool VolumetricClouds::Load3DTexture(
     const std::string& fileExtension,
     uint32_t sliceCount,
     uint32_t zeroPadding,
-    ImageData& outImageData)
+    ImageData& outImageData,
+    VkFormat format)
 {
     if (sliceCount == 0)
         return false;
 
-        int width = 0;
+    // ============================================================
+    // Determine output channel count from Vulkan format
+    // ============================================================
+
+    uint32_t outputChannels = 0;
+
+    switch (format)
+    {
+    case VK_FORMAT_R8_UNORM:
+        outputChannels = 1;
+        break;
+
+    case VK_FORMAT_R8G8B8A8_UNORM:
+        outputChannels = 4;
+        break;
+
+    default:
+        std::cerr << "Unsupported 3D texture format." << std::endl;
+        return false;
+    }
+
+    int width = 0;
     int height = 0;
 
-    constexpr int channels = 4;
+    // Store converted slices here.
+    std::vector<std::vector<uint8_t>> loadedSlices(sliceCount);
 
-    std::vector<stbi_uc*> loadedSlices(sliceCount, nullptr);
     VkDeviceSize sliceSize = 0;
 
     // ============================================================
-    // 1. Load all 2D slices
+    // 1. Load and convert all 2D slices
     // ============================================================
 
     for (uint32_t z = 0; z < sliceCount; ++z)
     {
         std::stringstream ss;
-
-        // Example:
-        // modeling_data.001.tga
-        // modeling_data.002.tga
-        // ...
-        // modeling_data.064.tga
 
         ss << baseFolder << "/"
             << filePrefix << "."
@@ -1173,61 +1245,129 @@ bool VolumetricClouds::Load3DTexture(
 
         int sliceWidth = 0;
         int sliceHeight = 0;
-        int sliceChannels = 0;
+        int sourceChannels = 0;
 
-        stbi_uc* pixels = stbi_load(
-            filename.c_str(),
-            &sliceWidth,
-            &sliceHeight,
-            &sliceChannels,
-            STBI_rgb_alpha
-        );
+        // --------------------------------------------------------
+        // Load as RGBA when output is RGBA
+        // --------------------------------------------------------
 
-        if (!pixels)
+        if (format == VK_FORMAT_R8G8B8A8_UNORM)
         {
-            std::cerr << "Failed to load 3D texture slice: "
-                << filename << std::endl;
+            stbi_uc* pixels = stbi_load(
+                filename.c_str(),
+                &sliceWidth,
+                &sliceHeight,
+                &sourceChannels,
+                STBI_rgb_alpha
+            );
 
-            for (uint32_t i = 0; i < z; ++i)
+            if (!pixels)
             {
-                stbi_image_free(loadedSlices[i]);
-            }
-
-            return false;
-        }
-
-        // First slice determines dimensions
-        if (z == 0)
-        {
-            width = sliceWidth;
-            height = sliceHeight;
-
-            sliceSize =
-                static_cast<VkDeviceSize>(width) *
-                static_cast<VkDeviceSize>(height) *
-                channels;
-        }
-        else
-        {
-            // Every slice must have identical dimensions
-            if (sliceWidth != width ||
-                sliceHeight != height)
-            {
-                std::cerr << "3D texture dimension mismatch: "
+                std::cerr
+                    << "Failed to load 3D texture slice: "
                     << filename << std::endl;
-
-                stbi_image_free(pixels);
-
-                for (uint32_t i = 0; i < z; ++i)
-                {
-                    stbi_image_free(loadedSlices[i]);
-                }
 
                 return false;
             }
+
+            // First slice determines dimensions
+            if (z == 0)
+            {
+                width = sliceWidth;
+                height = sliceHeight;
+
+                sliceSize =
+                    static_cast<VkDeviceSize>(width) *
+                    static_cast<VkDeviceSize>(height) *
+                    outputChannels;
+            }
+            else if (
+                sliceWidth != width ||
+                sliceHeight != height)
+            {
+                std::cerr
+                    << "3D texture dimension mismatch: "
+                    << filename << std::endl;
+
+                stbi_image_free(pixels);
+                return false;
+            }
+
+            loadedSlices[z].resize(
+                static_cast<size_t>(sliceSize)
+            );
+
+            memcpy(
+                loadedSlices[z].data(),
+                pixels,
+                static_cast<size_t>(sliceSize)
+            );
+
+            stbi_image_free(pixels);
         }
 
-        loadedSlices[z] = pixels;
+        // --------------------------------------------------------
+        // Load RGB and extract red channel for R8_UNORM
+        // --------------------------------------------------------
+
+        else if (format == VK_FORMAT_R8_UNORM)
+        {
+            stbi_uc* pixels = stbi_load(
+                filename.c_str(),
+                &sliceWidth,
+                &sliceHeight,
+                &sourceChannels,
+                STBI_rgb
+            );
+
+            if (!pixels)
+            {
+                std::cerr
+                    << "Failed to load 3D texture slice: "
+                    << filename << std::endl;
+
+                return false;
+            }
+
+            // First slice determines dimensions
+            if (z == 0)
+            {
+                width = sliceWidth;
+                height = sliceHeight;
+
+                sliceSize =
+                    static_cast<VkDeviceSize>(width) *
+                    static_cast<VkDeviceSize>(height);
+            }
+            else if (
+                sliceWidth != width ||
+                sliceHeight != height)
+            {
+                std::cerr
+                    << "3D texture dimension mismatch: "
+                    << filename << std::endl;
+
+                stbi_image_free(pixels);
+                return false;
+            }
+
+            const size_t pixelCount =
+                static_cast<size_t>(sliceWidth) *
+                static_cast<size_t>(sliceHeight);
+
+            // One byte per pixel
+            loadedSlices[z].resize(pixelCount);
+
+            for (size_t i = 0; i < pixelCount; ++i)
+            {
+                // RGB = [R, G, B]
+                // Extract red channel as density
+                loadedSlices[z][i] =
+                    pixels[i * 3 + 0];
+            }
+
+            stbi_image_free(pixels);
+        }
     }
 
     const uint32_t depth = sliceCount;
@@ -1260,12 +1400,6 @@ bool VolumetricClouds::Load3DTexture(
         nullptr,
         &stagingBuffer) != VK_SUCCESS)
     {
-        for (auto* slice : loadedSlices)
-        {
-            if (slice)
-                stbi_image_free(slice);
-        }
-
         return false;
     }
 
@@ -1303,12 +1437,6 @@ bool VolumetricClouds::Load3DTexture(
             nullptr
         );
 
-        for (auto* slice : loadedSlices)
-        {
-            if (slice)
-                stbi_image_free(slice);
-        }
-
         return false;
     }
 
@@ -1320,7 +1448,7 @@ bool VolumetricClouds::Load3DTexture(
     );
 
     // ============================================================
-    // 3. Copy all slices into staging buffer
+    // 3. Copy all converted slices into staging buffer
     // ============================================================
 
     void* mappedMemory = nullptr;
@@ -1334,13 +1462,12 @@ bool VolumetricClouds::Load3DTexture(
         &mappedMemory) != VK_SUCCESS)
     {
         vkDestroyBuffer(device, stagingBuffer, nullptr);
-        vkFreeMemory(device, stagingBufferMemory, nullptr);
 
-        for (auto* slice : loadedSlices)
-        {
-            if (slice)
-                stbi_image_free(slice);
-        }
+        vkFreeMemory(
+            device,
+            stagingBufferMemory,
+            nullptr
+        );
 
         return false;
     }
@@ -1352,12 +1479,9 @@ bool VolumetricClouds::Load3DTexture(
     {
         memcpy(
             destination + (z * sliceSize),
-            loadedSlices[z],
-            sliceSize
+            loadedSlices[z].data(),
+            static_cast<size_t>(sliceSize)
         );
-
-        stbi_image_free(loadedSlices[z]);
-        loadedSlices[z] = nullptr;
     }
 
     vkUnmapMemory(
@@ -1366,9 +1490,7 @@ bool VolumetricClouds::Load3DTexture(
     );
 
     // ============================================================
-    // 4. Create 3D image
-    //    Resolution: 512 x 512 x 64
-    //    Mip levels: 1
+    // 4. Create 3D Vulkan image
     // ============================================================
 
     VkImageCreateInfo imageInfo{};
@@ -1385,14 +1507,10 @@ bool VolumetricClouds::Load3DTexture(
         depth
     };
 
-    // IMPORTANT:
-    // Only one mip level
     imageInfo.mipLevels = 1;
-
     imageInfo.arrayLayers = 1;
 
-    imageInfo.format =
-        VK_FORMAT_R8G8B8A8_UNORM;
+    imageInfo.format = format;
 
     imageInfo.tiling =
         VK_IMAGE_TILING_OPTIMAL;
@@ -1416,14 +1534,23 @@ bool VolumetricClouds::Load3DTexture(
         nullptr,
         &outImageData.vkImage) != VK_SUCCESS)
     {
-        vkDestroyBuffer(device, stagingBuffer, nullptr);
-        vkFreeMemory(device, stagingBufferMemory, nullptr);
+        vkDestroyBuffer(
+            device,
+            stagingBuffer,
+            nullptr
+        );
+
+        vkFreeMemory(
+            device,
+            stagingBufferMemory,
+            nullptr
+        );
 
         return false;
     }
 
     // ============================================================
-    // 5. Allocate device-local image memory
+    // 5. Allocate image memory
     // ============================================================
 
     VkMemoryRequirements imageMemoryRequirements{};
@@ -1482,7 +1609,7 @@ bool VolumetricClouds::Load3DTexture(
     );
 
     // ============================================================
-    // 6. Copy staging buffer -> 3D image
+    // 6. Begin copy commands
     // ============================================================
 
     VkCommandBuffer commandBuffer =
@@ -1491,9 +1618,7 @@ bool VolumetricClouds::Load3DTexture(
             commandPool
         );
 
-    // ------------------------------------------------------------
     // UNDEFINED -> TRANSFER_DST_OPTIMAL
-    // ------------------------------------------------------------
 
     VkImageMemoryBarrier barrier{};
     barrier.sType =
@@ -1541,15 +1666,14 @@ bool VolumetricClouds::Load3DTexture(
         &barrier
     );
 
-    // ------------------------------------------------------------
-    // Copy complete volume
-    // ------------------------------------------------------------
+    // ============================================================
+    // Copy complete 3D volume
+    // ============================================================
 
     VkBufferImageCopy copyRegion{};
 
     copyRegion.bufferOffset = 0;
 
-    // Tightly packed
     copyRegion.bufferRowLength = 0;
     copyRegion.bufferImageHeight = 0;
 
@@ -1557,9 +1681,7 @@ bool VolumetricClouds::Load3DTexture(
         VK_IMAGE_ASPECT_COLOR_BIT;
 
     copyRegion.imageSubresource.mipLevel = 0;
-
     copyRegion.imageSubresource.baseArrayLayer = 0;
-
     copyRegion.imageSubresource.layerCount = 1;
 
     copyRegion.imageOffset =
@@ -1585,9 +1707,9 @@ bool VolumetricClouds::Load3DTexture(
         &copyRegion
     );
 
-    // ------------------------------------------------------------
+    // ============================================================
     // TRANSFER_DST -> SHADER_READ_ONLY
-    // ------------------------------------------------------------
+    // ============================================================
 
     barrier.oldLayout =
         VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
@@ -1652,16 +1774,14 @@ bool VolumetricClouds::Load3DTexture(
     viewInfo.viewType =
         VK_IMAGE_VIEW_TYPE_3D;
 
-    viewInfo.format =
-        VK_FORMAT_R8G8B8A8_UNORM;
+    // IMPORTANT:
+    // Must match the image format
+    viewInfo.format = format;
 
     viewInfo.subresourceRange.aspectMask =
         VK_IMAGE_ASPECT_COLOR_BIT;
 
     viewInfo.subresourceRange.baseMipLevel = 0;
-
-    // IMPORTANT:
-    // Only one mip level
     viewInfo.subresourceRange.levelCount = 1;
 
     viewInfo.subresourceRange.baseArrayLayer = 0;
@@ -1677,7 +1797,6 @@ bool VolumetricClouds::Load3DTexture(
     }
 
     return true;
-
 }
 
 

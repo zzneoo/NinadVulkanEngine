@@ -88,7 +88,7 @@ VoxelCloudDensitySamples SampleDensity(vec3 worldPos)
         density_samples.mProfile = modelingData.r * modelingData.b;
         density_samples.mDimensionalProfile = modelingData.r;
 
-        vec4 noise = texture(noise3D, worldPos * 0.01).xyzw;
+        vec4 noise = texture(noise3D, worldPos * 0.015).xyzw;
 
         float wispy_noise = mix(noise.r, noise.g, modelingData.r);
         float billowy_type_gradient = pow(modelingData.r, 0.25);

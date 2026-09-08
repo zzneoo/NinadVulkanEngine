@@ -702,7 +702,7 @@ VkResult ComputePipelines::createPipelines(void)
 	// Accumulated optical depth
 	vkDescriptorSetLayouts = {
 		gpDescriptorSetLayouts->vkDescriptorSetLayout_frameData,
-		gpDescriptorSetLayouts->vkDescriptorSetLayout_VolumetricClouds
+		gpDescriptorSetLayouts->vkDescriptorSetLayout_AccumOpticalDepth
 	};
 	vkPipelineLayoutCreateInfo = {};
 	vkPipelineLayoutCreateInfo.setLayoutCount = static_cast<uint32_t>(vkDescriptorSetLayouts.size());

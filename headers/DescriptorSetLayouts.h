@@ -23,6 +23,7 @@ public:
 	VkDescriptorSetLayout vkDescriptorSetLayout_GBuffer = VK_NULL_HANDLE;
 	VkDescriptorSetLayout vkDescriptorSetLayout_ComputeStorageImage = VK_NULL_HANDLE;
 	VkDescriptorSetLayout vkDescriptorSetLayout_VolumetricClouds = VK_NULL_HANDLE;
+	VkDescriptorSetLayout vkDescriptorSetLayout_AccumOpticalDepth = VK_NULL_HANDLE;
 
 	VkResult vkResult;
 
@@ -39,6 +40,7 @@ private:
 	VkResult createDescriptorSetLayout_GBuffer(void);
 	VkResult createDescriptorSetLayout_ComputeStorageImage(void);
 	VkResult createDescriptorSetLayout_VolumetricClouds(void);
+	VkResult createDescriptorSetLayout_AccumOpticalDepth(void);
 
 	std::vector<VkDescriptorSetLayout> vkDescriptorSetLayoutList;
 };

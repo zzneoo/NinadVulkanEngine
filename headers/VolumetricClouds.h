@@ -37,9 +37,14 @@ public:
 		return imageData_ModelingData3D;
 	}
 
-	ImageData GetImageData_AccumulatedOpticalDepth(void)
+	ImageData GetImageData_AccumulatedOpticalDepth3D(void)
 	{
-		return imageData_AccumulatedOpticalDepth;
+		return imageData_AccumulatedOpticalDepth3D;
+	}
+
+	ImageData GetImageData_FieldData3D(void)
+	{
+		return imageData_FieldData3D;;
 	}
 
 	void Compute_VolumetricClouds(
@@ -103,7 +108,8 @@ private:
 		const std::string& fileExtension,
 		uint32_t sliceCount,
 		uint32_t zeroPadding,
-		ImageData& outImageData);
+		ImageData& outImageData,
+		VkFormat format);
 
 	VkResult loadTextureData_dds_bc6_3d(
 		const char* filename,
@@ -113,7 +119,8 @@ private:
 	ImageData imageData_Clouds{};
 	ImageData imageData_Noise3D{};
 	ImageData imageData_ModelingData3D{};
-	ImageData imageData_AccumulatedOpticalDepth{};
+	ImageData imageData_AccumulatedOpticalDepth3D{};
+	ImageData imageData_FieldData3D{};
 
 	VkDescriptorSet vkDescriptorSet_VolumetricClouds;
 	VkDescriptorSet vkDescriptorSet_AccumulatedOpticalDepth;
