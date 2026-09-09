@@ -21,7 +21,7 @@ const vec3 VOLUME_MIN  = vec3(-2048.0, -2048.0, -256.0);
 const vec3 VOLUME_SIZE = vec3(4096.0, 4096.0, 512.0);
 const vec3 VOLUME_MAX  = VOLUME_MIN + VOLUME_SIZE;
 
-const float MAIN_PASS_LIGHT_STEP_SIZE = 4.0;
+const float MAIN_PASS_LIGHT_STEP_SIZE = 2.0;
 const int   MAIN_PASS_LIGHT_MAX_STEPS = 8;
 const float MAIN_PASS_OFFSET = float(MAIN_PASS_LIGHT_MAX_STEPS) * MAIN_PASS_LIGHT_STEP_SIZE;
 
@@ -116,6 +116,17 @@ void main()
         return;
 
     vec3 voxelCenterWorld = VOLUME_MIN + (vec3(voxel) + 0.5) * 16.0;//to map 4096x4096x512
+
+
+    float dimensionalProfile = texture(modelingData3D, (voxelCenterWorld - VOLUME_MIN) / VOLUME_SIZE).r;
+    if(dimensionalProfile < 0.00001)
+    {
+        imageStore(accumulatedOpticalDepth3D, voxel, vec4(0.0));
+        return;
+    }
+
+    //if Voxel has cloud in it------>
+
     vec3 sunDir = normalize(global.sunDir);
 
     // Ray origin starts after primary pass steps
@@ -133,6 +144,7 @@ void main()
     // Start marching from the valid volume entry point (or rayStartPos if already inside)
     float t = max(tEnter, 0.0);
     float accumOpticalDepth = 0.0;
+
 
     for (int i = 0; i < LIGHT_MAX_STEPS; ++i)
     {
